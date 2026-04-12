@@ -4,6 +4,12 @@ Projeto de dashboard em **Streamlit** para análise de serviços executados, com
 
 ---
 
+## 📘 Documentação técnica detalhada
+
+Para entender arquitetura, fluxo de dados e responsabilidades de cada módulo, consulte `DOCUMENTACAO_TECNICA.md`.
+
+---
+
 ## ✅ O que este projeto faz
 
 - Lê dados da tabela `servicos_executados` no PostgreSQL.
