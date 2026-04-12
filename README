@@ -1,233 +1,89 @@
-# 📊 Dashboard de Serviços Executados (Streamlit + PostgreSQL)
+# Dashboard de Servicos Executados
 
-Projeto de dashboard em **Streamlit** para análise de serviços executados, com dados armazenados em **PostgreSQL** (via Docker).
+Dashboard em Streamlit com dados em PostgreSQL via Docker.
 
----
+## Requisitos
 
-## ✅ O que este projeto faz
+- Docker Desktop aberto e rodando
+- Python 3.10+
+- Terminal bash
 
-- Lê dados da tabela `servicos_executados` no PostgreSQL.
-- Exibe métricas e gráficos interativos (Plotly).
-- Permite filtros por período, contrato, equipamento, serviço e operadora.
-- Permite exportar os dados filtrados para CSV.
+## Subir o projeto no bash
 
----
-
-## 🧱 Estrutura do projeto
+Execute os comandos a partir de qualquer pasta:
 
 ```bash
-.
-├── dados_docker/
-│   └── docker-compose.yml
-├── Python/
-│   ├── app.py
-│   └── requirements.txt
-├── historico_serv_exec_7700.csv
-└── README
-```
-
----
-
-## 🔧 Pré-requisitos
-
-Antes de começar, instale:
-
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/)
-- [Python 3.10+](https://www.python.org/downloads/)
-- `pip`
-
----
-
-## 🐳 Subindo o banco com Docker
-
-A partir da raiz do projeto, execute:
-
-```bash
+cd "/d/Code/Python/Implementação modelo Dashboad"
 docker compose -f dados_docker/docker-compose.yml up -d
-```
-
-Para verificar se os containers subiram:
-
-```bash
 docker compose -f dados_docker/docker-compose.yml ps
-```
-
-Para derrubar os containers:
-
-```bash
-docker compose -f dados_docker/docker-compose.yml down
-```
-
-> Se quiser remover também o volume do banco (dados persistidos):
->
-> ```bash
-> docker compose -f dados_docker/docker-compose.yml down -v
-> ```
-
-### Credenciais padrão dos serviços
-
-**PostgreSQL**
-- Host: `localhost`
-- Porta: `5432`
-- Database: `app_db`
-- Usuário: `app_user`
-- Senha: `app123`
-
-**pgAdmin**
-- URL: `http://localhost:8080`
-- Email: `admin@admin.com`
-- Senha: `admin123`
-
----
-
-## 🗄️ Criando a tabela e importando os dados
-
-Depois de subir o PostgreSQL, crie a tabela e importe o CSV.
-
-### 1) Entrar no Postgres (container)
-
-```bash
-docker exec -it postgres_app psql -U app_user -d app_db
-```
-
-### 2) Criar a tabela
-
-```sql
-CREATE TABLE IF NOT EXISTS servicos_executados (
-  "DATA" TEXT,
-  "ID_CONTRATO" TEXT,
-  "CONTRATO" TEXT,
-  "ID_EQUIPAMENTO" TEXT,
-  "EQUIPAMENTO" TEXT,
-  "ID_OPERADORA" TEXT,
-  "OPERADORA" TEXT,
-  "ID_SERVICO_EXECUTADO" TEXT,
-  "SERVIC_EXECUTADO" TEXT,
-  "QTD_SERVICO" TEXT
-);
-```
-
-### 3) Importar CSV (sem entrar no container)
-
-> O arquivo `historico_serv_exec_7700.csv` está na raiz do projeto e usa separador `;` e encoding `LATIN1`.
-
-```bash
-docker exec -i postgres_app psql -U app_user -d app_db -c "\
-COPY servicos_executados (\
-  \"DATA\",\
-  \"ID_CONTRATO\",\
-  \"CONTRATO\",\
-  \"ID_EQUIPAMENTO\",\
-  \"EQUIPAMENTO\",\
-  \"ID_OPERADORA\",\
-  \"OPERADORA\",\
-  \"ID_SERVICO_EXECUTADO\",\
-  \"SERVIC_EXECUTADO\",\
-  \"QTD_SERVICO\"\
-) FROM STDIN WITH (FORMAT csv, HEADER true, DELIMITER ';', ENCODING 'LATIN1');\
-" < historico_serv_exec_7700.csv
-```
-
-### 4) Validar se os dados entraram
-
-```bash
-docker exec -it postgres_app psql -U app_user -d app_db -c "SELECT COUNT(*) FROM servicos_executados;"
-```
-
----
-
-## 🐍 Rodando o Streamlit
-
-Na raiz do projeto:
-
-### 1) Criar e ativar ambiente virtual
-
-**Linux/macOS**
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-**Windows (PowerShell)**
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
-
-### 2) Instalar dependências
-
-```bash
-pip install -r Python/requirements.txt
-```
-
-### 3) Iniciar aplicação
-
-```bash
+source .venv/Scripts/activate
 streamlit run Python/app.py
 ```
 
 Acesse no navegador:
 
-- `http://localhost:8501`
-
----
-
-## 🩺 Troubleshooting rápido
-
-### Erro de conexão com banco
-
-- Verifique se o container está rodando:
-  ```bash
-  docker compose -f dados_docker/docker-compose.yml ps
-  ```
-- Confira se a porta `5432` está livre.
-- Confirme credenciais no `Python/app.py`.
-
-### Tabela não encontrada (`servicos_executados`)
-
-- Execute novamente os passos de criação da tabela e importação do CSV.
-
-### Streamlit não abre
-
-- Confirme instalação das dependências (`pip install -r Python/requirements.txt`).
-- Teste rodar com porta explícita:
-  ```bash
-  streamlit run Python/app.py --server.port 8501
-  ```
-
----
-
-## 🛑 Comandos úteis de manutenção
-
-Ver logs do PostgreSQL:
-
-```bash
-docker logs -f postgres_app
+```text
+http://localhost:8501
 ```
 
-Reiniciar containers:
+## Observacoes
 
-```bash
-docker compose -f dados_docker/docker-compose.yml restart
+- Para subir o Docker/PostgreSQL, nao precisa estar dentro da `.venv`.
+- Para rodar o Streamlit, ative a `.venv` antes com `source .venv/Scripts/activate`.
+- Se o terminal ja mostrar `(.venv)`, a `.venv` ja esta ativada.
+- Se aparecer erro de Docker, abra o Docker Desktop e espere ele iniciar antes de rodar o `docker compose`.
+
+## Banco de dados
+
+O Docker Compose sobe:
+
+- PostgreSQL em `localhost:5432`
+- pgAdmin em `http://localhost:8080`
+
+Credenciais do PostgreSQL:
+
+```text
+Host: localhost
+Porta: 5432
+Database: app_db
+Usuario: app_user
+Senha: app123
 ```
 
-Parar Streamlit (terminal em execução):
+Credenciais do pgAdmin:
 
-```bash
-Ctrl + C
+```text
+Email: admin@admin.com
+Senha: admin123
 ```
 
----
+## Validar dados no banco
 
-## 🚀 Próximos passos (opcional)
+```bash
+docker exec -it postgres_app psql -U app_user -d app_db -c "SELECT COUNT(*) FROM servicos_executados;"
+```
 
-- Mover credenciais para variáveis de ambiente (`.env`).
-- Criar script SQL de carga (`init.sql`) para automatizar setup.
-- Adicionar `Makefile` com comandos (`make up`, `make run`, `make load-data`).
+## Parar o projeto
 
----
+Para parar o Streamlit, use `Ctrl + C` no terminal onde ele estiver rodando.
 
-Feito com Streamlit + PostgreSQL + Plotly ❤️
+Para parar os containers:
+
+```bash
+docker compose -f dados_docker/docker-compose.yml down
+```
+
+Para parar e apagar os dados salvos no volume do PostgreSQL:
+
+```bash
+docker compose -f dados_docker/docker-compose.yml down -v
+```
+
+## Instalar dependencias novamente
+
+Use somente se a `.venv` ainda nao tiver as bibliotecas instaladas:
+
+```bash
+source .venv/Scripts/activate
+pip install -r Python/requirements.txt
+```
