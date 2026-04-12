@@ -6,13 +6,23 @@ def aplicar_estilos_globais() -> None:
         """
         <style>
             .stApp {
-                background: #f3f6fb;
-                color: #0f172a;
+                background: var(--background-color);
+                color: var(--text-color);
             }
 
             section[data-testid="stSidebar"] {
-                background: #ffffff;
-                border-right: 1px solid #e2e8f0;
+                background: var(--secondary-background-color);
+                border-right: 1px solid rgba(127, 127, 127, 0.25);
+            }
+
+            header[data-testid="stHeader"] {
+                background: var(--background-color);
+                border-bottom: none;
+                box-shadow: none;
+            }
+
+            div[data-testid="stDecoration"] {
+                display: none;
             }
 
             .block-container {
@@ -21,19 +31,20 @@ def aplicar_estilos_globais() -> None:
             }
 
             .main-title {
-                background: #ffffff;
-                border: 1px solid #e2e8f0;
+                background: var(--secondary-background-color);
+                border: 1px solid rgba(127, 127, 127, 0.25);
                 border-radius: 8px;
                 padding: 12px 16px;
                 font-size: 24px;
                 font-weight: 700;
-                color: #0f172a;
+                color: var(--text-color);
                 margin-bottom: 1rem;
+                margin-top: 2rem;
             }
 
             .kpi-card {
-                background: #ffffff;
-                border: 1px solid #e2e8f0;
+                background: var(--secondary-background-color);
+                border: 1px solid rgba(127, 127, 127, 0.25);
                 border-radius: 8px;
                 padding: 12px;
                 min-height: 96px;
@@ -41,7 +52,8 @@ def aplicar_estilos_globais() -> None:
 
             .kpi-title {
                 font-size: 13px;
-                color: #475569;
+                color: var(--text-color);
+                opacity: 0.75;
                 margin-bottom: 8px;
                 font-weight: 600;
             }
@@ -49,13 +61,13 @@ def aplicar_estilos_globais() -> None:
             .kpi-value {
                 font-size: 28px;
                 font-weight: 700;
-                color: #0f172a;
+                color: var(--text-color);
                 line-height: 1.05;
             }
 
             .section-card {
-                background: #ffffff;
-                border: 1px solid #e2e8f0;
+                background: var(--secondary-background-color);
+                border: 1px solid rgba(127, 127, 127, 0.25);
                 border-radius: 8px;
                 padding: 10px 12px 6px 12px;
                 margin-bottom: 1rem;
