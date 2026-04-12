@@ -1,23 +1,116 @@
 import pandas as pd
 import streamlit as st
 
-from dashboard.config import EVOLUCAO_QUERY, RESUMO_QUERY
+from dashboard.config import BASE_QUERY
 from dashboard.database import get_engine
 
 
 @st.cache_data
-def carregar_resumo() -> pd.DataFrame:
-    return pd.read_sql(RESUMO_QUERY, get_engine())
+def carregar_base() -> pd.DataFrame:
+    df = pd.read_sql(BASE_QUERY, get_engine())
 
+    if df.empty:
+        return df
 
-@st.cache_data
-def carregar_evolucao() -> pd.DataFrame:
-    df = pd.read_sql(EVOLUCAO_QUERY, get_engine())
-    if not df.empty:
-        df["mes"] = pd.to_datetime(df["mes"], errors="coerce")
+    df["data_ref"] = pd.to_datetime(df["data_ref"], errors="coerce")
+
+    for coluna in ["qtd", "frota", "percentual"]:
+        df[coluna] = pd.to_numeric(df[coluna], errors="coerce").fillna(0)
+
+    for coluna in ["id_contrato", "contrato", "id_operadora", "operadora", "cod_equipamento", "equipamento"]:
+        df[coluna] = df[coluna].fillna("").astype(str).str.strip()
+
     return df
 
 
-def carregar_dados() -> tuple[pd.DataFrame, pd.DataFrame]:
-    return carregar_resumo(), carregar_evolucao()
+def montar_resumo_equipamento(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    if df_filtrado.empty:
+        return pd.DataFrame(
+            columns=[
+                "equipamento",
+                "total_qtd",
+                "total_frota",
+                "media_percentual",
+                "percentual_recalculado",
+            ]
+        )
 
+    resumo = (
+        df_filtrado.groupby("equipamento", as_index=False)
+        .agg(
+            total_qtd=("qtd", "sum"),
+            total_frota=("frota", "sum"),
+            media_percentual=("percentual", "mean"),
+        )
+        .sort_values("equipamento")
+    )
+
+    resumo["percentual_recalculado"] = resumo.apply(
+        lambda row: (row["total_qtd"] / row["total_frota"] * 100) if row["total_frota"] else 0.0,
+        axis=1,
+    )
+
+    resumo["media_percentual"] = resumo["media_percentual"].round(2)
+    resumo["percentual_recalculado"] = resumo["percentual_recalculado"].round(2)
+    resumo["total_qtd"] = resumo["total_qtd"].astype(int)
+    resumo["total_frota"] = resumo["total_frota"].astype(int)
+
+    return resumo
+
+
+def montar_evolucao_mensal(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    if df_filtrado.empty:
+        return pd.DataFrame(
+            columns=["mes", "total_qtd", "total_frota", "percentual_qtd_x_frota"]
+        )
+
+    df_aux = df_filtrado.copy()
+    df_aux["mes"] = df_aux["data_ref"].dt.to_period("M").dt.to_timestamp()
+
+    evolucao = (
+        df_aux.groupby("mes", as_index=False)
+        .agg(
+            total_qtd=("qtd", "sum"),
+            total_frota=("frota", "sum"),
+        )
+        .sort_values("mes")
+    )
+
+    evolucao["percentual_qtd_x_frota"] = evolucao.apply(
+        lambda row: (row["total_qtd"] / row["total_frota"] * 100) if row["total_frota"] else 0.0,
+        axis=1,
+    ).round(2)
+
+    evolucao["total_qtd"] = evolucao["total_qtd"].astype(int)
+    evolucao["total_frota"] = evolucao["total_frota"].astype(int)
+
+    return evolucao
+
+
+def montar_tabela_evolucao(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    if df_filtrado.empty:
+        return pd.DataFrame(
+            columns=["mes", "equipamento", "total_qtd", "total_frota", "percentual_qtd_x_frota"]
+        )
+
+    df_aux = df_filtrado.copy()
+    df_aux["mes"] = df_aux["data_ref"].dt.to_period("M").dt.to_timestamp()
+
+    evolucao = (
+        df_aux.groupby(["mes", "equipamento"], as_index=False)
+        .agg(
+            total_qtd=("qtd", "sum"),
+            total_frota=("frota", "sum"),
+        )
+        .sort_values(["mes", "equipamento"])
+    )
+
+    evolucao["percentual_qtd_x_frota"] = evolucao.apply(
+        lambda row: (row["total_qtd"] / row["total_frota"] * 100) if row["total_frota"] else 0.0,
+        axis=1,
+    ).round(2)
+
+    evolucao["total_qtd"] = evolucao["total_qtd"].astype(int)
+    evolucao["total_frota"] = evolucao["total_frota"].astype(int)
+
+    return evolucao

@@ -1,9 +1,13 @@
 PAGE_CONFIG = {
     "page_title": "Dashboard de Manutencao",
+    "page_icon": ":bar_chart:",
     "layout": "wide",
+    "initial_sidebar_state": "expanded",
 }
 
 APP_TITLE = "Dashboard de Manutencao das Filiais"
+
+MENU_ITEMS = ["Dashboard", "Resumo", "Tabela"]
 
 DB_SETTINGS = {
     "usuario": "app_user",
@@ -13,6 +17,17 @@ DB_SETTINGS = {
     "banco": "app_db",
 }
 
-RESUMO_QUERY = "select * from vw_dashboard_resumo order by equipamento"
-EVOLUCAO_QUERY = "select * from vw_dashboard_evolucao_mensal order by mes, equipamento"
-
+BASE_QUERY = """
+select
+    data_ref,
+    id_contrato,
+    contrato,
+    id_operadora,
+    operadora,
+    cod_equipamento,
+    equipamento,
+    frota,
+    qtd,
+    percentual
+from base_historica_manutencao
+"""
