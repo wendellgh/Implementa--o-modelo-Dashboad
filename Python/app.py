@@ -22,6 +22,12 @@ def main() -> None:
         df_base = carregar_base()
     except Exception as error:
         st.error(f"Erro ao carregar dados do banco: {error}")
+        error_text = str(error).lower()
+        if "localhost" in error_text or "connection refused" in error_text:
+            st.info(
+                "No Streamlit Cloud, configure DB remoto em Secrets: DATABASE_URL "
+                "ou DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD."
+            )
         st.stop()
 
     if df_base.empty:
