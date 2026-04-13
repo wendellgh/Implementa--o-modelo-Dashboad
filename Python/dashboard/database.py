@@ -120,7 +120,6 @@ def get_db_target_label() -> str:
     return f"{cfg.get('host')}:{cfg.get('porta')}/{cfg.get('banco')}"
 
 
-@st.cache_resource
 def get_engine() -> Engine:
     cfg = _get_db_config()
     engine_kwargs = {"pool_pre_ping": True}
