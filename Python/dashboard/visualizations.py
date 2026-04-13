@@ -12,8 +12,13 @@ PALETA = {
 }
 
 
+def _cor_texto_tema() -> str:
+    theme_base = st.get_option("theme.base")
+    return st.get_option("theme.textColor") or ("#F8FAFC" if theme_base == "dark" else "#0F172A")
+
+
 def _estilizar_figura(fig):
-    text_color = st.get_option("theme.textColor") or "#0f172a"
+    text_color = _cor_texto_tema()
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -30,6 +35,19 @@ def _estilizar_figura(fig):
     fig.update_xaxes(showgrid=False)
     fig.update_yaxes(gridcolor="rgba(127,127,127,0.25)")
     return fig
+
+
+def _mostrar_rotulos_barras(fig, template: str = "%{text}") -> None:
+    fig.update_traces(
+        texttemplate=template,
+        textposition="inside",
+        insidetextanchor="middle",
+        constraintext="none",
+        cliponaxis=False,
+        textfont={"color": "#F8FAFC", "size": 12},
+        selector={"type": "bar"},
+    )
+    fig.update_layout(uniformtext={"minsize": 10, "mode": "show"})
 
 
 def render_dashboard_charts(
@@ -53,7 +71,7 @@ def render_dashboard_charts(
                 color="percentual_qtd_x_frota",
                 color_continuous_scale=[PALETA["mist"], PALETA["steel"], PALETA["charcoal"]],
             )
-            fig_percentual.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
+            _mostrar_rotulos_barras(fig_percentual, "%{text:.2f}%")
             fig_percentual.update_coloraxes(showscale=False)
             st.plotly_chart(_estilizar_figura(fig_percentual), use_container_width=True)
 
@@ -86,7 +104,7 @@ def render_dashboard_charts(
                 color="total_qtd",
                 color_continuous_scale=[PALETA["mist"], PALETA["slate"], PALETA["graphite"]],
             )
-            fig_servico.update_traces(textposition="outside")
+            _mostrar_rotulos_barras(fig_servico, "%{text:.0f}")
             fig_servico.update_coloraxes(showscale=False)
             st.plotly_chart(_estilizar_figura(fig_servico), use_container_width=True)
 
@@ -99,11 +117,11 @@ def render_dashboard_charts(
                 y="equipamento",
                 orientation="h",
                 title="TOTAL PRINCIPAIS SERVICOS",
-                text="media_percentual",
+                text="total_qtd",
                 color="total_qtd",
                 color_continuous_scale=[PALETA["smoke"], PALETA["slate"], PALETA["charcoal"]],
             )
-            fig_ranking.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
+            _mostrar_rotulos_barras(fig_ranking, "%{text:.0f}")
             fig_ranking.update_coloraxes(showscale=False)
             st.plotly_chart(_estilizar_figura(fig_ranking), use_container_width=True)
 
@@ -123,6 +141,6 @@ def render_resumo_chart(df_resumo: pd.DataFrame) -> None:
             color="percentual_recalculado",
             color_continuous_scale=[PALETA["mist"], PALETA["steel"], PALETA["charcoal"]],
         )
-        fig.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
+        _mostrar_rotulos_barras(fig, "%{text:.2f}%")
         fig.update_coloraxes(showscale=False)
         st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
