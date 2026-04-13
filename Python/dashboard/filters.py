@@ -36,6 +36,9 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
         contratos = sorted([x for x in df_base["contrato"].dropna().unique().tolist() if x])
         filtro_contrato = st.multiselect("Contrato", contratos)
 
+        operadoras = sorted([x for x in df_base["operadora"].dropna().unique().tolist() if x])
+        filtro_operadora = st.multiselect("Operadora", operadoras)
+
         equipamentos = sorted([x for x in df_base["equipamento"].dropna().unique().tolist() if x])
         filtro_equipamento = st.multiselect("Equipamento", equipamentos)
 
@@ -43,6 +46,7 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
         "menu": menu,
         "periodo": periodo,
         "filtro_contrato": filtro_contrato,
+        "filtro_operadora": filtro_operadora,
         "filtro_equipamento": filtro_equipamento,
     }
 
@@ -64,6 +68,10 @@ def aplicar_filtros(df_base: pd.DataFrame, filtros: dict[str, object]) -> pd.Dat
     filtro_contrato = filtros.get("filtro_contrato", [])
     if filtro_contrato:
         df_filtrado = df_filtrado[df_filtrado["contrato"].isin(filtro_contrato)]
+
+    filtro_operadora = filtros.get("filtro_operadora", [])
+    if filtro_operadora:
+        df_filtrado = df_filtrado[df_filtrado["operadora"].isin(filtro_operadora)]
 
     filtro_equipamento = filtros.get("filtro_equipamento", [])
     if filtro_equipamento:

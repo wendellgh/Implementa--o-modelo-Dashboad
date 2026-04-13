@@ -31,3 +31,18 @@ select
     percentual
 from base_historica_manutencao
 """
+
+BASE_QUERY_2 = """
+select
+"DATA"
+"ID_CONTRATO"
+"CONTRATO"
+"ID_EQUIPAMENTO"
+"EQUIPAMENTO"
+"ID_OPERADORA"
+"OPERADORA"
+"ID_SERVICO_EXECUTADO"
+"SERVIC_EXECUTADO"
+"QTD_SERVICO"
+from servicos_executados
+"""

@@ -1,12 +1,13 @@
 import pandas as pd
 import streamlit as st
 
-from dashboard.config import BASE_QUERY
+from dashboard.config import BASE_QUERY, BASE_QUERY_2
 from dashboard.database import get_engine
 
 
 @st.cache_data
 def carregar_base() -> pd.DataFrame:
+
     df = pd.read_sql(BASE_QUERY, get_engine())
 
     if df.empty:
@@ -21,6 +22,10 @@ def carregar_base() -> pd.DataFrame:
         df[coluna] = df[coluna].fillna("").astype(str).str.strip()
 
     return df
+
+
+def carregar_base_outra_tabela():
+    return pd.read_sql(BASE_QUERY_2, get_engine())
 
 
 def montar_resumo_equipamento(df_filtrado: pd.DataFrame) -> pd.DataFrame:
@@ -56,6 +61,24 @@ def montar_resumo_equipamento(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     resumo["total_frota"] = resumo["total_frota"].astype(int)
 
     return resumo
+
+
+def montar_equipamentos_por_contrato(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    if df_filtrado.empty:
+        return pd.DataFrame(columns=["contrato", "quantidade_equipamentos"])
+
+    equipamentos_contrato = (
+        df_filtrado[df_filtrado["contrato"].ne("")]
+        .groupby("contrato", as_index=False)
+        .agg(quantidade_equipamentos=("frota", "sum"))
+        .sort_values("quantidade_equipamentos", ascending=False)
+    )
+
+    equipamentos_contrato["quantidade_equipamentos"] = equipamentos_contrato[
+        "quantidade_equipamentos"
+    ].astype(int)
+
+    return equipamentos_contrato
 
 
 def montar_evolucao_mensal(df_filtrado: pd.DataFrame) -> pd.DataFrame:

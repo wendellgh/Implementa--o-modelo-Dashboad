@@ -3,6 +3,7 @@ import streamlit as st
 from dashboard.config import APP_TITLE, PAGE_CONFIG
 from dashboard.data import (
     carregar_base,
+    montar_equipamentos_por_contrato,
     montar_evolucao_mensal,
     montar_resumo_equipamento,
     montar_tabela_evolucao,
@@ -43,6 +44,7 @@ def main() -> None:
     df_filtrado = aplicar_filtros(df_base, filtros)
 
     resumo = montar_resumo_equipamento(df_filtrado)
+    equipamentos_contrato = montar_equipamentos_por_contrato(df_filtrado)
     evolucao_mensal = montar_evolucao_mensal(df_filtrado)
     evolucao_tabela = montar_tabela_evolucao(df_filtrado)
 
@@ -52,7 +54,7 @@ def main() -> None:
         kpis = calcular_kpis(resumo)
         render_kpis(kpis)
         st.write("")
-        render_dashboard_charts(resumo, evolucao_mensal)
+        render_dashboard_charts(resumo, evolucao_mensal, equipamentos_contrato)
     elif menu == "Resumo":
         render_resumo_chart(resumo)
         render_tabela_resumo(resumo)

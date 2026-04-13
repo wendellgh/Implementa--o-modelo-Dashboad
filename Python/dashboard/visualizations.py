@@ -53,6 +53,7 @@ def _mostrar_rotulos_barras(fig, template: str = "%{text}") -> None:
 def render_dashboard_charts(
     df_resumo: pd.DataFrame,
     df_evolucao_mensal: pd.DataFrame,
+    df_equipamentos_contrato: pd.DataFrame,
 ) -> None:
     if df_evolucao_mensal.empty:
         st.info("Sem dados para os filtros selecionados.")
@@ -124,6 +125,31 @@ def render_dashboard_charts(
             _mostrar_rotulos_barras(fig_ranking, "%{text:.0f}")
             fig_ranking.update_coloraxes(showscale=False)
             st.plotly_chart(_estilizar_figura(fig_ranking), use_container_width=True)
+
+    with st.container(border=True):
+        if df_equipamentos_contrato.empty:
+            st.info("Sem dados de contrato para os filtros selecionados.")
+        else:
+            fig_contrato = px.bar(
+                df_equipamentos_contrato,
+                x="contrato",
+                y="quantidade_equipamentos",
+                title="EQUIPAMENTOS POR CONTRATO",
+                text="quantidade_equipamentos",
+                color="quantidade_equipamentos",
+                color_continuous_scale=[
+                    PALETA["mist"],
+                    PALETA["steel"],
+                    PALETA["charcoal"],
+                ],
+                labels={
+                    "contrato": "contrato",
+                    "quantidade_equipamentos": "quantidade_equipamentos",
+                },
+            )
+            _mostrar_rotulos_barras(fig_contrato, "%{text:.0f}")
+            fig_contrato.update_coloraxes(showscale=False)
+            st.plotly_chart(_estilizar_figura(fig_contrato), use_container_width=True)
 
 
 def render_resumo_chart(df_resumo: pd.DataFrame) -> None:
