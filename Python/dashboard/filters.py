@@ -5,6 +5,8 @@ import streamlit as st
 
 from dashboard.config import MENU_ITEMS
 
+DATA_INICIO_PADRAO = date(2026, 1, 1)
+
 
 def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
     data_valida = df_base["data_ref"].dropna()
@@ -15,6 +17,10 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
         data_min = data_valida.min().date()
         data_max = data_valida.max().date()
 
+    data_fim_padrao = date.today()
+    limite_min = min(data_min, DATA_INICIO_PADRAO)
+    limite_max = max(data_max, data_fim_padrao)
+
     with st.sidebar:
         st.markdown("### Navegacao")
         menu = st.radio("Pagina", MENU_ITEMS, index=0)
@@ -22,9 +28,9 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
         st.markdown("### Filtros")
         periodo = st.date_input(
             "Periodo",
-            value=(data_min, data_max),
-            min_value=data_min,
-            max_value=data_max,
+            value=(DATA_INICIO_PADRAO, data_fim_padrao),
+            min_value=limite_min,
+            max_value=limite_max,
         )
 
         contratos = sorted([x for x in df_base["contrato"].dropna().unique().tolist() if x])
