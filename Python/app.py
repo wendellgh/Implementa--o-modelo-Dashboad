@@ -7,7 +7,7 @@ from dashboard.data import (
     montar_resumo_equipamento,
     montar_tabela_evolucao,
 )
-from dashboard.database import get_db_target_label
+from dashboard.database import get_db_diagnostics, get_db_target_label
 from dashboard.filters import aplicar_filtros, render_sidebar
 from dashboard.metrics import calcular_kpis, render_kpis
 from dashboard.styles import aplicar_estilos_globais, render_titulo_principal
@@ -24,6 +24,8 @@ def main() -> None:
     except Exception as error:
         st.error(f"Erro ao carregar dados do banco: {error}")
         st.caption(f"Destino de conexao detectado: {get_db_target_label()}")
+        st.caption("Diagnostico de secrets/env:")
+        st.json(get_db_diagnostics())
         error_text = str(error).lower()
         if "localhost" in error_text or "connection refused" in error_text:
             st.info(

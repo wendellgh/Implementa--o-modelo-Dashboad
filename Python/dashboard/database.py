@@ -120,6 +120,16 @@ def get_db_target_label() -> str:
     return f"{cfg.get('host')}:{cfg.get('porta')}/{cfg.get('banco')}"
 
 
+def get_db_diagnostics() -> dict[str, bool]:
+    return {
+        "secret_DATABASE_URL": bool(_first_non_empty(_get_secret_value("DATABASE_URL"), _get_secret_value("database.url"))),
+        "secret_DB_HOST": bool(_get_secret_value("DB_HOST") or _get_secret_value("database.host")),
+        "secret_connections_postgresql_host": bool(_get_secret_value("connections.postgresql.host")),
+        "env_DATABASE_URL": bool(os.getenv("DATABASE_URL")),
+        "env_DB_HOST": bool(os.getenv("DB_HOST")),
+    }
+
+
 def get_engine() -> Engine:
     cfg = _get_db_config()
     engine_kwargs = {"pool_pre_ping": True}
