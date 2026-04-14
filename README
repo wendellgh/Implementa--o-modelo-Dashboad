@@ -23,7 +23,8 @@ Para entender arquitetura, fluxo de dados e responsabilidades de cada módulo, c
 
 ```bash
 .
-├── dados_docker/
+├── Docker/
+│   ├── Dockerfile
 │   └── docker-compose.yml
 ├── Python/
 │   ├── app.py
@@ -45,31 +46,42 @@ Antes de começar, instale:
 
 ---
 
-## 🐳 Subindo o banco com Docker
+## 🐳 Subindo a aplicação com Docker
 
 A partir da raiz do projeto, execute:
 
 ```bash
-docker compose -f dados_docker/docker-compose.yml up -d
+docker compose -f Docker/docker-compose.yml up -d --build
+```
+
+Depois que a imagem já tiver sido criada, também pode usar:
+
+```bash
+docker compose -f Docker/docker-compose.yml up -d
 ```
 
 Para verificar se os containers subiram:
 
 ```bash
-docker compose -f dados_docker/docker-compose.yml ps
+docker compose -f Docker/docker-compose.yml ps
 ```
 
 Para derrubar os containers:
 
 ```bash
-docker compose -f dados_docker/docker-compose.yml down
+docker compose -f Docker/docker-compose.yml down
 ```
 
 > Se quiser remover também o volume do banco (dados persistidos):
 >
 > ```bash
-> docker compose -f dados_docker/docker-compose.yml down -v
+> docker compose -f Docker/docker-compose.yml down -v
 > ```
+
+Após subir os containers, acesse:
+
+- Streamlit: `http://localhost:8501`
+- pgAdmin: `http://localhost:8080`
 
 ### Credenciais padrão dos serviços
 
@@ -90,6 +102,8 @@ docker compose -f dados_docker/docker-compose.yml down
 ## 🗄️ Criando a tabela e importando os dados
 
 Depois de subir o PostgreSQL, crie a tabela e importe o CSV.
+
+> Com um volume novo, o Docker Compose também carrega `app_db_utf8.sql` automaticamente na primeira inicialização do PostgreSQL. Se você já tinha volume criado, o banco existente é preservado.
 
 ### 1) Entrar no Postgres (container)
 
@@ -143,7 +157,9 @@ docker exec -it postgres_app psql -U app_user -d app_db -c "SELECT COUNT(*) FROM
 
 ---
 
-## 🐍 Rodando o Streamlit
+## 🐍 Rodando o Streamlit sem Docker
+
+Se você subiu a aplicação com Docker Compose, esta etapa não é necessária.
 
 Na raiz do projeto:
 
@@ -188,7 +204,7 @@ Acesse no navegador:
 
 - Verifique se o container está rodando:
   ```bash
-  docker compose -f dados_docker/docker-compose.yml ps
+  docker compose -f Docker/docker-compose.yml ps
   ```
 - Confira se a porta `5432` está livre.
 - Confirme credenciais no `Python/app.py`.
@@ -218,7 +234,7 @@ docker logs -f postgres_app
 Reiniciar containers:
 
 ```bash
-docker compose -f dados_docker/docker-compose.yml restart
+docker compose -f Docker/docker-compose.yml restart
 ```
 
 Parar Streamlit (terminal em execução):

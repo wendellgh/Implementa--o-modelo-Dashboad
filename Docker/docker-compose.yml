@@ -1,0 +1,56 @@
+# Mantem o projeto Compose antigo para reutilizar containers/volume existentes.
+name: dados_docker
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile
+    container_name: streamlit_app
+    restart: always
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: app_db
+      DB_USER: app_user
+      DB_PASSWORD: app123
+    ports:
+      - "8501:8501"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    container_name: postgres_app
+    restart: always
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../app_db_utf8.sql:/docker-entrypoint-initdb.d/01-app_db_utf8.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -U app_user -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_app
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "8080:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

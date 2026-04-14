@@ -1,0 +1,9 @@
+.git
+.venv
+.agents
+.devcontainer
+.vscode
+**/__pycache__/
+**/*.pyc
+*.sql
+Importacoes/

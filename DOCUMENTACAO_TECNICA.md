@@ -14,7 +14,8 @@ A aplicação principal:
 Arquivos centrais:
 - `Python/app.py`: ponto de entrada da aplicação.
 - `Python/dashboard/*.py`: módulos de configuração, acesso a dados, regras de negócio e visualização.
-- `dados_docker/docker-compose.yml`: infraestrutura local de PostgreSQL + pgAdmin.
+- `Docker/docker-compose.yml`: infraestrutura local de Streamlit + PostgreSQL + pgAdmin.
+- `Docker/Dockerfile`: imagem Docker da aplicação Streamlit.
 - `importacaoCSV.py`: script de carga em lote de CSV para tabela histórica.
 
 ---
@@ -24,7 +25,8 @@ Arquivos centrais:
 ```text
 .
 ├── Basehistorica.csv
-├── dados_docker/
+├── Docker/
+│   ├── Dockerfile
 │   └── docker-compose.yml
 ├── importacaoCSV.py
 ├── Python/
@@ -149,11 +151,12 @@ Definidas em `Python/requirements.txt`:
 
 ## 5.2 Docker Compose
 
-`dados_docker/docker-compose.yml` sobe:
+`Docker/docker-compose.yml` sobe:
+- **Streamlit** (`streamlit_app`) em `localhost:8501`.
 - **PostgreSQL 16** (`postgres_app`) em `localhost:5432`.
 - **pgAdmin 4** (`pgadmin_app`) em `localhost:8080`.
 
-Com volume nomeado `postgres_data` para persistência.
+Com volume nomeado `postgres_data` para persistência. O projeto Compose mantém o nome interno `dados_docker` para reaproveitar containers/volumes existentes após a renomeação da pasta.
 
 ---
 
@@ -232,19 +235,14 @@ Etapas:
 
 ## 10) Como executar localmente (resumo rápido)
 
-1. Subir banco:
+1. Subir banco e aplicação:
 ```bash
-docker compose -f dados_docker/docker-compose.yml up -d
+docker compose -f Docker/docker-compose.yml up -d --build
 ```
 
-2. Instalar dependências:
-```bash
-pip install -r Python/requirements.txt
-```
-
-3. Rodar app:
-```bash
-streamlit run Python/app.py
+2. Acessar o app:
+```text
+http://localhost:8501
 ```
 
 ---
