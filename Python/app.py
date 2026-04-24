@@ -5,6 +5,7 @@ from dashboard.data import (
     carregar_base,
     montar_equipamentos_por_contrato,
     montar_evolucao_mensal,
+    montar_frota_operadora_por_mes,
     montar_resumo_equipamento,
     montar_tabela_evolucao,
 )
@@ -13,7 +14,11 @@ from dashboard.filters import aplicar_filtros, render_sidebar
 from dashboard.metrics import calcular_kpis, render_kpis
 from dashboard.styles import aplicar_estilos_globais, render_titulo_principal
 from dashboard.tables import render_tabela_detalhe, render_tabela_evolucao, render_tabela_resumo
-from dashboard.visualizations import render_dashboard_charts, render_resumo_chart
+from dashboard.visualizations import (
+    render_dashboard_charts,
+    render_frota_operadora_chart,
+    render_resumo_chart,
+)
 
 
 def main() -> None:
@@ -47,6 +52,7 @@ def main() -> None:
     equipamentos_contrato = montar_equipamentos_por_contrato(df_filtrado)
     evolucao_mensal = montar_evolucao_mensal(df_filtrado)
     evolucao_tabela = montar_tabela_evolucao(df_filtrado)
+    frota_operadora = montar_frota_operadora_por_mes(df_filtrado)
 
     render_titulo_principal(APP_TITLE)
 
@@ -54,10 +60,12 @@ def main() -> None:
         kpis = calcular_kpis(resumo)
         render_kpis(kpis)
         st.write("")
-        render_dashboard_charts(resumo, evolucao_mensal, equipamentos_contrato)
+        render_dashboard_charts(resumo, evolucao_mensal, evolucao_tabela, equipamentos_contrato)
     elif menu == "Resumo":
         render_resumo_chart(resumo)
         render_tabela_resumo(resumo)
+    elif menu == "Wendells":
+        render_frota_operadora_chart(frota_operadora)
     else:
         render_tabela_evolucao(evolucao_tabela)
         render_tabela_detalhe(df_filtrado)

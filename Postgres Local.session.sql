@@ -1,1 +1,1 @@
-SELECT * FROM usuarios;
+SELECT * FROM base_historica_manutencao;

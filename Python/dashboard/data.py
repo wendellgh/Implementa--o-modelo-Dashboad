@@ -65,13 +65,21 @@ def montar_resumo_equipamento(df_filtrado: pd.DataFrame) -> pd.DataFrame:
 
 def montar_equipamentos_por_contrato(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     if df_filtrado.empty:
-        return pd.DataFrame(columns=["contrato", "quantidade_equipamentos"])
+        return pd.DataFrame(columns=["contrato", "mes", "quantidade_equipamentos"])
+
+    df_aux = df_filtrado[df_filtrado["contrato"].ne("")].copy()
+    if df_aux.empty:
+        return pd.DataFrame(columns=["contrato", "mes", "quantidade_equipamentos"])
+
+    df_aux["mes"] = df_aux["data_ref"].dt.to_period("M").dt.to_timestamp()
+    mes_mais_recente_por_contrato = df_aux.groupby("contrato")["mes"].transform("max")
+    df_mes_recente = df_aux[df_aux["mes"].eq(mes_mais_recente_por_contrato)]
 
     equipamentos_contrato = (
-        df_filtrado[df_filtrado["contrato"].ne("")]
-        .groupby("contrato", as_index=False)
+        df_mes_recente.groupby(["contrato", "mes"], as_index=False)
         .agg(quantidade_equipamentos=("frota", "sum"))
         .sort_values("quantidade_equipamentos", ascending=False)
+        .head(10)
     )
 
     equipamentos_contrato["quantidade_equipamentos"] = equipamentos_contrato[
@@ -79,6 +87,56 @@ def montar_equipamentos_por_contrato(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     ].astype(int)
 
     return equipamentos_contrato
+
+
+def montar_frota_operadora_por_mes(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    colunas = ["mes", "mes_label", "operadora", "quantidade_frota"]
+    if df_filtrado.empty:
+        return pd.DataFrame(columns=colunas)
+
+    df_aux = df_filtrado[
+        df_filtrado["operadora"].ne("")
+        & df_filtrado["equipamento"].str.contains("CCIT", case=False, na=False)
+    ].copy()
+    if df_aux.empty:
+        return pd.DataFrame(columns=colunas)
+
+    meses_pt = {
+        1: "jan",
+        2: "fev",
+        3: "mar",
+        4: "abr",
+        5: "mai",
+        6: "jun",
+        7: "jul",
+        8: "ago",
+        9: "set",
+        10: "out",
+        11: "nov",
+        12: "dez",
+    }
+
+    df_aux["mes"] = df_aux["data_ref"].dt.to_period("M").dt.to_timestamp()
+    df_aux = df_aux[df_aux["mes"].notna()]
+    if df_aux.empty:
+        return pd.DataFrame(columns=colunas)
+
+    mes_mais_recente = df_aux["mes"].max()
+    df_mes_recente = df_aux[df_aux["mes"].eq(mes_mais_recente)]
+
+    frota_operadora = (
+        df_mes_recente.groupby(["mes", "operadora"], as_index=False)
+        .agg(quantidade_frota=("frota", "sum"))
+        .sort_values("quantidade_frota", ascending=False)
+        .head(6)
+    )
+
+    frota_operadora["mes_label"] = frota_operadora["mes"].apply(
+        lambda mes: f"{meses_pt[mes.month]}/{mes:%y}"
+    )
+    frota_operadora["quantidade_frota"] = frota_operadora["quantidade_frota"].astype(int)
+
+    return frota_operadora[colunas]
 
 
 def montar_evolucao_mensal(df_filtrado: pd.DataFrame) -> pd.DataFrame:

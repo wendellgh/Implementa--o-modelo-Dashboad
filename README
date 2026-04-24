@@ -168,8 +168,7 @@ Na raiz do projeto:
 **Linux/macOS**
 
 ```bash
-
-
+py -m venv .venv
 source .venv/Scripts/activate
 ```
 

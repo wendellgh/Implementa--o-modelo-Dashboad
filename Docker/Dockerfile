@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY Python/requirements.txt ./Python/requirements.txt
-RUN pip install --no-cache-dir -r Python/requirements.txt
+# RUN pip install --no-cache-dir -r Python/requirements.txt
 
 COPY Python ./Python
 

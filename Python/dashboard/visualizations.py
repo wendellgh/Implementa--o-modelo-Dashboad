@@ -53,6 +53,7 @@ def _mostrar_rotulos_barras(fig, template: str = "%{text}") -> None:
 def render_dashboard_charts(
     df_resumo: pd.DataFrame,
     df_evolucao_mensal: pd.DataFrame,
+    df_evolucao_equipamento: pd.DataFrame,
     df_equipamentos_contrato: pd.DataFrame,
 ) -> None:
     if df_evolucao_mensal.empty:
@@ -67,7 +68,8 @@ def render_dashboard_charts(
                 df_evolucao_mensal,
                 x="mes",
                 y="percentual_qtd_x_frota",
-                title="% QTD x FROTA",
+                title="% QTD x FROTaaasdsada mudou??????"  \
+                "A",
                 text="percentual_qtd_x_frota",
                 color="percentual_qtd_x_frota",
                 color_continuous_scale=[PALETA["mist"], PALETA["steel"], PALETA["charcoal"]],
@@ -78,19 +80,25 @@ def render_dashboard_charts(
 
     with col_top_2:
         with st.container(border=True):
-            fig_qtd_frota = px.line(
-                df_evolucao_mensal,
-                x="mes",
-                y=["total_qtd", "total_frota"],
-                markers=True,
-                title="QTD x FROTA",
-                color_discrete_map={
-                    "total_qtd": PALETA["graphite"],
-                    "total_frota": PALETA["smoke"],
-                },
-            )
-            fig_qtd_frota.update_traces(line={"width": 2.5}, marker={"size": 5})
-            st.plotly_chart(_estilizar_figura(fig_qtd_frota), use_container_width=True)
+            if df_evolucao_equipamento.empty:
+                st.info("Sem dados de frota por equipamento para os filtros selecionados.")
+            else:
+                fig_qtd_frota = px.bar(
+                    df_evolucao_equipamento,
+                    x="mes",
+                    y="total_frota",
+                    color="equipamento",
+                    barmode="group",
+                    title="FROTA POR EQUIPAMENTO / MES",
+                    text="total_frota",
+                    labels={
+                        "mes": "Mes",
+                        "total_frota": "Frota",
+                        "equipamento": "Equipamento",
+                    },
+                )
+                _mostrar_rotulos_barras(fig_qtd_frota, "%{text:.0f}")
+                st.plotly_chart(_estilizar_figura(fig_qtd_frota), use_container_width=True)
 
     col_bottom_1, col_bottom_2 = st.columns(2)
 
@@ -134,9 +142,10 @@ def render_dashboard_charts(
                 df_equipamentos_contrato,
                 x="contrato",
                 y="quantidade_equipamentos",
-                title="EQUIPAMENTOS POR CONTRATO",
+                title="EQUIPAMENTOS POR CONTRATO - MES MAIS RECENTE",
                 text="quantidade_equipamentos",
                 color="quantidade_equipamentos",
+                hover_data={"mes": "|%Y-%m", "quantidade_equipamentos": ":.0f"},
                 color_continuous_scale=[
                     PALETA["mist"],
                     PALETA["steel"],
@@ -162,11 +171,47 @@ def render_resumo_chart(df_resumo: pd.DataFrame) -> None:
             df_resumo.sort_values("percentual_recalculado", ascending=False),
             x="equipamento",
             y="percentual_recalculado",
-            title="% QTD x Frota por Equipamento",
+            title="% QTD x Frota por Equipamento wewedasdasd ",
             text="percentual_recalculado",
             color="percentual_recalculado",
             color_continuous_scale=[PALETA["mist"], PALETA["steel"], PALETA["charcoal"]],
         )
         _mostrar_rotulos_barras(fig, "%{text:.2f}%")
+        fig.update_coloraxes(showscale=False)
+        st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
+
+
+def render_frota_operadora_chart(df_frota_operadora: pd.DataFrame) -> None:
+    if df_frota_operadora.empty:
+        st.info("Sem dados de frota CCIT por operadora para os filtros selecionados.")
+        return
+
+    mes_label = str(df_frota_operadora["mes_label"].iloc[0]).upper()
+
+    with st.container(border=True):
+        fig = px.bar(
+            df_frota_operadora,
+            x="operadora",
+            y="quantidade_frota",
+            color="quantidade_frota",
+            title=f"FROTA CCIT POR OPERADORA - {mes_label}",
+            text="quantidade_frota",
+            color_continuous_scale=[PALETA["mist"], PALETA["steel"], PALETA["charcoal"]],
+            labels={
+                "operadora": "Operadora",
+                "quantidade_frota": "Frota",
+                "mes_label": "Data",
+            },
+            hover_data={
+                "mes": "|%m/%Y",
+                "mes_label": False,
+                "quantidade_frota": ":.0f",
+            },
+        )
+        fig.update_xaxes(
+            categoryorder="array",
+            categoryarray=df_frota_operadora["operadora"].tolist(),
+        )
+        _mostrar_rotulos_barras(fig, "%{text:.0f}")
         fig.update_coloraxes(showscale=False)
         st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
