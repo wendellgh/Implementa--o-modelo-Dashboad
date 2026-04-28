@@ -57,6 +57,22 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
     return dados_servicos
 
 
+def montar_servicos_executados_por_tipo(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    if df_filtrado.empty:
+        return pd.DataFrame(columns=["servico_executado", "quantidade_servicos"])
+
+    resumo = (
+        df_filtrado[df_filtrado["servico_executado"].fillna("").str.strip().ne("")]
+        .groupby("servico_executado", as_index=False)
+        .agg(quantidade_servicos=("qtd_servico", "sum"))
+        .sort_values("quantidade_servicos", ascending=False)
+    )
+
+    resumo["quantidade_servicos"] = resumo["quantidade_servicos"].astype(int)
+
+    return resumo
+
+
 def montar_resumo_equipamento(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     if df_filtrado.empty:
         return pd.DataFrame(

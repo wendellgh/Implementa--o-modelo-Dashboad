@@ -7,6 +7,7 @@ from dashboard.data import (
     montar_evolucao_mensal,
     montar_frota_operadora_por_mes,
     montar_resumo_equipamento,
+    montar_servicos_executados_por_tipo,
     montar_tabela_evolucao,
     carregar_base_outra_tabela
 )
@@ -19,6 +20,7 @@ from dashboard.visualizations import (
     render_dashboard_charts,
     render_frota_operadora_chart,
     render_resumo_chart,
+    render_servicos_executados_chart,
 )
 
 
@@ -74,6 +76,8 @@ def main() -> None:
             st.stop()
 
         servicos_filtrados = aplicar_filtros(df_servicos, filtros)
+        servicos_resumo = montar_servicos_executados_por_tipo(servicos_filtrados)
+        render_servicos_executados_chart(servicos_resumo)
         render_servicos_executados(servicos_filtrados)
 
     else:

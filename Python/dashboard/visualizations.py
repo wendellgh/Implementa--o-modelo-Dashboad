@@ -215,3 +215,30 @@ def render_frota_operadora_chart(df_frota_operadora: pd.DataFrame) -> None:
         _mostrar_rotulos_barras(fig, "%{text:.0f}")
         fig.update_coloraxes(showscale=False)
         st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
+
+
+def render_servicos_executados_chart(df_servicos_resumo: pd.DataFrame) -> None:
+    if df_servicos_resumo.empty:
+        st.info("Sem serviços executados para os filtros selecionados.")
+        return
+
+    ranking = df_servicos_resumo.sort_values("quantidade_servicos", ascending=True).tail(20)
+
+    with st.container(border=True):
+        fig = px.bar(
+            ranking,
+            x="quantidade_servicos",
+            y="servico_executado",
+            orientation="h",
+            title="SERVICOS EXECUTADOS POR TIPO",
+            text="quantidade_servicos",
+            color="quantidade_servicos",
+            color_continuous_scale=[PALETA["mist"], PALETA["steel"], PALETA["charcoal"]],
+            labels={
+                "servico_executado": "Servico executado",
+                "quantidade_servicos": "Quantidade",
+            },
+        )
+        _mostrar_rotulos_barras(fig, "%{text:.0f}")
+        fig.update_coloraxes(showscale=False)
+        st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
