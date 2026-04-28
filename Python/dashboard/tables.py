@@ -1,4 +1,5 @@
 import pandas as pd
+from pandas import DataFrame
 import streamlit as st
 
 
@@ -33,3 +34,22 @@ def render_tabela_detalhe(df_filtrado: pd.DataFrame) -> None:
             use_container_width=True,
             hide_index=True,
         )
+
+
+def render_servicos_executados(filtrados: pd.DataFrame) -> None:
+    with st.container(border=True):
+        st.subheader("Serviços Executados - Teste")
+
+        df_view = filtrados.copy()
+        if "data_ref" in df_view.columns:
+            df_view["data_ref"] = pd.to_datetime(
+                df_view["data_ref"],
+                errors="coerce",
+            ).dt.strftime("%Y-%m-%d")
+
+        st.dataframe(
+            df_view.sort_values("data_ref", ascending=False),
+            use_container_width=True,
+            hide_index=True,
+        )
+

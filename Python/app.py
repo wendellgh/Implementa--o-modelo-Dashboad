@@ -8,12 +8,13 @@ from dashboard.data import (
     montar_frota_operadora_por_mes,
     montar_resumo_equipamento,
     montar_tabela_evolucao,
+    carregar_base_outra_tabela
 )
 from dashboard.database import get_db_diagnostics, get_db_target_label
 from dashboard.filters import aplicar_filtros, render_sidebar
 from dashboard.metrics import calcular_kpis, render_kpis
 from dashboard.styles import aplicar_estilos_globais, render_titulo_principal
-from dashboard.tables import render_tabela_detalhe, render_tabela_evolucao, render_tabela_resumo
+from dashboard.tables import render_tabela_detalhe, render_tabela_evolucao, render_tabela_resumo, render_servicos_executados
 from dashboard.visualizations import (
     render_dashboard_charts,
     render_frota_operadora_chart,
@@ -66,6 +67,15 @@ def main() -> None:
         render_tabela_resumo(resumo)
     elif menu == "Wendells":
         render_frota_operadora_chart(frota_operadora)
+    elif menu =="Serviços Executados - Teste":
+        df_servicos = carregar_base_outra_tabela()
+        if df_servicos.empty:
+            st.warning("Sem dados na tabela servico_executado.")
+            st.stop()
+
+        servicos_filtrados = aplicar_filtros(df_servicos, filtros)
+        render_servicos_executados(servicos_filtrados)
+
     else:
         render_tabela_evolucao(evolucao_tabela)
         render_tabela_detalhe(df_filtrado)

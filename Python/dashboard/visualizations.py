@@ -108,7 +108,7 @@ def render_dashboard_charts(
                 df_evolucao_mensal,
                 x="mes",
                 y="total_qtd",
-                title="QTD SERVICO EXECUTADO",
+                title="SERVICOS EXECUTADOS",
                 text="total_qtd",
                 color="total_qtd",
                 color_continuous_scale=[PALETA["mist"], PALETA["slate"], PALETA["graphite"]],

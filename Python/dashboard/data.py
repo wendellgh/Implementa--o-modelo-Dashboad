@@ -23,9 +23,38 @@ def carregar_base() -> pd.DataFrame:
 
     return df
 
+@st.cache_data
+def carregar_base_outra_tabela() -> pd.DataFrame:
+    dados_servicos = pd.read_sql(BASE_QUERY_2, get_engine())
 
-def carregar_base_outra_tabela():
-    return pd.read_sql(BASE_QUERY_2, get_engine())
+    if dados_servicos.empty: 
+        return dados_servicos
+    
+    dados_servicos = dados_servicos.rename(
+        columns={
+            "DATA": "data_ref",
+            "QTD_SERVICO": "qtd_servico",
+        }
+    )
+
+    colunas_obrigatorias = ["data_ref", "qtd_servico"]
+    colunas_ausentes = [
+        coluna for coluna in colunas_obrigatorias if coluna not in dados_servicos.columns
+    ]
+    if colunas_ausentes:
+        raise KeyError(
+            "Colunas ausentes na consulta BASE_QUERY_2: "
+            f"{', '.join(colunas_ausentes)}. "
+            f"Colunas retornadas: {', '.join(dados_servicos.columns)}"
+        )
+
+    dados_servicos["data_ref"] = pd.to_datetime(dados_servicos["data_ref"], errors="coerce")
+    dados_servicos["qtd_servico"] = pd.to_numeric(
+        dados_servicos["qtd_servico"],
+        errors="coerce"
+    ).fillna(0)
+    
+    return dados_servicos
 
 
 def montar_resumo_equipamento(df_filtrado: pd.DataFrame) -> pd.DataFrame:

@@ -7,7 +7,7 @@ PAGE_CONFIG = {
 
 APP_TITLE = "Dashboard de Manutencao das Filiais"
 
-MENU_ITEMS = ["Dashboard", "Resumo", "Tabela", "Wendells"]
+MENU_ITEMS = ["Dashboard", "Resumo", "Tabela", "Wendells", "Serviços Executados - Teste"]
 
 DB_SETTINGS = {
     "usuario": "app_user",
@@ -34,15 +34,15 @@ from base_historica_manutencao
 
 BASE_QUERY_2 = """
 select
-"DATA"
-"ID_CONTRATO"
-"CONTRATO"
-"ID_EQUIPAMENTO"
-"EQUIPAMENTO"
-"ID_OPERADORA"
-"OPERADORA"
-"ID_SERVICO_EXECUTADO"
-"SERVIC_EXECUTADO"
-"QTD_SERVICO"
+    "DATA" as data_ref,
+    "ID_CONTRATO" as id_contrato,
+    "CONTRATO" as contrato,
+    "ID_EQUIPAMENTO" as id_equipamento,
+    "EQUIPAMENTO" as equipamento,
+    "ID_OPERADORA" as id_operadora,
+    "OPERADORA" as operadora,
+    "ID_SERVICO_EXECUTADO" as id_servico_executado,
+    "SERVIC_EXECUTADO" as servico_executado,
+    "QTD_SERVICO" as qtd_servico
 from servicos_executados
 """
