@@ -2,7 +2,7 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from pathlib import Path
 
-ARQUIVO_CSV = r"D:\Code\Python\Implementação modelo Dashboad\Importacoes\bsa_serv_exce.csv"
+ARQUIVO_CSV = Path(__file__).with_name("bsa_serv_exce.csv")
 
 USUARIO = "app_user"
 SENHA = "app123"
@@ -121,14 +121,21 @@ for chunk in pd.read_csv(
         .astype(int)
     )
 
-    data_numerica = pd.to_numeric(chunk["DATA"], errors="coerce")
-
     datas_convertidas = pd.to_datetime(
-        data_numerica,
-        unit="D",
-        origin="1899-12-30",
+        chunk["DATA"].astype(str).str.strip(),
+        format="%d/%m/%Y",
         errors="coerce"
     )
+
+    datas_invalidas = datas_convertidas.isna()
+    if datas_invalidas.any():
+        data_numerica = pd.to_numeric(chunk.loc[datas_invalidas, "DATA"], errors="coerce")
+        datas_convertidas.loc[datas_invalidas] = pd.to_datetime(
+            data_numerica,
+            unit="D",
+            origin="1899-12-30",
+            errors="coerce"
+        )
 
     datas_invalidas_lote = datas_convertidas.isna().sum()
     total_datas_invalidas += int(datas_invalidas_lote)

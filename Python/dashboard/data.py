@@ -30,14 +30,7 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
     if dados_servicos.empty: 
         return dados_servicos
     
-    dados_servicos = dados_servicos.rename(
-        columns={
-            "DATA": "data_ref",
-            "QTD_SERVICO": "qtd_servico",
-        }
-    )
-
-    colunas_obrigatorias = ["data_ref", "qtd_servico"]
+    colunas_obrigatorias = ["data_ref", "servico_executado", "qtd_servico"]
     colunas_ausentes = [
         coluna for coluna in colunas_obrigatorias if coluna not in dados_servicos.columns
     ]
@@ -132,6 +125,28 @@ def montar_equipamentos_por_contrato(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     ].astype(int)
 
     return equipamentos_contrato
+
+
+def montar_manutencao_por_contrato(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    if df_filtrado.empty:
+        return pd.DataFrame(columns=["contrato", "quantidade_manutencao"])
+
+    df_aux = df_filtrado[df_filtrado["contrato"].ne("")].copy()
+    if df_aux.empty:
+        return pd.DataFrame(columns=["contrato", "quantidade_manutencao"])
+
+    manutencao_contrato = (
+        df_aux.groupby("contrato", as_index=False)
+        .agg(quantidade_manutencao=("qtd", "sum"))
+        .sort_values("quantidade_manutencao", ascending=False)
+        .head(5)
+    )
+
+    manutencao_contrato["quantidade_manutencao"] = manutencao_contrato[
+        "quantidade_manutencao"
+    ].astype(int)
+
+    return manutencao_contrato
 
 
 def montar_frota_operadora_por_mes(df_filtrado: pd.DataFrame) -> pd.DataFrame:
@@ -240,3 +255,5 @@ def montar_tabela_evolucao(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     evolucao["total_frota"] = evolucao["total_frota"].astype(int)
 
     return evolucao
+
+

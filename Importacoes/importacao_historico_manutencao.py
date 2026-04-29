@@ -1,7 +1,8 @@
 import pandas as pd
 from sqlalchemy import create_engine, text
+from pathlib import Path
 
-ARQUIVO_CSV = r"d:\Code\Python\Implementação modelo Dashboad\Basehistorica.csv"
+ARQUIVO_CSV = Path(__file__).with_name("Basehistorica.csv")
 
 USUARIO = "app_user"
 SENHA = "app123"

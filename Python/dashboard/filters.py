@@ -8,6 +8,50 @@ from dashboard.config import MENU_ITEMS
 DATA_INICIO_PADRAO = date(2026, 1, 1)
 
 
+def _formatar_mes(data_mes: pd.Timestamp) -> str:
+    meses_pt = {
+        1: "jan",
+        2: "fev",
+        3: "mar",
+        4: "abr",
+        5: "mai",
+        6: "jun",
+        7: "jul",
+        8: "ago",
+        9: "set",
+        10: "out",
+        11: "nov",
+        12: "dez",
+    }
+    return f"{meses_pt[data_mes.month]}/{data_mes:%Y}"
+
+
+def _criar_opcoes_mensais(data_min: date, data_max: date) -> list[pd.Timestamp]:
+    mes_min = pd.Timestamp(data_min).to_period("M").to_timestamp()
+    mes_max = pd.Timestamp(data_max).to_period("M").to_timestamp()
+    return list(pd.date_range(mes_min, mes_max, freq="MS"))
+
+
+def _obter_periodo_padrao(meses: list[pd.Timestamp]) -> tuple[pd.Timestamp, pd.Timestamp]:
+    mes_inicio_padrao = pd.Timestamp(DATA_INICIO_PADRAO).to_period("M").to_timestamp()
+    mes_fim_padrao = pd.Timestamp(date.today()).to_period("M").to_timestamp()
+
+    inicio = next((mes for mes in meses if mes >= mes_inicio_padrao), meses[0])
+    fim = next((mes for mes in reversed(meses) if mes <= mes_fim_padrao), meses[-1])
+
+    if inicio > fim:
+        inicio = fim
+
+    return inicio, fim
+
+
+def _indice_mes(meses: list[pd.Timestamp], mes_procurado: pd.Timestamp) -> int:
+    for indice, mes in enumerate(meses):
+        if mes == mes_procurado:
+            return indice
+    return 0
+
+
 def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
     data_valida = df_base["data_ref"].dropna()
     if data_valida.empty:
@@ -17,21 +61,45 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
         data_min = data_valida.min().date()
         data_max = data_valida.max().date()
 
-    data_fim_padrao = date.today()
-    limite_min = min(data_min, DATA_INICIO_PADRAO)
-    limite_max = max(data_max, data_fim_padrao)
+    meses_disponiveis = _criar_opcoes_mensais(data_min, data_max)
+    periodo_padrao = _obter_periodo_padrao(meses_disponiveis)
 
     with st.sidebar:
         st.markdown("### Navegacao")
         menu = st.radio("Pagina", MENU_ITEMS, index=0)
 
         st.markdown("### Filtros")
-        periodo = st.date_input(
+        periodo_mensal = st.select_slider(
             "Periodo",
-            value=(DATA_INICIO_PADRAO, data_fim_padrao),
-            min_value=limite_min,
-            max_value=limite_max,
+            options=meses_disponiveis,
+            value=periodo_padrao,
+            format_func=_formatar_mes,
         )
+
+        usar_selecao_manual = st.checkbox("Selecionar periodo por lista")
+        if usar_selecao_manual:
+            inicio_selecionado = pd.Timestamp(periodo_mensal[0])
+            fim_selecionado = pd.Timestamp(periodo_mensal[1])
+
+            mes_inicio = st.selectbox(
+                "Mes inicial",
+                options=meses_disponiveis,
+                index=_indice_mes(meses_disponiveis, inicio_selecionado),
+                format_func=_formatar_mes,
+            )
+            meses_finais = [mes for mes in meses_disponiveis if mes >= mes_inicio]
+            mes_fim = st.selectbox(
+                "Mes final",
+                options=meses_finais,
+                index=_indice_mes(meses_finais, max(fim_selecionado, mes_inicio)),
+                format_func=_formatar_mes,
+            )
+        else:
+            mes_inicio, mes_fim = periodo_mensal
+
+        inicio_mes = pd.Timestamp(mes_inicio)
+        fim_mes = pd.Timestamp(mes_fim) + pd.offsets.MonthEnd(0)
+        periodo = (inicio_mes, fim_mes)
 
         contratos = sorted([x for x in df_base["contrato"].dropna().unique().tolist() if x])
         filtro_contrato = st.multiselect("Contrato", contratos)

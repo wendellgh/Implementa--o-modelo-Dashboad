@@ -9,7 +9,26 @@ PALETA = {
     "slate": "#475569",
     "graphite": "#334155",
     "charcoal": "#1F2937",
+    "blue": "#2563EB",
+    "cyan": "#0891B2",
+    "green": "#16A34A",
+    "amber": "#D97706",
+    "red": "#DC2626",
+    "purple": "#7C3AED",
+    "indigo": "#4F46E5",
 }
+
+ESCALA_ALERTA = [PALETA["green"], PALETA["amber"], PALETA["red"]]
+ESCALA_OPERACIONAL = [PALETA["mist"], PALETA["cyan"], PALETA["blue"]]
+ESCALA_RANKING = [PALETA["smoke"], PALETA["purple"], PALETA["indigo"]]
+CORES_CATEGORICAS = [
+    PALETA["blue"],
+    PALETA["green"],
+    PALETA["amber"],
+    PALETA["red"],
+    PALETA["purple"],
+    PALETA["cyan"],
+]
 
 
 def _cor_texto_tema() -> str:
@@ -26,10 +45,10 @@ def _estilizar_figura(fig):
         margin={"l": 20, "r": 20, "t": 50, "b": 20},
         legend={
             "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
-            "xanchor": "right",
-            "x": 1,
+            "yanchor": "top",
+            "y": -0.18,
+            "xanchor": "center",
+            "x": 0.5,
         },
     )
     fig.update_xaxes(showgrid=False)
@@ -53,7 +72,7 @@ def _mostrar_rotulos_barras(fig, template: str = "%{text}") -> None:
 def render_dashboard_charts(
     df_resumo: pd.DataFrame,
     df_evolucao_mensal: pd.DataFrame,
-    df_evolucao_equipamento: pd.DataFrame,
+    df_manutencao_contrato: pd.DataFrame,
     df_equipamentos_contrato: pd.DataFrame,
 ) -> None:
     if df_evolucao_mensal.empty:
@@ -68,11 +87,10 @@ def render_dashboard_charts(
                 df_evolucao_mensal,
                 x="mes",
                 y="percentual_qtd_x_frota",
-                title="% QTD x FROTaaasdsada mudou??????"  \
-                "A",
+                title="% QTD x FROTA",
                 text="percentual_qtd_x_frota",
                 color="percentual_qtd_x_frota",
-                color_continuous_scale=[PALETA["mist"], PALETA["steel"], PALETA["charcoal"]],
+                color_continuous_scale=ESCALA_ALERTA,
             )
             _mostrar_rotulos_barras(fig_percentual, "%{text:.2f}%")
             fig_percentual.update_coloraxes(showscale=False)
@@ -80,25 +98,37 @@ def render_dashboard_charts(
 
     with col_top_2:
         with st.container(border=True):
-            if df_evolucao_equipamento.empty:
-                st.info("Sem dados de frota por equipamento para os filtros selecionados.")
+            if df_manutencao_contrato.empty:
+                st.info("Sem dados de manutencao por contrato para os filtros selecionados.")
             else:
-                fig_qtd_frota = px.bar(
-                    df_evolucao_equipamento,
-                    x="mes",
-                    y="total_frota",
-                    color="equipamento",
-                    barmode="group",
-                    title="FROTA POR EQUIPAMENTO / MES",
-                    text="total_frota",
+                manutencao_contrato = df_manutencao_contrato.sort_values(
+                    "quantidade_manutencao",
+                    ascending=False,
+                )
+                ordem_contratos = manutencao_contrato["contrato"].tolist()
+                fig_manutencao_contrato = px.bar(
+                    manutencao_contrato,
+                    x="contrato",
+                    y="quantidade_manutencao",
+                    color="contrato",
+                    color_discrete_sequence=CORES_CATEGORICAS,
+                    category_orders={"contrato": ordem_contratos},
+                    title="EQUIPAMENTOS EM MANUTENCAO POR CONTRATO",
+                    text="quantidade_manutencao",
                     labels={
-                        "mes": "Mes",
-                        "total_frota": "Frota",
-                        "equipamento": "Equipamento",
+                        "contrato": "Contrato",
+                        "quantidade_manutencao": "Quantidade em manutencao",
                     },
                 )
-                _mostrar_rotulos_barras(fig_qtd_frota, "%{text:.0f}")
-                st.plotly_chart(_estilizar_figura(fig_qtd_frota), use_container_width=True)
+                fig_manutencao_contrato.update_xaxes(
+                    categoryorder="array",
+                    categoryarray=ordem_contratos,
+                )
+                _mostrar_rotulos_barras(fig_manutencao_contrato, "%{text:.0f}")
+                st.plotly_chart(
+                    _estilizar_figura(fig_manutencao_contrato),
+                    use_container_width=True,
+                )
 
     col_bottom_1, col_bottom_2 = st.columns(2)
 
@@ -111,7 +141,7 @@ def render_dashboard_charts(
                 title="SERVICOS EXECUTADOS",
                 text="total_qtd",
                 color="total_qtd",
-                color_continuous_scale=[PALETA["mist"], PALETA["slate"], PALETA["graphite"]],
+                color_continuous_scale=ESCALA_OPERACIONAL,
             )
             _mostrar_rotulos_barras(fig_servico, "%{text:.0f}")
             fig_servico.update_coloraxes(showscale=False)
@@ -125,10 +155,14 @@ def render_dashboard_charts(
                 x="total_qtd",
                 y="equipamento",
                 orientation="h",
-                title="TOTAL PRINCIPAIS SERVICOS",
+                title="PRINCIPAIS EQUIPAMENTOS NA MANUTENCAO",
                 text="total_qtd",
                 color="total_qtd",
-                color_continuous_scale=[PALETA["smoke"], PALETA["slate"], PALETA["charcoal"]],
+                color_continuous_scale=ESCALA_RANKING,
+                labels={
+                    "total_qtd": "Quantidade em manutencao",
+                    "equipamento": "Equipamento",
+                },
             )
             _mostrar_rotulos_barras(fig_ranking, "%{text:.0f}")
             fig_ranking.update_coloraxes(showscale=False)
@@ -146,11 +180,7 @@ def render_dashboard_charts(
                 text="quantidade_equipamentos",
                 color="quantidade_equipamentos",
                 hover_data={"mes": "|%Y-%m", "quantidade_equipamentos": ":.0f"},
-                color_continuous_scale=[
-                    PALETA["mist"],
-                    PALETA["steel"],
-                    PALETA["charcoal"],
-                ],
+                color_continuous_scale=ESCALA_OPERACIONAL,
                 labels={
                     "contrato": "contrato",
                     "quantidade_equipamentos": "quantidade_equipamentos",
@@ -174,7 +204,7 @@ def render_resumo_chart(df_resumo: pd.DataFrame) -> None:
             title="% QTD x Frota por Equipamento wewedasdasd ",
             text="percentual_recalculado",
             color="percentual_recalculado",
-            color_continuous_scale=[PALETA["mist"], PALETA["steel"], PALETA["charcoal"]],
+            color_continuous_scale=ESCALA_ALERTA,
         )
         _mostrar_rotulos_barras(fig, "%{text:.2f}%")
         fig.update_coloraxes(showscale=False)
@@ -196,7 +226,7 @@ def render_frota_operadora_chart(df_frota_operadora: pd.DataFrame) -> None:
             color="quantidade_frota",
             title=f"FROTA CCIT POR OPERADORA - {mes_label}",
             text="quantidade_frota",
-            color_continuous_scale=[PALETA["mist"], PALETA["steel"], PALETA["charcoal"]],
+            color_continuous_scale=ESCALA_OPERACIONAL,
             labels={
                 "operadora": "Operadora",
                 "quantidade_frota": "Frota",
@@ -222,7 +252,7 @@ def render_servicos_executados_chart(df_servicos_resumo: pd.DataFrame) -> None:
         st.info("Sem serviços executados para os filtros selecionados.")
         return
 
-    ranking = df_servicos_resumo.sort_values("quantidade_servicos", ascending=True).tail(20)
+    ranking = df_servicos_resumo.sort_values("quantidade_servicos", ascending=True).tail(5)
 
     with st.container(border=True):
         fig = px.bar(
@@ -233,7 +263,7 @@ def render_servicos_executados_chart(df_servicos_resumo: pd.DataFrame) -> None:
             title="SERVICOS EXECUTADOS POR TIPO",
             text="quantidade_servicos",
             color="quantidade_servicos",
-            color_continuous_scale=[PALETA["mist"], PALETA["steel"], PALETA["charcoal"]],
+            color_continuous_scale=ESCALA_RANKING,
             labels={
                 "servico_executado": "Servico executado",
                 "quantidade_servicos": "Quantidade",

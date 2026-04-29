@@ -55,3 +55,10 @@ def render_kpis(kpis: dict[str, float | int | str]) -> None:
         _render_card("Total Frota", _format_int(int(kpis["total_frota"])))
     with c5:
         _render_card("% QTD x Frota", f"{float(kpis['percentual_geral']):.2f}%")
+
+
+def render_total_servicos_executados(total_servicos: int) -> None:
+    coluna_total, _, _, _ = st.columns([1.3, 1, 1, 1])
+
+    with coluna_total:
+        _render_card("Total Geral", _format_int(total_servicos))

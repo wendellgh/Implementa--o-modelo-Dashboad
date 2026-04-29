@@ -6,6 +6,7 @@ from dashboard.data import (
     montar_equipamentos_por_contrato,
     montar_evolucao_mensal,
     montar_frota_operadora_por_mes,
+    montar_manutencao_por_contrato,
     montar_resumo_equipamento,
     montar_servicos_executados_por_tipo,
     montar_tabela_evolucao,
@@ -13,7 +14,7 @@ from dashboard.data import (
 )
 from dashboard.database import get_db_diagnostics, get_db_target_label
 from dashboard.filters import aplicar_filtros, render_sidebar
-from dashboard.metrics import calcular_kpis, render_kpis
+from dashboard.metrics import calcular_kpis, render_kpis, render_total_servicos_executados
 from dashboard.styles import aplicar_estilos_globais, render_titulo_principal
 from dashboard.tables import render_tabela_detalhe, render_tabela_evolucao, render_tabela_resumo, render_servicos_executados
 from dashboard.visualizations import (
@@ -56,6 +57,7 @@ def main() -> None:
     evolucao_mensal = montar_evolucao_mensal(df_filtrado)
     evolucao_tabela = montar_tabela_evolucao(df_filtrado)
     frota_operadora = montar_frota_operadora_por_mes(df_filtrado)
+    manutencao_contrato = montar_manutencao_por_contrato(df_filtrado)
 
     render_titulo_principal(APP_TITLE)
 
@@ -63,7 +65,7 @@ def main() -> None:
         kpis = calcular_kpis(resumo)
         render_kpis(kpis)
         st.write("")
-        render_dashboard_charts(resumo, evolucao_mensal, evolucao_tabela, equipamentos_contrato)
+        render_dashboard_charts(resumo, evolucao_mensal, manutencao_contrato, equipamentos_contrato)
     elif menu == "Resumo":
         render_resumo_chart(resumo)
         render_tabela_resumo(resumo)
@@ -77,6 +79,9 @@ def main() -> None:
 
         servicos_filtrados = aplicar_filtros(df_servicos, filtros)
         servicos_resumo = montar_servicos_executados_por_tipo(servicos_filtrados)
+        total_servicos = int(servicos_filtrados["qtd_servico"].sum())
+        render_total_servicos_executados(total_servicos)
+        st.write("")
         render_servicos_executados_chart(servicos_resumo)
         render_servicos_executados(servicos_filtrados)
 
