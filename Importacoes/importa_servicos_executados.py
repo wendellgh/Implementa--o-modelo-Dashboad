@@ -1,20 +1,19 @@
-import pandas as pd
-from sqlalchemy import create_engine, text
+import sys
 from pathlib import Path
 
-ARQUIVO_CSV = Path(__file__).with_name("bsa_serv_exce.csv")
+import pandas as pd
+from sqlalchemy import text
 
-USUARIO = "app_user"
-SENHA = "app123"
-HOST = "localhost"
-PORTA = "5432"
-BANCO = "app_db"
+ARQUIVO_CSV = Path(__file__).with_name("bsa_serv_exce.csv")
+PYTHON_DIR = Path(__file__).resolve().parents[1] / "Python"
+sys.path.insert(0, str(PYTHON_DIR))
+
+from dashboard.database import get_db_target_label, get_engine
+
 TABELA = "servicos_executados"
 CHUNKSIZE = 5000
 
-engine = create_engine(
-    f"postgresql+psycopg2://{USUARIO}:{SENHA}@{HOST}:{PORTA}/{BANCO}"
-)
+engine = get_engine()
 
 caminho_csv = Path(ARQUIVO_CSV)
 
@@ -22,6 +21,7 @@ if not caminho_csv.exists():
     raise FileNotFoundError(f"Arquivo não encontrado: {ARQUIVO_CSV}")
 
 with engine.connect() as conn:
+    print(f"Destino: {get_db_target_label()}")
     print("Conexão OK")
     print(conn.execute(text("SELECT current_database();")).fetchone())
 

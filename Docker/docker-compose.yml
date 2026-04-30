@@ -9,6 +9,8 @@ services:
     container_name: streamlit_app
     restart: always
     environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      NEON_DATABASE_URL: ${NEON_DATABASE_URL:-}
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_NAME: app_db

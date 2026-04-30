@@ -1,4 +1,5 @@
 import base64
+import html
 from datetime import date
 from pathlib import Path
 
@@ -6,6 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from dashboard.config import MENU_ITEMS
+from dashboard.database import get_db_target_info
 
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
@@ -60,6 +62,21 @@ def _render_sidebar_logo() -> None:
             'style="display: block; width: 100%; max-width: 235px; height: auto;" />'
             "</div>"
         ),
+        unsafe_allow_html=True,
+    )
+
+
+def _render_database_target() -> None:
+    info = get_db_target_info()
+    st.markdown(
+        f"""
+        <div class="db-target-badge db-target-{info['kind']}">
+            <span class="db-target-dot" aria-hidden="true"></span>
+            <span class="db-target-copy">
+                <span class="db-target-title">{html.escape(info['title'])}</span>
+            </span>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -122,6 +139,7 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
 
     with st.sidebar:
         _render_sidebar_logo()
+        _render_database_target()
         st.markdown("### Navegacao")
         menu = _render_navegacao()
 

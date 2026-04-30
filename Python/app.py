@@ -42,8 +42,8 @@ def main() -> None:
         error_text = str(error).lower()
         if "localhost" in error_text or "connection refused" in error_text:
             st.info(
-                "No Streamlit Cloud, configure DB remoto em Secrets: DATABASE_URL "
-                "ou DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD."
+                "No Streamlit Cloud, configure DB remoto em Secrets: DATABASE_URL, "
+                "NEON_DATABASE_URL ou DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD."
             )
         st.stop()
 

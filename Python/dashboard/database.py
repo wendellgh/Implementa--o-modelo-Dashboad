@@ -39,9 +39,13 @@ def _get_db_config() -> dict[str, str | None]:
     database_url = _first_non_empty(
         _get_secret_value("database.url")
         or _get_secret_value("DATABASE_URL"),
+        _get_secret_value("database.neon_url"),
+        _get_secret_value("database.neon_database_url"),
+        _get_secret_value("NEON_DATABASE_URL"),
         _get_secret_value("connections.postgresql.url"),
         _get_secret_value("connections.db.url"),
         os.getenv("DATABASE_URL"),
+        os.getenv("NEON_DATABASE_URL"),
     )
 
     if database_url:
@@ -111,21 +115,58 @@ def get_db_target_label() -> str:
         try:
             parsed = make_url(str(cfg["database_url"]))
             host = parsed.host or "host-indefinido"
-            port = parsed.port or "porta-indefinida"
+            port = f":{parsed.port}" if parsed.port else ""
             database = parsed.database or "db-indefinido"
-            return f"{host}:{port}/{database}"
+            return f"{host}{port}/{database}"
         except Exception:
             return "url-invalida"
 
     return f"{cfg.get('host')}:{cfg.get('porta')}/{cfg.get('banco')}"
 
 
+def get_db_target_kind() -> str:
+    cfg = _get_db_config()
+    host = ""
+
+    if cfg.get("database_url"):
+        try:
+            host = str(make_url(str(cfg["database_url"])).host or "")
+        except Exception:
+            return "unknown"
+    else:
+        host = str(cfg.get("host") or "")
+
+    host = host.lower()
+    if "neon.tech" in host:
+        return "neon"
+    if host in {"localhost", "127.0.0.1", "::1", "postgres", "host.docker.internal"}:
+        return "local"
+    return "remote"
+
+
+def get_db_target_info() -> dict[str, str]:
+    kind = get_db_target_kind()
+    titles = {
+        "neon": "Neon ativo",
+        "local": "Banco local",
+        "remote": "Banco remoto",
+        "unknown": "Banco indefinido",
+    }
+    return {
+        "kind": kind,
+        "title": titles.get(kind, "Banco"),
+        "label": get_db_target_label(),
+    }
+
+
 def get_db_diagnostics() -> dict[str, bool]:
     return {
         "secret_DATABASE_URL": bool(_first_non_empty(_get_secret_value("DATABASE_URL"), _get_secret_value("database.url"))),
+        "secret_NEON_DATABASE_URL": bool(_first_non_empty(_get_secret_value("NEON_DATABASE_URL"), _get_secret_value("database.neon_url"), _get_secret_value("database.neon_database_url"))),
         "secret_DB_HOST": bool(_get_secret_value("DB_HOST") or _get_secret_value("database.host")),
         "secret_connections_postgresql_host": bool(_get_secret_value("connections.postgresql.host")),
         "env_DATABASE_URL": bool(os.getenv("DATABASE_URL")),
+        "env_NEON_DATABASE_URL": bool(os.getenv("NEON_DATABASE_URL")),
         "env_DB_HOST": bool(os.getenv("DB_HOST")),
     }
 

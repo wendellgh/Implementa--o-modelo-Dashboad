@@ -78,6 +78,65 @@ def aplicar_estilos_globais() -> None:
                 margin-bottom: 1rem;
             }
 
+            .db-target-badge {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                width: 100%;
+                min-height: 38px;
+                margin: -10px 0 18px 0;
+                padding: 8px 10px;
+                border: 1px solid rgba(127, 127, 127, 0.25);
+                border-radius: 8px;
+                background: rgba(127, 127, 127, 0.08);
+                color: var(--text-color);
+            }
+
+            .db-target-dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 999px;
+                flex: 0 0 10px;
+                background: #64748B;
+                box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.18);
+            }
+
+            .db-target-neon .db-target-dot {
+                background: #00E699;
+                box-shadow: 0 0 0 3px rgba(0, 230, 153, 0.2);
+            }
+
+            .db-target-local .db-target-dot {
+                background: #F59E0B;
+                box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+            }
+
+            .db-target-remote .db-target-dot {
+                background: #38BDF8;
+                box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+            }
+
+            .db-target-copy {
+                min-width: 0;
+                display: flex;
+                flex-direction: column;
+                line-height: 1.15;
+            }
+
+            .db-target-title {
+                font-size: 12px;
+                font-weight: 700;
+            }
+
+            .db-target-label {
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                font-size: 11px;
+                opacity: 0.72;
+            }
+
             @media (max-width: 768px) {
                 .stApp {
                     --mobile-sidebar-width: min(86vw, 320px);
