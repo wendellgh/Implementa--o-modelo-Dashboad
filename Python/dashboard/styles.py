@@ -6,8 +6,14 @@ def aplicar_estilos_globais() -> None:
         """
         <style>
             .stApp {
+                --tacom-primary: #007AFF;
+                --tacom-secondary: #34C759;
+                --tacom-tertiary: #546E7A;
+                --tacom-accent: #FF3B30;
+                --tacom-technical: #00D4FF;
+                --tacom-text: #E0E0E0;
                 background: var(--background-color);
-                color: var(--text-color);
+                color: var(--tacom-text);
             }
 
             section[data-testid="stSidebar"] {
@@ -80,7 +86,7 @@ def aplicar_estilos_globais() -> None:
                 font-size: 24px;
                 font-weight: 700;
                 line-height: 1.2;
-                color: var(--text-color);
+                color: var(--tacom-text);
                 margin-bottom: 1rem;
                 margin-top: 2rem;
                 overflow-wrap: anywhere;
@@ -96,7 +102,7 @@ def aplicar_estilos_globais() -> None:
 
             .kpi-title {
                 font-size: 13px;
-                color: var(--text-color);
+                color: var(--tacom-text);
                 opacity: 0.75;
                 margin-bottom: 8px;
                 font-weight: 600;
@@ -105,7 +111,7 @@ def aplicar_estilos_globais() -> None:
             .kpi-value {
                 font-size: 28px;
                 font-weight: 700;
-                color: var(--text-color);
+                color: var(--tacom-text);
                 line-height: 1.05;
             }
 
@@ -128,7 +134,7 @@ def aplicar_estilos_globais() -> None:
                 border: 1px solid rgba(127, 127, 127, 0.25);
                 border-radius: 8px;
                 background: rgba(127, 127, 127, 0.08);
-                color: var(--text-color);
+                color: var(--tacom-text);
             }
 
             .db-target-dot {
@@ -136,23 +142,23 @@ def aplicar_estilos_globais() -> None:
                 height: 10px;
                 border-radius: 999px;
                 flex: 0 0 10px;
-                background: #64748B;
-                box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.18);
+                background: var(--tacom-tertiary);
+                box-shadow: 0 0 0 3px rgba(84, 110, 122, 0.18);
             }
 
             .db-target-neon .db-target-dot {
-                background: #00E699;
-                box-shadow: 0 0 0 3px rgba(0, 230, 153, 0.2);
+                background: var(--tacom-technical);
+                box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.2);
             }
 
             .db-target-local .db-target-dot {
-                background: #F59E0B;
-                box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+                background: var(--tacom-secondary);
+                box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.2);
             }
 
             .db-target-remote .db-target-dot {
-                background: #38BDF8;
-                box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+                background: var(--tacom-primary);
+                box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
             }
 
             .db-target-copy {

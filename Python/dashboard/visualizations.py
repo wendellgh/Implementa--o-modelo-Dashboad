@@ -3,37 +3,35 @@ import plotly.express as px
 import streamlit as st
 
 PALETA = {
-    "mist": "#CBD5E1",
-    "smoke": "#94A3B8",
-    "steel": "#64748B",
-    "slate": "#475569",
-    "graphite": "#334155",
-    "charcoal": "#1F2937",
-    "blue": "#2563EB",
-    "cyan": "#0891B2",
-    "green": "#16A34A",
-    "amber": "#D97706",
-    "red": "#DC2626",
-    "purple": "#7C3AED",
-    "indigo": "#4F46E5",
+    "primaria": "#007AFF",
+    "secundaria": "#34C759",
+    "terciaria": "#546E7A",
+    "acento": "#FF3B30",
+    "destaque_tecnico": "#00D4FF",
+    "texto_eixos": "#E0E0E0",
 }
 
-ESCALA_ALERTA = [PALETA["green"], PALETA["amber"], PALETA["red"]]
-ESCALA_OPERACIONAL = [PALETA["mist"], PALETA["cyan"], PALETA["blue"]]
-ESCALA_RANKING = [PALETA["smoke"], PALETA["purple"], PALETA["indigo"]]
+ESCALA_ALERTA = [PALETA["secundaria"], PALETA["primaria"], PALETA["acento"]]
+ESCALA_OPERACIONAL = [
+    PALETA["terciaria"],
+    PALETA["destaque_tecnico"],
+    PALETA["primaria"],
+]
+ESCALA_RANKING = [
+    PALETA["terciaria"],
+    PALETA["destaque_tecnico"],
+    PALETA["primaria"],
+]
 CORES_CATEGORICAS = [
-    PALETA["blue"],
-    PALETA["green"],
-    PALETA["amber"],
-    PALETA["red"],
-    PALETA["purple"],
-    PALETA["cyan"],
+    PALETA["primaria"],
+    PALETA["secundaria"],
+    PALETA["terciaria"],
+    PALETA["destaque_tecnico"],
 ]
 
 
 def _cor_texto_tema() -> str:
-    theme_base = st.get_option("theme.base")
-    return st.get_option("theme.textColor") or ("#F8FAFC" if theme_base == "dark" else "#0F172A")
+    return PALETA["texto_eixos"]
 
 
 def _estilizar_figura(fig):
@@ -52,7 +50,7 @@ def _estilizar_figura(fig):
         },
     )
     fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(gridcolor="rgba(127,127,127,0.25)")
+    fig.update_yaxes(gridcolor="rgba(224,224,224,0.18)")
     return fig
 
 
@@ -63,7 +61,7 @@ def _mostrar_rotulos_barras(fig, template: str = "%{text}") -> None:
         insidetextanchor="middle",
         constraintext="none",
         cliponaxis=False,
-        textfont={"color": "#F8FAFC", "size": 12},
+        textfont={"color": PALETA["texto_eixos"], "size": 12},
         selector={"type": "bar"},
     )
     fig.update_layout(uniformtext={"minsize": 10, "mode": "show"})
