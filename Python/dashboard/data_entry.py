@@ -9,13 +9,13 @@ from dashboard.database import get_engine
 
 COLUNAS_OPERADORA = ["id_operadora", "operadora"]
 COLUNAS_EQUIPAMENTO = ["cod_equipamento", "equipamento"]
-NOVO_CONTRATO_OPCAO = "+ Cadastrar novo contrato"
-NOVA_OPERADORA_OPCAO = "+ Cadastrar nova operadora"
-NOVO_EQUIPAMENTO_OPCAO = "+ Cadastrar novo equipamento"
 CAMPO_DATA_REF = "entrada_data_ref"
 CAMPO_FROTA = "entrada_frota"
 CAMPO_QTD = "entrada_qtd"
 CAMPO_CONTEXTO_FROTA = "entrada_contexto_frota"
+CAMPO_CADASTRAR_NOVO_CONTRATO = "entrada_cadastrar_novo_contrato"
+CAMPO_CADASTRAR_NOVA_OPERADORA = "entrada_cadastrar_nova_operadora"
+CAMPO_CADASTRAR_NOVO_EQUIPAMENTO = "entrada_cadastrar_novo_equipamento"
 CAMPO_NOVO_ID_CONTRATO = "entrada_novo_id_contrato"
 CAMPO_NOVO_CONTRATO = "entrada_novo_contrato"
 CAMPO_NOVO_ID_OPERADORA = "entrada_novo_id_operadora"
@@ -31,6 +31,11 @@ TEXT_INPUT_KEYS = [
     CAMPO_NOVA_OPERADORA,
     CAMPO_NOVO_COD_EQUIPAMENTO,
     CAMPO_NOVO_EQUIPAMENTO,
+]
+CHECKBOX_INPUT_KEYS = [
+    CAMPO_CADASTRAR_NOVO_CONTRATO,
+    CAMPO_CADASTRAR_NOVA_OPERADORA,
+    CAMPO_CADASTRAR_NOVO_EQUIPAMENTO,
 ]
 
 
@@ -104,6 +109,8 @@ def _preparar_campos() -> None:
         st.session_state[CAMPO_CONTEXTO_FROTA] = ""
         for campo in TEXT_INPUT_KEYS:
             st.session_state[campo] = ""
+        for campo in CHECKBOX_INPUT_KEYS:
+            st.session_state[campo] = False
 
     st.session_state.setdefault(CAMPO_DATA_REF, date.today())
     st.session_state.setdefault(CAMPO_FROTA, 0)
@@ -111,6 +118,25 @@ def _preparar_campos() -> None:
     st.session_state.setdefault(CAMPO_CONTEXTO_FROTA, "")
     for campo in TEXT_INPUT_KEYS:
         st.session_state.setdefault(campo, "")
+    for campo in CHECKBOX_INPUT_KEYS:
+        st.session_state.setdefault(campo, False)
+
+
+def _render_selectbox_existente(label: str, opcoes: list[str], vazio: str) -> str:
+    if opcoes:
+        return str(st.selectbox(label, opcoes))
+
+    st.selectbox(label, [vazio], disabled=True)
+    return ""
+
+
+def _render_checkbox_cadastro(label: str, key: str, forcar: bool = False) -> bool:
+    if forcar:
+        st.session_state[key] = True
+        st.checkbox(label, key=key, disabled=True)
+        return True
+
+    return bool(st.checkbox(label, key=key))
 
 
 def _render_campos_novo_contrato() -> tuple[str, str]:
@@ -256,9 +282,16 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
         st.success("Lancamento de manutencao salvo com sucesso.")
 
     contratos = _opcoes_unicas(df_base, "contrato")
-    opcoes_contrato = contratos + [NOVO_CONTRATO_OPCAO]
-    contrato_selecionado = st.selectbox("Contrato", opcoes_contrato)
-    novo_contrato = contrato_selecionado == NOVO_CONTRATO_OPCAO
+    contrato_selecionado = _render_selectbox_existente(
+        "Contrato",
+        contratos,
+        "Nenhum contrato cadastrado",
+    )
+    novo_contrato = _render_checkbox_cadastro(
+        "Cadastrar novo contrato",
+        CAMPO_CADASTRAR_NOVO_CONTRATO,
+        forcar=not bool(contratos),
+    )
 
     if novo_contrato:
         id_contrato, contrato = _render_campos_novo_contrato()
@@ -278,9 +311,16 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
             hide_index=True,
         )
 
-    opcoes_operadora = operadoras + [NOVA_OPERADORA_OPCAO]
-    operadora_selecionada = st.selectbox("Operadora", opcoes_operadora)
-    nova_operadora = operadora_selecionada == NOVA_OPERADORA_OPCAO
+    operadora_selecionada = _render_selectbox_existente(
+        "Operadora",
+        operadoras,
+        "Nenhuma operadora cadastrada",
+    )
+    nova_operadora = _render_checkbox_cadastro(
+        "Cadastrar nova operadora",
+        CAMPO_CADASTRAR_NOVA_OPERADORA,
+        forcar=not bool(operadoras),
+    )
 
     if nova_operadora:
         id_operadora, operadora = _render_campos_nova_operadora()
@@ -300,15 +340,21 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
                 hide_index=True,
             )
 
-    opcoes_equipamento = equipamentos + [NOVO_EQUIPAMENTO_OPCAO]
-
     col_data, col_equipamento = st.columns([1, 2])
     with col_data:
         data_ref = st.date_input("Data de referencia", key=CAMPO_DATA_REF)
     with col_equipamento:
-        equipamento_selecionado = st.selectbox("Equipamento", opcoes_equipamento)
+        equipamento_selecionado = _render_selectbox_existente(
+            "Equipamento",
+            equipamentos,
+            "Nenhum equipamento cadastrado",
+        )
 
-    novo_equipamento = equipamento_selecionado == NOVO_EQUIPAMENTO_OPCAO
+    novo_equipamento = _render_checkbox_cadastro(
+        "Cadastrar novo equipamento",
+        CAMPO_CADASTRAR_NOVO_EQUIPAMENTO,
+        forcar=not bool(equipamentos),
+    )
     if novo_equipamento:
         cod_equipamento, equipamento = _render_campos_novo_equipamento()
         ultima_frota = None
@@ -320,9 +366,9 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
 
     contexto_frota = "|".join(
         [
-            str(contrato_selecionado),
-            str(operadora_selecionada),
-            str(equipamento_selecionado),
+            "novo_contrato" if novo_contrato else str(contrato_selecionado),
+            "nova_operadora" if nova_operadora else str(operadora_selecionada),
+            "novo_equipamento" if novo_equipamento else str(equipamento_selecionado),
         ]
     )
     _atualizar_frota_por_selecao(contexto_frota, ultima_frota)
