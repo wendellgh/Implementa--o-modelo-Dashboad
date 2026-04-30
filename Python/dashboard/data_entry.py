@@ -484,14 +484,6 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
         cod_equipamento = _primeiro_valor(df_equipamento, "cod_equipamento")
         ultima_frota = _obter_ultima_frota(df_equipamento)
 
-    _render_ultimas_entradas(
-        df_base,
-        data_ref=data_ref,
-        contrato=contrato,
-        operadora=operadora,
-        equipamento=equipamento,
-    )
-
     contexto_frota = "|".join(
         [
             "novo_contrato" if novo_contrato else str(contrato_selecionado),
@@ -513,7 +505,15 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
     with col_percentual:
         st.metric("% QTD x Frota", f"{percentual:.2f}%")
 
-    salvar = st.button("Salvar manutencao", type="primary")
+    salvar = st.button("Salvar Manutenção", type="primary")
+
+    _render_ultimas_entradas(
+        df_base,
+        data_ref=data_ref,
+        contrato=contrato,
+        operadora=operadora,
+        equipamento=equipamento,
+    )
 
     if not salvar:
         return

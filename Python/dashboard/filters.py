@@ -56,10 +56,9 @@ def _render_sidebar_logo() -> None:
     svg_base64 = base64.b64encode(SIDEBAR_LOGO_PATH.read_bytes()).decode("utf-8")
     st.markdown(
         (
-            '<div style="margin: 4px 0 24px 0;">'
+            '<div class="sidebar-logo">'
             f'<img src="data:image/svg+xml;base64,{svg_base64}" '
-            'alt="Tacom" '
-            'style="display: block; width: 100%; max-width: 235px; height: auto;" />'
+            'alt="Tacom" />'
             "</div>"
         ),
         unsafe_allow_html=True,

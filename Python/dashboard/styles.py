@@ -15,6 +15,45 @@ def aplicar_estilos_globais() -> None:
                 border-right: 1px solid rgba(127, 127, 127, 0.25);
             }
 
+            div[data-testid="stSidebarContent"] {
+                padding-top: 0.75rem;
+            }
+
+            div[data-testid="stSidebarHeader"] {
+                height: 2rem !important;
+                min-height: 0 !important;
+                width: 2rem !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                position: absolute !important;
+                top: 0.5rem;
+                right: 0.5rem;
+                z-index: 3;
+            }
+
+            div[data-testid="stLogoSpacer"] {
+                display: none !important;
+            }
+
+            div[data-testid="stSidebarUserContent"] {
+                padding-top: 0 !important;
+            }
+
+            div[data-testid="stMarkdownContainer"]:has(.sidebar-logo) {
+                margin-bottom: 0 !important;
+            }
+
+            .sidebar-logo {
+                margin: 0 0 14px 0;
+            }
+
+            .sidebar-logo img {
+                display: block;
+                width: 100%;
+                max-width: 220px;
+                height: auto;
+            }
+
             header[data-testid="stHeader"] {
                 background: var(--background-color);
                 border-bottom: none;
