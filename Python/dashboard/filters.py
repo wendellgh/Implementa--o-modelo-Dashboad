@@ -1,11 +1,67 @@
+import base64
 from datetime import date
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
 from dashboard.config import MENU_ITEMS
 
+ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
+SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
 DATA_INICIO_PADRAO = date(2026, 1, 1)
+ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
+PAGINA_ATUAL_KEY = "pagina_atual"
+PAGINA_RADIO_KEY = "pagina_radio"
+
+
+def _selecionar_entrada_dados() -> None:
+    st.session_state[PAGINA_ATUAL_KEY] = ENTRADA_DADOS_MENU_ITEM
+    st.session_state[PAGINA_RADIO_KEY] = None
+
+
+def _render_navegacao() -> str:
+    st.session_state.setdefault(PAGINA_ATUAL_KEY, MENU_ITEMS[0])
+
+    st.button(
+        ENTRADA_DADOS_MENU_ITEM,
+        key="botao_entrada_dados",
+        type="primary",
+        icon=":material/edit_note:",
+        on_click=_selecionar_entrada_dados,
+        use_container_width=True,
+    )
+
+    pagina_atual = str(st.session_state[PAGINA_ATUAL_KEY])
+    indice_menu = MENU_ITEMS.index(pagina_atual) if pagina_atual in MENU_ITEMS else None
+    pagina_radio = st.radio(
+        "Pagina",
+        MENU_ITEMS,
+        index=indice_menu,
+        key=PAGINA_RADIO_KEY,
+    )
+
+    if pagina_radio:
+        st.session_state[PAGINA_ATUAL_KEY] = pagina_radio
+
+    return str(st.session_state[PAGINA_ATUAL_KEY])
+
+
+def _render_sidebar_logo() -> None:
+    if not SIDEBAR_LOGO_PATH.exists():
+        return
+
+    svg_base64 = base64.b64encode(SIDEBAR_LOGO_PATH.read_bytes()).decode("utf-8")
+    st.markdown(
+        (
+            '<div style="margin: 4px 0 24px 0;">'
+            f'<img src="data:image/svg+xml;base64,{svg_base64}" '
+            'alt="Tacom" '
+            'style="display: block; width: 100%; max-width: 235px; height: auto;" />'
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
 
 
 def _formatar_mes(data_mes: pd.Timestamp) -> str:
@@ -65,8 +121,9 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
     periodo_padrao = _obter_periodo_padrao(meses_disponiveis)
 
     with st.sidebar:
+        _render_sidebar_logo()
         st.markdown("### Navegacao")
-        menu = st.radio("Pagina", MENU_ITEMS, index=0)
+        menu = _render_navegacao()
 
         st.markdown("### Filtros")
         periodo_mensal = st.select_slider(

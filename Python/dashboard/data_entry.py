@@ -1,0 +1,380 @@
+from datetime import date
+
+import pandas as pd
+import streamlit as st
+from sqlalchemy import text
+
+from dashboard.database import get_engine
+
+
+COLUNAS_OPERADORA = ["id_operadora", "operadora"]
+COLUNAS_EQUIPAMENTO = ["cod_equipamento", "equipamento"]
+NOVO_CONTRATO_OPCAO = "+ Cadastrar novo contrato"
+NOVA_OPERADORA_OPCAO = "+ Cadastrar nova operadora"
+NOVO_EQUIPAMENTO_OPCAO = "+ Cadastrar novo equipamento"
+CAMPO_DATA_REF = "entrada_data_ref"
+CAMPO_FROTA = "entrada_frota"
+CAMPO_QTD = "entrada_qtd"
+CAMPO_CONTEXTO_FROTA = "entrada_contexto_frota"
+CAMPO_NOVO_ID_CONTRATO = "entrada_novo_id_contrato"
+CAMPO_NOVO_CONTRATO = "entrada_novo_contrato"
+CAMPO_NOVO_ID_OPERADORA = "entrada_novo_id_operadora"
+CAMPO_NOVA_OPERADORA = "entrada_nova_operadora"
+CAMPO_NOVO_COD_EQUIPAMENTO = "entrada_novo_cod_equipamento"
+CAMPO_NOVO_EQUIPAMENTO = "entrada_novo_equipamento"
+FLAG_RESET_CAMPOS = "entrada_reset_campos"
+FLAG_LANCAMENTO_SALVO = "entrada_lancamento_salvo"
+TEXT_INPUT_KEYS = [
+    CAMPO_NOVO_ID_CONTRATO,
+    CAMPO_NOVO_CONTRATO,
+    CAMPO_NOVO_ID_OPERADORA,
+    CAMPO_NOVA_OPERADORA,
+    CAMPO_NOVO_COD_EQUIPAMENTO,
+    CAMPO_NOVO_EQUIPAMENTO,
+]
+
+
+def _opcoes_unicas(df: pd.DataFrame, coluna: str) -> list[str]:
+    if coluna not in df.columns or df.empty:
+        return []
+
+    return sorted(
+        valor
+        for valor in df[coluna].fillna("").astype(str).str.strip().unique().tolist()
+        if valor
+    )
+
+
+def _primeiro_valor(df: pd.DataFrame, coluna: str) -> str:
+    if coluna not in df.columns or df.empty:
+        return ""
+
+    valores = df[coluna].fillna("").astype(str).str.strip()
+    valores = valores[valores.ne("")]
+    if valores.empty:
+        return ""
+
+    return str(valores.iloc[0])
+
+
+def _filtrar_por_contrato(df_base: pd.DataFrame, contrato: str) -> pd.DataFrame:
+    return df_base[df_base["contrato"].eq(contrato)].copy()
+
+
+def _filtrar_por_operadora(df_base: pd.DataFrame, operadora: str) -> pd.DataFrame:
+    return df_base[df_base["operadora"].eq(operadora)].copy()
+
+
+def _montar_tabela_operadoras(df_contrato: pd.DataFrame) -> pd.DataFrame:
+    if df_contrato.empty:
+        return pd.DataFrame(columns=COLUNAS_OPERADORA)
+
+    return (
+        df_contrato[COLUNAS_OPERADORA]
+        .drop_duplicates()
+        .sort_values("operadora")
+        .reset_index(drop=True)
+    )
+
+
+def _montar_tabela_equipamentos(df_operadora: pd.DataFrame) -> pd.DataFrame:
+    if df_operadora.empty:
+        return pd.DataFrame(columns=COLUNAS_EQUIPAMENTO)
+
+    return (
+        df_operadora[COLUNAS_EQUIPAMENTO]
+        .drop_duplicates()
+        .sort_values("equipamento")
+        .reset_index(drop=True)
+    )
+
+
+def _calcular_percentual(qtd: int, frota: int) -> float:
+    if frota <= 0:
+        return 0.0
+
+    return round((qtd / frota) * 100, 2)
+
+
+def _preparar_campos() -> None:
+    if st.session_state.pop(FLAG_RESET_CAMPOS, False):
+        st.session_state[CAMPO_DATA_REF] = date.today()
+        st.session_state[CAMPO_FROTA] = 0
+        st.session_state[CAMPO_QTD] = 0
+        st.session_state[CAMPO_CONTEXTO_FROTA] = ""
+        for campo in TEXT_INPUT_KEYS:
+            st.session_state[campo] = ""
+
+    st.session_state.setdefault(CAMPO_DATA_REF, date.today())
+    st.session_state.setdefault(CAMPO_FROTA, 0)
+    st.session_state.setdefault(CAMPO_QTD, 0)
+    st.session_state.setdefault(CAMPO_CONTEXTO_FROTA, "")
+    for campo in TEXT_INPUT_KEYS:
+        st.session_state.setdefault(campo, "")
+
+
+def _render_campos_novo_contrato() -> tuple[str, str]:
+    col_id, col_nome = st.columns([1, 2])
+    with col_id:
+        id_contrato = st.text_input(
+            "ID do contrato",
+            key=CAMPO_NOVO_ID_CONTRATO,
+            placeholder="Opcional",
+        )
+    with col_nome:
+        contrato = st.text_input(
+            "Nome do contrato",
+            key=CAMPO_NOVO_CONTRATO,
+            placeholder="Digite o novo contrato",
+        )
+
+    return str(id_contrato).strip(), str(contrato).strip()
+
+
+def _render_campos_nova_operadora() -> tuple[str, str]:
+    col_id, col_nome = st.columns([1, 2])
+    with col_id:
+        id_operadora = st.text_input(
+            "ID da operadora",
+            key=CAMPO_NOVO_ID_OPERADORA,
+            placeholder="Opcional",
+        )
+    with col_nome:
+        operadora = st.text_input(
+            "Nome da operadora",
+            key=CAMPO_NOVA_OPERADORA,
+            placeholder="Digite a nova operadora",
+        )
+
+    return str(id_operadora).strip(), str(operadora).strip()
+
+
+def _render_campos_novo_equipamento() -> tuple[str, str]:
+    col_codigo, col_nome = st.columns([1, 2])
+    with col_codigo:
+        cod_equipamento = st.text_input(
+            "Codigo do equipamento",
+            key=CAMPO_NOVO_COD_EQUIPAMENTO,
+            placeholder="Opcional",
+        )
+    with col_nome:
+        equipamento = st.text_input(
+            "Nome do equipamento",
+            key=CAMPO_NOVO_EQUIPAMENTO,
+            placeholder="Digite o novo equipamento",
+        )
+
+    return str(cod_equipamento).strip(), str(equipamento).strip()
+
+
+def _validar_lancamento(
+    contrato: str,
+    operadora: str,
+    equipamento: str,
+    frota: int,
+    qtd: int,
+) -> list[str]:
+    erros = []
+    if not contrato:
+        erros.append("Informe o nome do contrato.")
+    if not operadora:
+        erros.append("Informe o nome da operadora.")
+    if not equipamento:
+        erros.append("Informe o nome do equipamento.")
+    if frota == 0 and qtd > 0:
+        erros.append("Informe uma frota maior que zero para lancar quantidade em manutencao.")
+
+    return erros
+
+
+def _obter_ultima_frota(df_equipamento: pd.DataFrame) -> int | None:
+    if df_equipamento.empty or "frota" not in df_equipamento.columns:
+        return None
+
+    df_aux = df_equipamento.copy()
+    df_aux["_frota"] = pd.to_numeric(df_aux["frota"], errors="coerce")
+    df_aux = df_aux[df_aux["_frota"].notna()]
+    if df_aux.empty:
+        return None
+
+    if "data_ref" in df_aux.columns:
+        df_aux["_data_ref"] = pd.to_datetime(df_aux["data_ref"], errors="coerce")
+        df_aux = df_aux.sort_values("_data_ref", ascending=False, na_position="last")
+
+    return int(df_aux["_frota"].iloc[0])
+
+
+def _atualizar_frota_por_selecao(contexto: str, ultima_frota: int | None) -> None:
+    if st.session_state.get(CAMPO_CONTEXTO_FROTA) == contexto:
+        return
+
+    st.session_state[CAMPO_CONTEXTO_FROTA] = contexto
+    st.session_state[CAMPO_FROTA] = int(ultima_frota or 0)
+
+
+def salvar_lancamento_manutencao(dados: dict[str, object]) -> None:
+    insert_sql = text(
+        """
+        insert into base_historica_manutencao (
+            data_ref,
+            id_contrato,
+            contrato,
+            id_operadora,
+            operadora,
+            cod_equipamento,
+            equipamento,
+            frota,
+            qtd,
+            percentual
+        )
+        values (
+            :data_ref,
+            :id_contrato,
+            :contrato,
+            :id_operadora,
+            :operadora,
+            :cod_equipamento,
+            :equipamento,
+            :frota,
+            :qtd,
+            :percentual
+        )
+        """
+    )
+
+    with get_engine().begin() as conn:
+        conn.execute(insert_sql, dados)
+
+    st.cache_data.clear()
+
+
+def render_entrada_dados(df_base: pd.DataFrame) -> None:
+    st.subheader("Entrada de Dados de Manutencao")
+    _preparar_campos()
+
+    if st.session_state.pop(FLAG_LANCAMENTO_SALVO, False):
+        st.success("Lancamento de manutencao salvo com sucesso.")
+
+    contratos = _opcoes_unicas(df_base, "contrato")
+    opcoes_contrato = contratos + [NOVO_CONTRATO_OPCAO]
+    contrato_selecionado = st.selectbox("Contrato", opcoes_contrato)
+    novo_contrato = contrato_selecionado == NOVO_CONTRATO_OPCAO
+
+    if novo_contrato:
+        id_contrato, contrato = _render_campos_novo_contrato()
+        df_contrato = pd.DataFrame(columns=df_base.columns)
+        st.info("O novo contrato sera criado quando o lancamento for salvo.")
+    else:
+        contrato = str(contrato_selecionado)
+        df_contrato = _filtrar_por_contrato(df_base, contrato)
+        id_contrato = _primeiro_valor(df_contrato, "id_contrato")
+
+    operadoras = _opcoes_unicas(df_contrato, "operadora")
+    if operadoras:
+        st.markdown("#### Operadoras do contrato")
+        st.dataframe(
+            _montar_tabela_operadoras(df_contrato),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    opcoes_operadora = operadoras + [NOVA_OPERADORA_OPCAO]
+    operadora_selecionada = st.selectbox("Operadora", opcoes_operadora)
+    nova_operadora = operadora_selecionada == NOVA_OPERADORA_OPCAO
+
+    if nova_operadora:
+        id_operadora, operadora = _render_campos_nova_operadora()
+        df_operadora = pd.DataFrame(columns=df_base.columns)
+        st.info("A nova operadora sera vinculada ao contrato quando o lancamento for salvo.")
+    else:
+        operadora = str(operadora_selecionada)
+        df_operadora = _filtrar_por_operadora(df_contrato, operadora)
+        id_operadora = _primeiro_valor(df_operadora, "id_operadora")
+
+    equipamentos = _opcoes_unicas(df_operadora, "equipamento")
+    if equipamentos:
+        with st.expander("Equipamentos da operadora", expanded=False):
+            st.dataframe(
+                _montar_tabela_equipamentos(df_operadora),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    opcoes_equipamento = equipamentos + [NOVO_EQUIPAMENTO_OPCAO]
+
+    col_data, col_equipamento = st.columns([1, 2])
+    with col_data:
+        data_ref = st.date_input("Data de referencia", key=CAMPO_DATA_REF)
+    with col_equipamento:
+        equipamento_selecionado = st.selectbox("Equipamento", opcoes_equipamento)
+
+    novo_equipamento = equipamento_selecionado == NOVO_EQUIPAMENTO_OPCAO
+    if novo_equipamento:
+        cod_equipamento, equipamento = _render_campos_novo_equipamento()
+        ultima_frota = None
+    else:
+        equipamento = str(equipamento_selecionado)
+        df_equipamento = df_operadora[df_operadora["equipamento"].eq(equipamento)]
+        cod_equipamento = _primeiro_valor(df_equipamento, "cod_equipamento")
+        ultima_frota = _obter_ultima_frota(df_equipamento)
+
+    contexto_frota = "|".join(
+        [
+            str(contrato_selecionado),
+            str(operadora_selecionada),
+            str(equipamento_selecionado),
+        ]
+    )
+    _atualizar_frota_por_selecao(contexto_frota, ultima_frota)
+
+    col_frota, col_qtd, col_percentual = st.columns(3)
+    with col_frota:
+        frota = st.number_input("Frota", min_value=0, step=1, key=CAMPO_FROTA)
+        if ultima_frota is not None:
+            st.caption(f"Ultima frota cadastrada: {ultima_frota}")
+    with col_qtd:
+        qtd = st.number_input("Qtd em manutencao", min_value=0, step=1, key=CAMPO_QTD)
+
+    percentual = _calcular_percentual(int(qtd), int(frota))
+    with col_percentual:
+        st.metric("% QTD x Frota", f"{percentual:.2f}%")
+
+    salvar = st.button("Salvar manutencao", type="primary")
+
+    if not salvar:
+        return
+
+    erros = _validar_lancamento(
+        contrato=contrato,
+        operadora=operadora,
+        equipamento=equipamento,
+        frota=int(frota),
+        qtd=int(qtd),
+    )
+    if erros:
+        for erro in erros:
+            st.error(erro)
+        return
+
+    dados = {
+        "data_ref": data_ref,
+        "id_contrato": id_contrato,
+        "contrato": contrato,
+        "id_operadora": id_operadora,
+        "operadora": operadora,
+        "cod_equipamento": cod_equipamento,
+        "equipamento": equipamento,
+        "frota": int(frota),
+        "qtd": int(qtd),
+        "percentual": percentual,
+    }
+
+    try:
+        salvar_lancamento_manutencao(dados)
+    except Exception as error:
+        st.error(f"Erro ao salvar lancamento: {error}")
+        return
+
+    st.session_state[FLAG_RESET_CAMPOS] = True
+    st.session_state[FLAG_LANCAMENTO_SALVO] = True
+    st.rerun()

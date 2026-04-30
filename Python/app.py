@@ -13,6 +13,7 @@ from dashboard.data import (
     carregar_base_outra_tabela
 )
 from dashboard.database import get_db_diagnostics, get_db_target_label
+from dashboard.data_entry import render_entrada_dados
 from dashboard.filters import aplicar_filtros, render_sidebar
 from dashboard.metrics import calcular_kpis, render_kpis, render_total_servicos_executados
 from dashboard.styles import aplicar_estilos_globais, render_titulo_principal
@@ -23,6 +24,8 @@ from dashboard.visualizations import (
     render_resumo_chart,
     render_servicos_executados_chart,
 )
+
+ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
 
 
 def main() -> None:
@@ -69,6 +72,8 @@ def main() -> None:
     elif menu == "Resumo":
         render_resumo_chart(resumo)
         render_tabela_resumo(resumo)
+    elif menu == ENTRADA_DADOS_MENU_ITEM:
+        render_entrada_dados(df_base)
     elif menu == "Wendells":
         render_frota_operadora_chart(frota_operadora)
     elif menu =="Serviços Executados - Teste":
