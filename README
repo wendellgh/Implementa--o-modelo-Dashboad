@@ -242,7 +242,8 @@ Parar Streamlit (terminal em execução):
 Ctrl + C
 ```
 ## Matar a porta
-taskkill /PID 9684 /F
+netstat -ano | findstr :8501
+taskkill /PID 7652 /F
 ---
 
 ## 🚀 Próximos passos (opcional)

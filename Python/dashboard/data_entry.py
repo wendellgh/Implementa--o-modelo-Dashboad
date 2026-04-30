@@ -9,6 +9,16 @@ from dashboard.database import get_engine
 
 COLUNAS_OPERADORA = ["id_operadora", "operadora"]
 COLUNAS_EQUIPAMENTO = ["cod_equipamento", "equipamento"]
+COLUNAS_ULTIMAS_ENTRADAS = [
+    "Status",
+    "Data",
+    "Contrato",
+    "Operadora",
+    "Equipamento",
+    "Frota",
+    "Qtd manutencao",
+    "%",
+]
 CAMPO_DATA_REF = "entrada_data_ref"
 CAMPO_FROTA = "entrada_frota"
 CAMPO_QTD = "entrada_qtd"
@@ -62,6 +72,20 @@ def _primeiro_valor(df: pd.DataFrame, coluna: str) -> str:
     return str(valores.iloc[0])
 
 
+def _normalizar_texto(valor: object) -> str:
+    if pd.isna(valor):
+        return ""
+
+    return str(valor).strip()
+
+
+def _serie_texto(df: pd.DataFrame, coluna: str) -> pd.Series:
+    if coluna not in df.columns:
+        return pd.Series("", index=df.index, dtype="object")
+
+    return df[coluna].fillna("").astype(str).str.strip()
+
+
 def _filtrar_por_contrato(df_base: pd.DataFrame, contrato: str) -> pd.DataFrame:
     return df_base[df_base["contrato"].eq(contrato)].copy()
 
@@ -92,6 +116,102 @@ def _montar_tabela_equipamentos(df_operadora: pd.DataFrame) -> pd.DataFrame:
         .sort_values("equipamento")
         .reset_index(drop=True)
     )
+
+
+def _montar_tabela_ultimas_entradas(
+    df_base: pd.DataFrame,
+    contrato: str,
+    operadora: str,
+    equipamento: str,
+    limite: int = 10,
+) -> pd.DataFrame:
+    if df_base.empty:
+        return pd.DataFrame(columns=COLUNAS_ULTIMAS_ENTRADAS)
+
+    df_aux = df_base.copy()
+    filtros = {
+        "contrato": contrato,
+        "operadora": operadora,
+        "equipamento": equipamento,
+    }
+    for coluna, valor in filtros.items():
+        valor_normalizado = _normalizar_texto(valor)
+        if valor_normalizado and coluna in df_aux.columns:
+            df_aux = df_aux[_serie_texto(df_aux, coluna).eq(valor_normalizado)]
+
+    if df_aux.empty:
+        return pd.DataFrame(columns=COLUNAS_ULTIMAS_ENTRADAS)
+
+    df_aux["_data_ref"] = pd.to_datetime(df_aux["data_ref"], errors="coerce")
+    df_aux = df_aux.sort_values("_data_ref", ascending=False, na_position="last").head(limite)
+
+    percentual = pd.to_numeric(df_aux["percentual"], errors="coerce").fillna(0)
+    tabela = pd.DataFrame(
+        {
+            "Status": "🟢 Inserido",
+            "Data": df_aux["_data_ref"].dt.strftime("%d/%m/%Y").fillna(""),
+            "Contrato": _serie_texto(df_aux, "contrato"),
+            "Operadora": _serie_texto(df_aux, "operadora"),
+            "Equipamento": _serie_texto(df_aux, "equipamento"),
+            "Frota": pd.to_numeric(df_aux["frota"], errors="coerce").fillna(0).astype(int),
+            "Qtd manutencao": pd.to_numeric(df_aux["qtd"], errors="coerce").fillna(0).astype(int),
+            "%": percentual.map(lambda valor: f"{valor:.2f}%"),
+        }
+    )
+
+    return tabela[COLUNAS_ULTIMAS_ENTRADAS].reset_index(drop=True)
+
+
+def _existe_lancamento_mes(
+    df_base: pd.DataFrame,
+    data_ref: date,
+    contrato: str,
+    operadora: str,
+    equipamento: str,
+) -> bool:
+    if df_base.empty or not all([contrato, operadora, equipamento]):
+        return False
+
+    data_ref_periodo = pd.Timestamp(data_ref).to_period("M")
+    df_aux = df_base.copy()
+    df_aux["_mes_ref"] = pd.to_datetime(df_aux["data_ref"], errors="coerce").dt.to_period("M")
+
+    mascara = (
+        df_aux["_mes_ref"].eq(data_ref_periodo)
+        & _serie_texto(df_aux, "contrato").str.lower().eq(_normalizar_texto(contrato).lower())
+        & _serie_texto(df_aux, "operadora").str.lower().eq(_normalizar_texto(operadora).lower())
+        & _serie_texto(df_aux, "equipamento").str.lower().eq(_normalizar_texto(equipamento).lower())
+    )
+
+    return bool(mascara.any())
+
+
+def _render_ultimas_entradas(
+    df_base: pd.DataFrame,
+    data_ref: date,
+    contrato: str,
+    operadora: str,
+    equipamento: str,
+) -> None:
+    tabela = _montar_tabela_ultimas_entradas(
+        df_base,
+        contrato=contrato,
+        operadora=operadora,
+        equipamento=equipamento,
+    )
+
+    if _existe_lancamento_mes(df_base, data_ref, contrato, operadora, equipamento):
+        st.warning(
+            "Ja existe lancamento para este mes, contrato, operadora e equipamento. "
+            "Confira as ultimas entradas antes de salvar novamente."
+        )
+
+    with st.expander("Ultimas entradas", expanded=True):
+        if tabela.empty:
+            st.info("Sem entradas anteriores para a selecao atual.")
+            return
+
+        st.dataframe(tabela, use_container_width=True, hide_index=True)
 
 
 def _calcular_percentual(qtd: int, frota: int) -> float:
@@ -279,7 +399,7 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
     _preparar_campos()
 
     if st.session_state.pop(FLAG_LANCAMENTO_SALVO, False):
-        st.success("Lancamento de manutencao salvo com sucesso.")
+        st.success("Lançamento de manutencao salvo com sucesso.")
 
     contratos = _opcoes_unicas(df_base, "contrato")
     contrato_selecionado = _render_selectbox_existente(
@@ -304,12 +424,12 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
 
     operadoras = _opcoes_unicas(df_contrato, "operadora")
     if operadoras:
-        st.markdown("#### Operadoras do contrato")
-        st.dataframe(
-            _montar_tabela_operadoras(df_contrato),
-            use_container_width=True,
-            hide_index=True,
-        )
+        with st.expander("Operadoras do contrato", expanded=False):
+            st.dataframe(
+                _montar_tabela_operadoras(df_contrato),
+                use_container_width=True,
+                hide_index=True,
+            )
 
     operadora_selecionada = _render_selectbox_existente(
         "Operadora",
@@ -364,6 +484,14 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
         cod_equipamento = _primeiro_valor(df_equipamento, "cod_equipamento")
         ultima_frota = _obter_ultima_frota(df_equipamento)
 
+    _render_ultimas_entradas(
+        df_base,
+        data_ref=data_ref,
+        contrato=contrato,
+        operadora=operadora,
+        equipamento=equipamento,
+    )
+
     contexto_frota = "|".join(
         [
             "novo_contrato" if novo_contrato else str(contrato_selecionado),
@@ -397,6 +525,11 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
         frota=int(frota),
         qtd=int(qtd),
     )
+    if _existe_lancamento_mes(df_base, data_ref, contrato, operadora, equipamento):
+        erros.append(
+            "Ja existe lancamento para este mes, contrato, operadora e equipamento. "
+            "Nao foi salvo para evitar duplicidade."
+        )
     if erros:
         for erro in erros:
             st.error(erro)
