@@ -2,7 +2,7 @@ PAGE_CONFIG = {
     "page_title": "Dashboard de Manutencao",
     "page_icon": ":bar_chart:",
     "layout": "wide",
-    "initial_sidebar_state": "expanded",
+    "initial_sidebar_state": "auto",
 }
 
 APP_TITLE = "Dashboard de Manutencao das Filiais"

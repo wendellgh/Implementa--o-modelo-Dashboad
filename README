@@ -241,7 +241,8 @@ Parar Streamlit (terminal em execução):
 ```bash
 Ctrl + C
 ```
-
+## Matar a porta
+taskkill /PID 9684 /F
 ---
 
 ## 🚀 Próximos passos (opcional)
