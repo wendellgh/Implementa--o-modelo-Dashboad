@@ -9,6 +9,24 @@ APP_TITLE = "Dashboard de Manutencao das Filiais"
 
 MENU_ITEMS = ["Dashboard", "Resumo", "Tabela", "Contando Frota - Teste", "Serviços Executados - Teste", "Oracle DESTBOAD"]
 
+PERFIL_ADMIN = "admin"
+PERFIL_USUARIO = "usuario"
+
+USUARIOS_APP = {
+    "admin": {
+        "senha": "admin123",
+        "nome": "Administrador",
+        "perfil": PERFIL_ADMIN,
+        "prioridade": 100,
+    },
+    "usuario": {
+        "senha": "usuario123",
+        "nome": "Usuario Padrao",
+        "perfil": PERFIL_USUARIO,
+        "prioridade": 10,
+    },
+}
+
 DB_SETTINGS = {
     "usuario": "app_user",
     "senha": "app123",

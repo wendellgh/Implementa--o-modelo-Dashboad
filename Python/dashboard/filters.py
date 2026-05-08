@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from dashboard.auth import encerrar_sessao, obter_usuario_logado, usuario_eh_admin
 from dashboard.config import MENU_ITEMS
 from dashboard.database import get_db_target_info
 
@@ -13,6 +14,7 @@ ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
 DATA_INICIO_PADRAO = date(2026, 1, 1)
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
+ORACLE_DESTBOAD_MENU_ITEM = "Oracle DESTBOAD"
 PAGINA_ATUAL_KEY = "pagina_atual"
 
 MENU_ICONS = {
@@ -23,7 +25,7 @@ MENU_ICONS = {
     "Contando Frota.": ":material/query_stats:",
     "Serviços Executados - Teste": ":material/build:",
     "ServiÃ§os Executados - Teste": ":material/build:",
-    "Oracle DESTBOAD": ":material/database:",
+    ORACLE_DESTBOAD_MENU_ITEM: ":material/database:",
     ENTRADA_DADOS_MENU_ITEM: ":material/edit_note:",
 }
 
@@ -39,16 +41,22 @@ def _render_navegacao() -> str:
     pagina_atual = str(st.session_state[PAGINA_ATUAL_KEY])
     if pagina_atual not in paginas:
         pagina_atual = paginas[0]
+    if pagina_atual == ORACLE_DESTBOAD_MENU_ITEM and not usuario_eh_admin():
+        pagina_atual = "Dashboard" if "Dashboard" in paginas else paginas[0]
 
     pagina_selecionada = pagina_atual
     for indice, pagina in enumerate(paginas):
+        oracle_bloqueado = pagina == ORACLE_DESTBOAD_MENU_ITEM and not usuario_eh_admin()
         clicou = st.button(
             pagina,
             key=f"botao_pagina_{indice}",
             type="primary" if pagina == pagina_atual else "secondary",
             icon=MENU_ICONS.get(pagina),
             width="stretch",
+            disabled=oracle_bloqueado,
         )
+        if oracle_bloqueado:
+            st.caption("Disponivel apenas para administradores.")
         if clicou:
             pagina_selecionada = pagina
 
@@ -86,6 +94,29 @@ def _render_database_target() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def _render_usuario_logado() -> None:
+    usuario_logado = obter_usuario_logado()
+    if not usuario_logado:
+        return
+
+    nome = html.escape(str(usuario_logado.get("nome") or usuario_logado.get("usuario") or "Usuario"))
+    perfil = html.escape(str(usuario_logado.get("perfil") or ""))
+    prioridade = html.escape(str(usuario_logado.get("prioridade") or ""))
+
+    st.markdown(
+        f"""
+        <div class="user-session-badge">
+            <span class="user-session-name">{nome}</span>
+            <span class="user-session-role">Perfil: {perfil} | Prioridade: {prioridade}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("Sair", icon=":material/logout:", width="stretch"):
+        encerrar_sessao()
+        st.rerun()
 
 
 def _formatar_mes(data_mes: pd.Timestamp) -> str:
@@ -146,6 +177,7 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
 
     with st.sidebar:
         _render_sidebar_logo()
+        _render_usuario_logado()
         _render_database_target()
         st.markdown("### Navegacao")
         menu = _render_navegacao()

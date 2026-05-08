@@ -4,6 +4,7 @@ import pandas as pd
 
 from Oracle.repositorio_oracle import consultar_destboad_json
 
+from dashboard.auth import render_login, usuario_eh_admin
 from dashboard.config import APP_TITLE, PAGE_CONFIG
 from dashboard.data import (
     carregar_base,
@@ -36,6 +37,10 @@ ORACLE_DESTBOAD_MENU_ITEM = "Oracle DESTBOAD"
 def render_consulta_destboad_oracle() -> None:
     st.subheader("Consulta Oracle - DESTBOAD")
 
+    if not usuario_eh_admin():
+        st.warning("A consulta Oracle esta disponivel apenas para usuarios administradores.")
+        return
+
     if st.button("Consultar Oracle", type="primary"):
         try:
             dados = consultar_destboad_json()
@@ -60,6 +65,7 @@ def render_consulta_destboad_oracle() -> None:
 def main() -> None:
     st.set_page_config(**PAGE_CONFIG)
     aplicar_estilos_globais()
+    render_login()
 
     try:
         df_base = carregar_base()

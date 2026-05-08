@@ -137,6 +137,31 @@ def aplicar_estilos_globais() -> None:
                 color: var(--tacom-text);
             }
 
+            .user-session-badge {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                min-height: 42px;
+                margin: 0 0 8px 0;
+                padding: 8px 10px;
+                border: 1px solid rgba(127, 127, 127, 0.25);
+                border-radius: 8px;
+                background: rgba(127, 127, 127, 0.08);
+                color: var(--tacom-text);
+                line-height: 1.2;
+            }
+
+            .user-session-name {
+                font-size: 13px;
+                font-weight: 700;
+            }
+
+            .user-session-role {
+                margin-top: 2px;
+                font-size: 11px;
+                opacity: 0.72;
+            }
+
             .db-target-dot {
                 width: 10px;
                 height: 10px;
