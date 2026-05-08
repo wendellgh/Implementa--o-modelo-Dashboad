@@ -255,3 +255,6 @@ taskkill /PID 7652 /F
 ---
 
 Feito com Streamlit + PostgreSQL + Plotly ❤️
+
+admin / admin123: perfil administrador
+usuario / usuario123: perfil comum
