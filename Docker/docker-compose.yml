@@ -8,6 +8,8 @@ services:
       dockerfile: Docker/Dockerfile
     container_name: streamlit_app
     restart: always
+    env_file:
+      - ../.env
     environment:
       DATABASE_URL: ${DATABASE_URL:-}
       NEON_DATABASE_URL: ${NEON_DATABASE_URL:-}
@@ -16,6 +18,7 @@ services:
       DB_NAME: app_db
       DB_USER: app_user
       DB_PASSWORD: app123
+      ORACLE_CLIENT_LIB_DIR: /opt/oracle/instantclient
     ports:
       - "8501:8501"
     volumes:

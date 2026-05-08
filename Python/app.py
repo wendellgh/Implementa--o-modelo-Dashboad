@@ -103,7 +103,7 @@ def main() -> None:
         render_tabela_resumo(resumo)
     elif menu == ENTRADA_DADOS_MENU_ITEM:
         render_entrada_dados(df_base)
-    elif menu == "Wendells":
+    elif menu == "Contando Frota - Teste.":
         render_frota_operadora_chart(frota_operadora)
     elif menu =="Serviços Executados - Teste":
         df_servicos = carregar_base_outra_tabela()

@@ -14,37 +14,45 @@ SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
 DATA_INICIO_PADRAO = date(2026, 1, 1)
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
 PAGINA_ATUAL_KEY = "pagina_atual"
-PAGINA_RADIO_KEY = "pagina_radio"
+
+MENU_ICONS = {
+    "Dashboard": ":material/dashboard:",
+    "Resumo": ":material/analytics:",
+    "Tabela": ":material/table:",
+    "Contando Frota - Teste": ":material/query_stats:",
+    "Contando Frota.": ":material/query_stats:",
+    "Serviços Executados - Teste": ":material/build:",
+    "ServiÃ§os Executados - Teste": ":material/build:",
+    "Oracle DESTBOAD": ":material/database:",
+    ENTRADA_DADOS_MENU_ITEM: ":material/edit_note:",
+}
 
 
-def _selecionar_entrada_dados() -> None:
-    st.session_state[PAGINA_ATUAL_KEY] = ENTRADA_DADOS_MENU_ITEM
-    st.session_state[PAGINA_RADIO_KEY] = None
+def _obter_paginas_navegacao() -> list[str]:
+    paginas = [ENTRADA_DADOS_MENU_ITEM, *MENU_ITEMS]
+    return list(dict.fromkeys(paginas))
 
 
 def _render_navegacao() -> str:
-    st.session_state.setdefault(PAGINA_ATUAL_KEY, MENU_ITEMS[0])
-
-    st.button(
-        ENTRADA_DADOS_MENU_ITEM,
-        key="botao_entrada_dados",
-        type="primary",
-        icon=":material/edit_note:",
-        on_click=_selecionar_entrada_dados,
-        use_container_width=True,
-    )
-
+    paginas = _obter_paginas_navegacao()
+    st.session_state.setdefault(PAGINA_ATUAL_KEY, paginas[1] if len(paginas) > 1 else paginas[0])
     pagina_atual = str(st.session_state[PAGINA_ATUAL_KEY])
-    indice_menu = MENU_ITEMS.index(pagina_atual) if pagina_atual in MENU_ITEMS else None
-    pagina_radio = st.radio(
-        "Pagina",
-        MENU_ITEMS,
-        index=indice_menu,
-        key=PAGINA_RADIO_KEY,
-    )
+    if pagina_atual not in paginas:
+        pagina_atual = paginas[0]
 
-    if pagina_radio:
-        st.session_state[PAGINA_ATUAL_KEY] = pagina_radio
+    pagina_selecionada = pagina_atual
+    for indice, pagina in enumerate(paginas):
+        clicou = st.button(
+            pagina,
+            key=f"botao_pagina_{indice}",
+            type="primary" if pagina == pagina_atual else "secondary",
+            icon=MENU_ICONS.get(pagina),
+            width="stretch",
+        )
+        if clicou:
+            pagina_selecionada = pagina
+
+    st.session_state[PAGINA_ATUAL_KEY] = pagina_selecionada
 
     return str(st.session_state[PAGINA_ATUAL_KEY])
 

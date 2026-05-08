@@ -88,9 +88,12 @@ def iniciar_oracle_client() -> None:
             f"A pasta do Oracle Instant Client nao foi encontrada: {client_lib_dir}"
         )
 
-    oci_dll = os.path.join(client_lib_dir, "oci.dll")
-    if not os.path.exists(oci_dll):
-        raise FileNotFoundError(f"Arquivo oci.dll nao encontrado em: {oci_dll}")
+    client_library = "oci.dll" if os.name == "nt" else "libclntsh.so"
+    client_library_path = os.path.join(client_lib_dir, client_library)
+    if not os.path.exists(client_library_path):
+        raise FileNotFoundError(
+            f"Biblioteca do Oracle Instant Client nao encontrada: {client_library_path}"
+        )
 
     oracledb.init_oracle_client(lib_dir=client_lib_dir)
     _ORACLE_CLIENT_INICIADO = True
