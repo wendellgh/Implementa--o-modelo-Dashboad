@@ -27,6 +27,18 @@ def validar_select(sql: str) -> None:
             raise ValueError(f"Comando bloqueado no Oracle: {comando}")
 
 
+def limpar_registro(registro: dict) -> dict:
+    registro_limpo = {}
+
+    for chave, valor in registro.items():
+        if isinstance(valor, str):
+            registro_limpo[chave] = valor.strip()
+        else:
+            registro_limpo[chave] = valor
+
+    return registro_limpo
+
+
 def consultar_oracle_json(sql: str) -> list[dict]:
     validar_select(sql)
 
@@ -45,7 +57,9 @@ def consultar_oracle_json(sql: str) -> list[dict]:
             force_ascii=False
         )
 
-        return json.loads(json_texto)
+        resultado = json.loads(json_texto)
+
+        return [limpar_registro(item) for item in resultado]
 
     finally:
         conexao.close()

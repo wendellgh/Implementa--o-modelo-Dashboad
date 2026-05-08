@@ -29,6 +29,22 @@ from dashboard.visualizations import (
 )
 
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
+ORACLE_DESTBOAD_MENU_ITEM = "Oracle DESTBOAD"
+
+
+def render_consulta_destboad_oracle() -> None:
+    st.subheader("Consulta Oracle - DESTBOAD")
+
+    if st.button("Consultar Oracle", type="primary"):
+        try:
+            dados = consultar_destboad_json()
+
+            st.success(f"Consulta realizada com sucesso. Registros retornados: {len(dados)}")
+            st.json(dados)
+
+        except Exception as erro:
+            st.error("Erro ao consultar Oracle.")
+            st.exception(erro)
 
 
 def main() -> None:
@@ -92,6 +108,8 @@ def main() -> None:
         st.write("")
         render_servicos_executados_chart(servicos_resumo)
         render_servicos_executados(servicos_filtrados)
+    elif menu == ORACLE_DESTBOAD_MENU_ITEM:
+        render_consulta_destboad_oracle()
 
     else:
         render_tabela_evolucao(evolucao_tabela)
@@ -100,25 +118,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-st.set_page_config(
-    page_title="Consulta Oracle",
-    layout="wide"
-)
-
-st.title("Consulta Oracle - DESTBOAD")
-
-if st.button("Consultar Oracle"):
-    try:
-        dados = consultar_destboad_json()
-
-        st.success(f"Consulta realizada com sucesso. Registros retornados: {len(dados)}")
-        st.json(dados)
-
-    except Exception as erro:
-        st.error("Erro ao consultar Oracle.")
-        st.exception(erro)
