@@ -21,6 +21,7 @@ NEON_DATABASE_URL="postgresql://usuario:senha@ep-....neon.tech/dbname?sslmode=re
 ## 2. Conferir contagens sem alterar o Neon
 
 ```powershell
+$env:NEON_DATABASE_URL="postgresql://neondb_owner:npg_GfTjZ3CpS0Hy@ep-lively-water-acsdt1ns.sa-east-1.aws.neon.tech/neondb?sslmode=require"
 .\.venv\Scripts\python.exe scripts\migrate_local_to_neon.py
 ```
 
@@ -48,14 +49,14 @@ copia.
 Local:
 
 ```powershell
-$env:NEON_DATABASE_URL="postgresql://usuario:senha@ep-....neon.tech/dbname?sslmode=require"
+$env:NEON_DATABASE_URL="postgresql://neondb_owner:npg_GfTjZ3CpS0Hy@ep-lively-water-acsdt1ns.sa-east-1.aws.neon.tech/neondb?sslmode=require"
 streamlit run Python/app.py
 ```
 
 Docker Compose:
 
 ```powershell
-$env:NEON_DATABASE_URL="postgresql://usuario:senha@ep-....neon.tech/dbname?sslmode=require"
+$env:NEON_DATABASE_URL="postgresql://neondb_owner:npg_GfTjZ3CpS0Hy@ep-lively-water-acsdt1ns.sa-east-1.aws.neon.tech/neondb?sslmode=require"
 docker compose -f Docker/docker-compose.yml up -d --build app
 ```
 

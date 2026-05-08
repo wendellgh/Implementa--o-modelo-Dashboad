@@ -1,5 +1,8 @@
 import streamlit as st
 
+
+from Oracle.repositorio_oracle import consultar_destboad_json
+
 from dashboard.config import APP_TITLE, PAGE_CONFIG
 from dashboard.data import (
     carregar_base,
@@ -97,3 +100,25 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+st.set_page_config(
+    page_title="Consulta Oracle",
+    layout="wide"
+)
+
+st.title("Consulta Oracle - DESTBOAD")
+
+if st.button("Consultar Oracle"):
+    try:
+        dados = consultar_destboad_json()
+
+        st.success(f"Consulta realizada com sucesso. Registros retornados: {len(dados)}")
+        st.json(dados)
+
+    except Exception as erro:
+        st.error("Erro ao consultar Oracle.")
+        st.exception(erro)

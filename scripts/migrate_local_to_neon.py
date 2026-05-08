@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine, make_url
 
 DEFAULT_LOCAL_DATABASE_URL = "postgresql+psycopg2://app_user:app123@localhost:5432/app_db"
 
+
 TABLES = [
     "base_historica_manutencao",
     "servicos_executados",

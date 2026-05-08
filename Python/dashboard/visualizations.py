@@ -12,6 +12,9 @@ PALETA = {
 }
 
 ESCALA_ALERTA = [PALETA["secundaria"], PALETA["primaria"], PALETA["acento"]]
+COR_PERCENTUAL_BAIXO = "#2F80ED"
+COR_PERCENTUAL_MEDIO = "#F2C94C"
+COR_PERCENTUAL_ALTO = PALETA["acento"]
 ESCALA_OPERACIONAL = [
     PALETA["terciaria"],
     PALETA["destaque_tecnico"],
@@ -67,6 +70,33 @@ def _mostrar_rotulos_barras(fig, template: str = "%{text}") -> None:
     fig.update_layout(uniformtext={"minsize": 10, "mode": "show"})
 
 
+def _formatar_mes_curto(data_mes: pd.Timestamp) -> str:
+    meses_pt = {
+        1: "Jan",
+        2: "Fev",
+        3: "Mar",
+        4: "Abr",
+        5: "Mai",
+        6: "Jun",
+        7: "Jul",
+        8: "Ago",
+        9: "Set",
+        10: "Out",
+        11: "Nov",
+        12: "Dez",
+    }
+    data_mes = pd.Timestamp(data_mes)
+    return f"{meses_pt[data_mes.month]}/{data_mes:%y}"
+
+
+def _cor_percentual_frota(valor: float) -> str:
+    if valor >= 15:
+        return COR_PERCENTUAL_ALTO
+    if valor >= 5:
+        return COR_PERCENTUAL_MEDIO
+    return COR_PERCENTUAL_BAIXO
+
+
 def render_dashboard_charts(
     df_resumo: pd.DataFrame,
     df_evolucao_mensal: pd.DataFrame,
@@ -81,17 +111,34 @@ def render_dashboard_charts(
 
     with col_top_1:
         with st.container(border=True):
+            percentual_frota = df_evolucao_mensal.sort_values("mes").copy()
+            percentual_frota["mes_label"] = percentual_frota["mes"].apply(_formatar_mes_curto)
+            percentual_frota["cor_barra"] = percentual_frota["percentual_qtd_x_frota"].apply(
+                _cor_percentual_frota
+            )
+            ordem_meses = percentual_frota["mes_label"].tolist()
             fig_percentual = px.bar(
-                df_evolucao_mensal,
-                x="mes",
+                percentual_frota,
+                x="mes_label",
                 y="percentual_qtd_x_frota",
                 title="% QTD x FROTA",
                 text="percentual_qtd_x_frota",
-                color="percentual_qtd_x_frota",
-                color_continuous_scale=ESCALA_ALERTA,
+                category_orders={"mes_label": ordem_meses},
+                labels={"mes_label": "mes"},
+                hover_data={
+                    "mes_label": False,
+                    "cor_barra": False,
+                    "mes": "|%m/%Y",
+                    "percentual_qtd_x_frota": ":.2f",
+                },
+            )
+            fig_percentual.update_traces(marker_color=percentual_frota["cor_barra"])
+            fig_percentual.update_xaxes(
+                type="category",
+                categoryorder="array",
+                categoryarray=ordem_meses,
             )
             _mostrar_rotulos_barras(fig_percentual, "%{text:.2f}%")
-            fig_percentual.update_coloraxes(showscale=False)
             st.plotly_chart(_estilizar_figura(fig_percentual), use_container_width=True)
 
     with col_top_2:
