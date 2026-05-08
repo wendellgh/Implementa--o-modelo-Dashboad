@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 
 from Oracle.repositorio_oracle import consultar_destboad_json
@@ -38,9 +39,18 @@ def render_consulta_destboad_oracle() -> None:
     if st.button("Consultar Oracle", type="primary"):
         try:
             dados = consultar_destboad_json()
+            df_destboad = pd.DataFrame(dados)
 
             st.success(f"Consulta realizada com sucesso. Registros retornados: {len(dados)}")
             st.json(dados)
+
+            csv = df_destboad.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "Baixar CSV",
+                data=csv,
+                file_name="saida_oracle_destboad.csv",
+                mime="text/csv",
+            )
 
         except Exception as erro:
             st.error("Erro ao consultar Oracle.")

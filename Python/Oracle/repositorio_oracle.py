@@ -1,4 +1,6 @@
 import json
+from pathlib import Path
+
 import pandas as pd
 
 from Oracle.conexao_oracle import get_oracle_connection
@@ -16,11 +18,11 @@ def validar_select(sql: str) -> None:
         "alter",
         "truncate",
         "merge",
-        "create"
+        "create",
     ]
 
     if not sql_limpo.startswith("select"):
-        raise ValueError("Somente consultas SELECT são permitidas no Oracle.")
+        raise ValueError("Somente consultas SELECT sao permitidas no Oracle.")
 
     for comando in comandos_bloqueados:
         if comando in sql_limpo:
@@ -39,7 +41,19 @@ def limpar_registro(registro: dict) -> dict:
     return registro_limpo
 
 
-def consultar_oracle_json(sql: str) -> list[dict]:
+def limpar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    df_limpo = df.copy()
+    colunas_texto = df_limpo.select_dtypes(include=["object", "string"]).columns
+
+    for coluna in colunas_texto:
+        df_limpo[coluna] = df_limpo[coluna].map(
+            lambda valor: valor.strip() if isinstance(valor, str) else valor
+        )
+
+    return df_limpo
+
+
+def consultar_oracle_dataframe(sql: str) -> pd.DataFrame:
     validar_select(sql)
 
     conexao = get_oracle_connection()
@@ -48,22 +62,41 @@ def consultar_oracle_json(sql: str) -> list[dict]:
         df = pd.read_sql(sql, conexao)
 
         if df.empty:
-            return []
+            return df
 
-        # Converte datas e tipos especiais para JSON válido
-        json_texto = df.to_json(
-            orient="records",
-            date_format="iso",
-            force_ascii=False
-        )
-
-        resultado = json.loads(json_texto)
-
-        return [limpar_registro(item) for item in resultado]
+        return limpar_dataframe(df)
 
     finally:
         conexao.close()
 
 
+def consultar_oracle_json(sql: str) -> list[dict]:
+    df = consultar_oracle_dataframe(sql)
+
+    if df.empty:
+        return []
+
+    json_texto = df.to_json(
+        orient="records",
+        date_format="iso",
+        force_ascii=False,
+    )
+
+    resultado = json.loads(json_texto)
+
+    return [limpar_registro(item) for item in resultado]
+
+
 def consultar_destboad_json() -> list[dict]:
     return consultar_oracle_json(QUERY_DESTBOAD)
+
+
+def consultar_destboad_dataframe() -> pd.DataFrame:
+    return consultar_oracle_dataframe(QUERY_DESTBOAD)
+
+
+def gerar_destboad_csv(caminho_saida: str | Path = "saida_oracle_destboad.csv") -> Path:
+    caminho = Path(caminho_saida)
+    df = consultar_destboad_dataframe()
+    df.to_csv(caminho, index=False, encoding="utf-8-sig")
+    return caminho
