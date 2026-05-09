@@ -19,20 +19,18 @@ USUARIOS_APP = {
         "perfil": PERFIL_ADMIN,
         "prioridade": 100,
     },
-    
     "usuario": {
         "senha": "usuario123",
         "nome": "Usuario Padrao",
         "perfil": PERFIL_USUARIO,
         "prioridade": 10,
     },
-    "Wendell":{
+    "wendell": {
         "senha": "201915",
         "nome": "Wendell Mendes - Master",
         "perfil": PERFIL_ADMIN,
         "prioridade": 100,
-    }
-    
+    },
 }
 
 DB_SETTINGS = {
