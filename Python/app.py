@@ -1,9 +1,6 @@
 import streamlit as st
 import pandas as pd
 
-
-from Oracle.repositorio_oracle import consultar_destboad_json
-
 from dashboard.auth import render_login, usuario_eh_admin
 from dashboard.config import APP_TITLE, PAGE_CONFIG
 from dashboard.data import (
@@ -43,6 +40,8 @@ def render_consulta_destboad_oracle() -> None:
 
     if st.button("Consultar Oracle", type="primary"):
         try:
+            from Oracle.repositorio_oracle import consultar_destboad_json
+
             dados = consultar_destboad_json()
             df_destboad = pd.DataFrame(dados)
 
