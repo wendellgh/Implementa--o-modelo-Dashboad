@@ -40,6 +40,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../app_db_utf8.sql:/docker-entrypoint-initdb.d/01-app_db_utf8.sql:ro
+      - ../Sql/20260511_adiciona_data_competencia.sql:/docker-entrypoint-initdb.d/02-data_competencia.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h localhost -U app_user -d app_db"]
       interval: 5s

@@ -118,6 +118,12 @@ def _obter_base_para_filtros(menu: str, df_base: pd.DataFrame) -> pd.DataFrame:
     return df_servicos
 
 
+def _obter_coluna_periodo(df_base: pd.DataFrame) -> str:
+    if "data_competencia" in df_base.columns:
+        return "data_competencia"
+    return "data_ref"
+
+
 def _render_usuario_logado() -> None:
     usuario_logado = obter_usuario_logado()
     if not usuario_logado:
@@ -194,8 +200,9 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
         menu = _render_navegacao()
 
     df_filtros = _obter_base_para_filtros(menu, df_base)
+    coluna_periodo = _obter_coluna_periodo(df_filtros)
 
-    data_valida = df_filtros["data_ref"].dropna()
+    data_valida = pd.to_datetime(df_filtros[coluna_periodo], errors="coerce").dropna()
     if data_valida.empty:
         data_min = date.today()
         data_max = date.today()
@@ -260,17 +267,19 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
 
 def aplicar_filtros(df_base: pd.DataFrame, filtros: dict[str, object]) -> pd.DataFrame:
     df_filtrado = df_base.copy()
+    coluna_periodo = _obter_coluna_periodo(df_filtrado)
 
     periodo = filtros.get("periodo")
     if isinstance(periodo, tuple) and len(periodo) == 2:
         inicio = pd.to_datetime(periodo[0])
         fim = pd.to_datetime(periodo[1])
         df_filtrado = df_filtrado[
-            (df_filtrado["data_ref"] >= inicio) & (df_filtrado["data_ref"] <= fim)
+            (df_filtrado[coluna_periodo] >= inicio)
+            & (df_filtrado[coluna_periodo] <= fim)
         ]
     elif isinstance(periodo, date):
         dia = pd.to_datetime(periodo)
-        df_filtrado = df_filtrado[df_filtrado["data_ref"] == dia]
+        df_filtrado = df_filtrado[df_filtrado[coluna_periodo] == dia]
 
     filtro_contrato = filtros.get("filtro_contrato", [])
     if filtro_contrato:

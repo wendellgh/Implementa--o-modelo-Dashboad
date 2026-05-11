@@ -15,6 +15,73 @@ CHUNKSIZE = 5000
 
 engine = get_engine()
 
+GARANTIR_COLUNAS_AUXILIARES_SQL = f"""
+ALTER TABLE public.{TABELA}
+    ADD COLUMN IF NOT EXISTS "DATA_COMPETENCIA" date;
+
+UPDATE public.{TABELA}
+SET "DATA_COMPETENCIA" = date_trunc(
+    'month',
+    CASE
+        WHEN trim("DATA") ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}$'
+            THEN to_date(trim("DATA"), 'DD/MM/YYYY')
+        WHEN trim("DATA") ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'
+            THEN trim("DATA")::date
+        ELSE NULL
+    END
+)::date
+WHERE "DATA" IS NOT NULL
+  AND trim("DATA") <> ''
+  AND (
+      "DATA_COMPETENCIA" IS NULL
+      OR "DATA_COMPETENCIA" <> date_trunc(
+          'month',
+          CASE
+              WHEN trim("DATA") ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}$'
+                  THEN to_date(trim("DATA"), 'DD/MM/YYYY')
+              WHEN trim("DATA") ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'
+                  THEN trim("DATA")::date
+              ELSE NULL
+          END
+      )::date
+  );
+"""
+
+
+def garantir_colunas_auxiliares() -> None:
+    with engine.begin() as conn:
+        conn.execute(text(GARANTIR_COLUNAS_AUXILIARES_SQL))
+
+
+def converter_datas(valores: pd.Series) -> pd.Series:
+    texto = valores.fillna("").astype(str).str.strip()
+    datas = pd.to_datetime(texto, format="%d/%m/%Y", errors="coerce")
+
+    pendentes = datas.isna() & texto.ne("")
+    if pendentes.any():
+        data_numerica = pd.to_numeric(texto.loc[pendentes], errors="coerce")
+        datas.loc[pendentes] = pd.to_datetime(
+            data_numerica,
+            unit="D",
+            origin="1899-12-30",
+            errors="coerce",
+        )
+
+    pendentes = datas.isna() & texto.ne("")
+    if pendentes.any():
+        datas.loc[pendentes] = pd.to_datetime(
+            texto.loc[pendentes],
+            dayfirst=True,
+            errors="coerce",
+        )
+
+    return datas
+
+
+def converter_para_competencia_mensal(datas: pd.Series) -> pd.Series:
+    competencia = datas.dt.to_period("M").dt.to_timestamp()
+    return competencia.dt.date.where(competencia.notna(), None)
+
 caminho_csv = Path(ARQUIVO_CSV)
 
 if not caminho_csv.exists():
@@ -24,6 +91,8 @@ with engine.connect() as conn:
     print(f"Destino: {get_db_target_label()}")
     print("Conexão OK")
     print(conn.execute(text("SELECT current_database();")).fetchone())
+
+garantir_colunas_auxiliares()
 
 # teste de leitura antes de limpar a tabela
 teste = pd.read_csv(
@@ -94,14 +163,18 @@ for chunk in pd.read_csv(
         "OPERADORA",
         "ID_SERVICO_EXECUTADO",
         "SERVIC_EXECUTADO",
+        "DATA_COMPETENCIA",
         "QTD_SERVICO"
     ]
 
-    faltantes_destino = [col for col in colunas_destino if col not in chunk.columns]
+    colunas_origem = [
+        coluna for coluna in colunas_destino if coluna != "DATA_COMPETENCIA"
+    ]
+    faltantes_destino = [col for col in colunas_origem if col not in chunk.columns]
     if faltantes_destino:
         raise ValueError(f"Colunas ausentes após rename: {faltantes_destino}")
 
-    chunk = chunk[colunas_destino].copy()
+    chunk = chunk[colunas_origem].copy()
 
     for col in [
         "ID_CONTRATO",
@@ -121,27 +194,15 @@ for chunk in pd.read_csv(
         .astype(int)
     )
 
-    datas_convertidas = pd.to_datetime(
-        chunk["DATA"].astype(str).str.strip(),
-        format="%d/%m/%Y",
-        errors="coerce"
-    )
-
-    datas_invalidas = datas_convertidas.isna()
-    if datas_invalidas.any():
-        data_numerica = pd.to_numeric(chunk.loc[datas_invalidas, "DATA"], errors="coerce")
-        datas_convertidas.loc[datas_invalidas] = pd.to_datetime(
-            data_numerica,
-            unit="D",
-            origin="1899-12-30",
-            errors="coerce"
-        )
+    datas_convertidas = converter_datas(chunk["DATA"])
 
     datas_invalidas_lote = datas_convertidas.isna().sum()
     total_datas_invalidas += int(datas_invalidas_lote)
 
+    chunk["DATA_COMPETENCIA"] = converter_para_competencia_mensal(datas_convertidas)
     chunk["DATA"] = datas_convertidas.dt.strftime("%d/%m/%Y")
     chunk["DATA"] = chunk["DATA"].where(pd.notnull(chunk["DATA"]), None)
+    chunk = chunk[colunas_destino]
 
     chunk.to_sql(
         TABELA,

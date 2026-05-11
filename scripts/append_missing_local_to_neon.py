@@ -27,6 +27,7 @@ from migrate_local_to_neon import (  # noqa: E402
 COMPARE_COLUMNS = {
     "base_historica_manutencao": [
         "data_ref",
+        "data_competencia",
         "id_contrato",
         "contrato",
         "id_operadora",
@@ -39,6 +40,7 @@ COMPARE_COLUMNS = {
     ],
     "servicos_executados": [
         "DATA",
+        "DATA_COMPETENCIA",
         "ID_CONTRATO",
         "CONTRATO",
         "ID_EQUIPAMENTO",
@@ -165,6 +167,7 @@ def main() -> int:
     print(f"Destino Neon: {label_database_url(neon_url)}")
     print("")
 
+    ensure_schema(local_engine)
     ensure_schema(neon_engine)
     sync_sequence(neon_engine)
 

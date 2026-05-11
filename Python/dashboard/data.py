@@ -20,6 +20,44 @@ def _converter_data_servicos(valores: pd.Series) -> pd.Series:
     return datas
 
 
+def _adicionar_colunas_competencia(
+    df: pd.DataFrame,
+    coluna_data: str = "data_ref",
+) -> pd.DataFrame:
+    if df.empty or coluna_data not in df.columns:
+        return df
+
+    competencia = pd.to_datetime(df[coluna_data], dayfirst=True, errors="coerce")
+
+    if "data_competencia" in df.columns:
+        competencia_banco = pd.to_datetime(
+            df["data_competencia"],
+            dayfirst=True,
+            errors="coerce",
+        )
+        competencia = competencia_banco.fillna(competencia)
+
+    df["data_competencia"] = competencia.dt.to_period("M").dt.to_timestamp()
+    df["ano_mes"] = pd.to_numeric(
+        df["data_competencia"].dt.strftime("%Y%m"),
+        errors="coerce",
+    ).astype("Int64")
+    df["mes_ano"] = df["data_competencia"].dt.strftime("%m/%Y").fillna("")
+
+    return df
+
+
+def _obter_serie_competencia(df: pd.DataFrame) -> pd.Series:
+    if "data_competencia" in df.columns:
+        return pd.to_datetime(df["data_competencia"], dayfirst=True, errors="coerce")
+
+    return (
+        pd.to_datetime(df["data_ref"], dayfirst=True, errors="coerce")
+        .dt.to_period("M")
+        .dt.to_timestamp()
+    )
+
+
 @st.cache_data
 def carregar_base() -> pd.DataFrame:
 
@@ -29,6 +67,7 @@ def carregar_base() -> pd.DataFrame:
         return df
 
     df["data_ref"] = pd.to_datetime(df["data_ref"], errors="coerce")
+    df = _adicionar_colunas_competencia(df)
 
     for coluna in ["qtd", "frota", "percentual"]:
         df[coluna] = pd.to_numeric(df[coluna], errors="coerce").fillna(0)
@@ -57,6 +96,7 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
         )
 
     dados_servicos["data_ref"] = _converter_data_servicos(dados_servicos["data_ref"])
+    dados_servicos = _adicionar_colunas_competencia(dados_servicos)
     dados_servicos["qtd_servico"] = pd.to_numeric(
         dados_servicos["qtd_servico"],
         errors="coerce"
@@ -124,7 +164,7 @@ def montar_equipamentos_por_contrato(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     if df_aux.empty:
         return pd.DataFrame(columns=["contrato", "mes", "quantidade_equipamentos"])
 
-    df_aux["mes"] = df_aux["data_ref"].dt.to_period("M").dt.to_timestamp()
+    df_aux["mes"] = _obter_serie_competencia(df_aux)
     mes_mais_recente_por_contrato = df_aux.groupby("contrato")["mes"].transform("max")
     df_mes_recente = df_aux[df_aux["mes"].eq(mes_mais_recente_por_contrato)]
 
@@ -191,7 +231,7 @@ def montar_frota_operadora_por_mes(df_filtrado: pd.DataFrame) -> pd.DataFrame:
         12: "dez",
     }
 
-    df_aux["mes"] = df_aux["data_ref"].dt.to_period("M").dt.to_timestamp()
+    df_aux["mes"] = _obter_serie_competencia(df_aux)
     df_aux = df_aux[df_aux["mes"].notna()]
     if df_aux.empty:
         return pd.DataFrame(columns=colunas)
@@ -221,7 +261,7 @@ def montar_evolucao_mensal(df_filtrado: pd.DataFrame) -> pd.DataFrame:
         )
 
     df_aux = df_filtrado.copy()
-    df_aux["mes"] = df_aux["data_ref"].dt.to_period("M").dt.to_timestamp()
+    df_aux["mes"] = _obter_serie_competencia(df_aux)
 
     evolucao = (
         df_aux.groupby("mes", as_index=False)
@@ -250,7 +290,7 @@ def montar_tabela_evolucao(df_filtrado: pd.DataFrame) -> pd.DataFrame:
         )
 
     df_aux = df_filtrado.copy()
-    df_aux["mes"] = df_aux["data_ref"].dt.to_period("M").dt.to_timestamp()
+    df_aux["mes"] = _obter_serie_competencia(df_aux)
 
     evolucao = (
         df_aux.groupby(["mes", "equipamento"], as_index=False)

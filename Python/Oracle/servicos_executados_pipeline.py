@@ -21,6 +21,7 @@ ANO_DATA_MAXIMO = 2100
 
 COLUNAS_DESTINO = [
     "DATA",
+    "DATA_COMPETENCIA",
     "ID_CONTRATO",
     "CONTRATO",
     "ID_EQUIPAMENTO",
@@ -31,6 +32,38 @@ COLUNAS_DESTINO = [
     "SERVIC_EXECUTADO",
     "QTD_SERVICO",
 ]
+
+GARANTIR_COLUNAS_AUXILIARES_SQL = f"""
+ALTER TABLE public.{TABELA_DESTINO}
+    ADD COLUMN IF NOT EXISTS "DATA_COMPETENCIA" date;
+
+UPDATE public.{TABELA_DESTINO}
+SET "DATA_COMPETENCIA" = date_trunc(
+    'month',
+    CASE
+        WHEN trim("DATA") ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}$'
+            THEN to_date(trim("DATA"), 'DD/MM/YYYY')
+        WHEN trim("DATA") ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'
+            THEN trim("DATA")::date
+        ELSE NULL
+    END
+)::date
+WHERE "DATA" IS NOT NULL
+  AND trim("DATA") <> ''
+  AND (
+      "DATA_COMPETENCIA" IS NULL
+      OR "DATA_COMPETENCIA" <> date_trunc(
+          'month',
+          CASE
+              WHEN trim("DATA") ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}$'
+                  THEN to_date(trim("DATA"), 'DD/MM/YYYY')
+              WHEN trim("DATA") ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'
+                  THEN trim("DATA")::date
+              ELSE NULL
+          END
+      )::date
+  );
+"""
 
 COLUNAS_ORACLE_MINIMAS = [
     "COD_CLIETE",
@@ -150,6 +183,23 @@ def _converter_datas(df: pd.DataFrame, agrupar_por_mes: bool) -> pd.Series:
     return datas_formatadas.where(datas.notna(), None)
 
 
+def _competencia_mensal(valores: pd.Series) -> pd.Series:
+    datas = _converter_texto_para_data(valores)
+    competencia = datas.dt.to_period("M").dt.to_timestamp()
+    return competencia
+
+
+def _competencia_mensal_formatada(valores: pd.Series) -> pd.Series:
+    competencia = _competencia_mensal(valores)
+    competencia_formatada = competencia.dt.strftime("%d/%m/%Y")
+    return competencia_formatada.where(competencia.notna(), None)
+
+
+def _competencia_mensal_date(valores: pd.Series) -> pd.Series:
+    competencia = _competencia_mensal(valores)
+    return competencia.dt.date.where(competencia.notna(), None)
+
+
 def ler_csv_destboad(caminho_csv: str | Path) -> pd.DataFrame:
     return pd.read_csv(
         caminho_csv,
@@ -197,7 +247,11 @@ def transformar_destboad_em_servicos_executados(
 
     df_servicos = pd.DataFrame(
         {
-            "DATA": _converter_datas(df_oracle, agrupar_por_mes=agrupar_por_mes),
+            "DATA": _converter_datas(df_oracle, agrupar_por_mes=False),
+            "DATA_COMPETENCIA": _converter_datas(
+                df_oracle,
+                agrupar_por_mes=True,
+            ),
             "ID_CONTRATO": contrato_id,
             "CONTRATO": contrato,
             "ID_EQUIPAMENTO": _texto(df_oracle, "PRODUTO"),
@@ -223,12 +277,13 @@ def transformar_destboad_em_servicos_executados(
 
     if agrupar_por_mes and not df_servicos.empty:
         colunas_agrupamento = [
-            coluna for coluna in COLUNAS_DESTINO if coluna != "QTD_SERVICO"
+            coluna for coluna in COLUNAS_DESTINO if coluna not in {"DATA", "QTD_SERVICO"}
         ]
         df_servicos = (
             df_servicos.groupby(colunas_agrupamento, dropna=False, as_index=False)
             .agg(QTD_SERVICO=("QTD_SERVICO", "sum"))
         )
+        df_servicos["DATA"] = df_servicos["DATA_COMPETENCIA"]
 
     df_servicos["QTD_SERVICO"] = (
         pd.to_numeric(df_servicos["QTD_SERVICO"], errors="coerce")
@@ -277,7 +332,10 @@ def carregar_servicos_executados_csv(
 
     teste = pd.read_csv(caminho, sep=";", encoding="utf-8-sig", nrows=5, dtype=str)
     teste.columns = teste.columns.str.strip()
-    faltantes = [coluna for coluna in COLUNAS_DESTINO if coluna not in teste.columns]
+    colunas_obrigatorias = [
+        coluna for coluna in COLUNAS_DESTINO if coluna != "DATA_COMPETENCIA"
+    ]
+    faltantes = [coluna for coluna in colunas_obrigatorias if coluna not in teste.columns]
     if faltantes:
         raise ValueError(f"Colunas ausentes no CSV de carga: {faltantes}")
 
@@ -289,6 +347,9 @@ def carregar_servicos_executados_csv(
         print("Conexao OK")
         print(conn.execute(text("SELECT current_database();")).fetchone())
 
+    with engine.begin() as conn:
+        conn.execute(text(GARANTIR_COLUNAS_AUXILIARES_SQL))
+
     if substituir_tabela:
         with engine.begin() as conn:
             conn.execute(text(f"TRUNCATE TABLE public.{TABELA_DESTINO};"))
@@ -298,14 +359,21 @@ def carregar_servicos_executados_csv(
             caminho,
             sep=";",
             encoding="utf-8-sig",
-            usecols=["DATA"],
+            usecols=["DATA_COMPETENCIA"] if "DATA_COMPETENCIA" in teste.columns else ["DATA"],
             dtype=str,
-        )["DATA"].fillna("").astype(str).str.strip()
-        datas_para_substituir = sorted(datas_csv[datas_csv.ne("")].unique().tolist())
+        )
+        coluna_datas = "DATA_COMPETENCIA" if "DATA_COMPETENCIA" in datas_csv.columns else "DATA"
+        datas_para_substituir = sorted(
+            data
+            for data in _competencia_mensal_date(datas_csv[coluna_datas]).dropna().tolist()
+        )
 
         if datas_para_substituir:
             delete_sql = text(
-                f'DELETE FROM public.{TABELA_DESTINO} WHERE "DATA" IN :datas'
+                f"""
+                DELETE FROM public.{TABELA_DESTINO}
+                WHERE "DATA_COMPETENCIA" IN :datas
+                """
             ).bindparams(bindparam("datas", expanding=True))
             with engine.begin() as conn:
                 conn.execute(delete_sql, {"datas": datas_para_substituir})
@@ -323,10 +391,13 @@ def carregar_servicos_executados_csv(
         dtype=str,
     ):
         chunk.columns = chunk.columns.str.strip()
+        if "DATA_COMPETENCIA" not in chunk.columns:
+            chunk["DATA_COMPETENCIA"] = _competencia_mensal_formatada(chunk["DATA"])
         chunk = chunk[COLUNAS_DESTINO].copy()
 
         for coluna in COLUNAS_DESTINO:
             chunk[coluna] = chunk[coluna].fillna("").astype(str).str.strip()
+        chunk["DATA_COMPETENCIA"] = _competencia_mensal_date(chunk["DATA_COMPETENCIA"])
 
         chunk.to_sql(
             TABELA_DESTINO,

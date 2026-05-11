@@ -174,7 +174,11 @@ def _existe_lancamento_mes(
 
     data_ref_periodo = pd.Timestamp(data_ref).to_period("M")
     df_aux = df_base.copy()
-    df_aux["_mes_ref"] = pd.to_datetime(df_aux["data_ref"], errors="coerce").dt.to_period("M")
+    coluna_periodo = "data_competencia" if "data_competencia" in df_aux.columns else "data_ref"
+    df_aux["_mes_ref"] = pd.to_datetime(
+        df_aux[coluna_periodo],
+        errors="coerce",
+    ).dt.to_period("M")
 
     mascara = (
         df_aux["_mes_ref"].eq(data_ref_periodo)
@@ -363,6 +367,7 @@ def salvar_lancamento_manutencao(dados: dict[str, object]) -> None:
         """
         insert into base_historica_manutencao (
             data_ref,
+            data_competencia,
             id_contrato,
             contrato,
             id_operadora,
@@ -375,6 +380,7 @@ def salvar_lancamento_manutencao(dados: dict[str, object]) -> None:
         )
         values (
             :data_ref,
+            :data_competencia,
             :id_contrato,
             :contrato,
             :id_operadora,
@@ -389,6 +395,14 @@ def salvar_lancamento_manutencao(dados: dict[str, object]) -> None:
     )
 
     with get_engine().begin() as conn:
+        conn.execute(
+            text(
+                """
+                alter table public.base_historica_manutencao
+                    add column if not exists data_competencia date
+                """
+            )
+        )
         conn.execute(insert_sql, dados)
 
     st.cache_data.clear()
@@ -537,6 +551,7 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
 
     dados = {
         "data_ref": data_ref,
+        "data_competencia": pd.Timestamp(data_ref).to_period("M").to_timestamp().date(),
         "id_contrato": id_contrato,
         "contrato": contrato,
         "id_operadora": id_operadora,

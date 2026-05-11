@@ -28,6 +28,7 @@ COLUNAS_CSV_ESPERADAS = [
 
 COLUNAS_DESTINO = [
     "data_ref",
+    "data_competencia",
     "id_contrato",
     "contrato",
     "id_operadora",
@@ -51,6 +52,19 @@ RENOMEAR_COLUNAS = {
     "QTD": "qtd",
     "%": "percentual",
 }
+
+GARANTIR_COLUNAS_AUXILIARES_SQL = f"""
+ALTER TABLE public.{TABELA}
+    ADD COLUMN IF NOT EXISTS data_competencia date;
+
+UPDATE public.{TABELA}
+SET data_competencia = date_trunc('month', data_ref)::date
+WHERE data_ref IS NOT NULL
+  AND (
+      data_competencia IS NULL
+      OR data_competencia <> date_trunc('month', data_ref)::date
+  );
+"""
 
 
 def carregar_dependencias_banco():
@@ -86,6 +100,17 @@ def converter_datas(valores: pd.Series) -> pd.Series:
     return datas.dt.date.where(datas.notna(), None)
 
 
+def converter_para_competencia_mensal(valores: pd.Series) -> pd.Series:
+    datas = pd.to_datetime(valores, errors="coerce")
+    competencia = datas.dt.to_period("M").dt.to_timestamp()
+    return competencia.dt.date.where(competencia.notna(), None)
+
+
+def garantir_colunas_auxiliares(engine) -> None:
+    with engine.begin() as conn:
+        conn.execute(text(GARANTIR_COLUNAS_AUXILIARES_SQL))
+
+
 def validar_csv(caminho_csv: Path) -> None:
     if not caminho_csv.exists():
         raise FileNotFoundError(f"Arquivo nao encontrado: {caminho_csv}")
@@ -110,14 +135,18 @@ def preparar_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
     chunk.columns = chunk.columns.str.strip()
     chunk = chunk.rename(columns=RENOMEAR_COLUNAS)
 
+    colunas_origem = [
+        coluna for coluna in COLUNAS_DESTINO if coluna != "data_competencia"
+    ]
     faltantes = [
-        coluna for coluna in COLUNAS_DESTINO if coluna not in chunk.columns
+        coluna for coluna in colunas_origem if coluna not in chunk.columns
     ]
     if faltantes:
         raise ValueError(f"Colunas ausentes apos rename: {faltantes}")
 
-    chunk = chunk[COLUNAS_DESTINO].copy()
+    chunk = chunk[colunas_origem].copy()
     chunk["data_ref"] = converter_datas(chunk["data_ref"])
+    chunk["data_competencia"] = converter_para_competencia_mensal(chunk["data_ref"])
 
     chunk["percentual"] = (
         chunk["percentual"]
@@ -146,7 +175,7 @@ def preparar_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
     ]:
         chunk[coluna] = chunk[coluna].fillna("").astype(str).str.strip()
 
-    return chunk
+    return chunk[COLUNAS_DESTINO]
 
 
 def ler_datas_csv(caminho_csv: Path) -> list[object]:
@@ -160,7 +189,12 @@ def ler_datas_csv(caminho_csv: Path) -> list[object]:
         usecols=["DATA"],
     ):
         chunk.columns = chunk.columns.str.strip()
-        datas.update(data for data in converter_datas(chunk["DATA"]).dropna().tolist())
+        datas.update(
+            data
+            for data in converter_para_competencia_mensal(
+                converter_datas(chunk["DATA"])
+            ).dropna().tolist()
+        )
 
     return sorted(datas)
 
@@ -180,6 +214,8 @@ def carregar_csv(
         print("Conexao OK")
         print(conn.execute(text("SELECT current_database();")).fetchone())
 
+    garantir_colunas_auxiliares(engine)
+
     if substituir_tabela:
         with engine.begin() as conn:
             conn.execute(text(f"TRUNCATE TABLE public.{TABELA} RESTART IDENTITY;"))
@@ -188,7 +224,11 @@ def carregar_csv(
         datas_para_substituir = ler_datas_csv(caminho_csv)
         if datas_para_substituir:
             delete_sql = text(
-                f"DELETE FROM public.{TABELA} WHERE data_ref IN :datas"
+                f"""
+                DELETE FROM public.{TABELA}
+                WHERE data_competencia IN :datas
+                   OR data_ref IN :datas
+                """
             ).bindparams(bindparam("datas", expanding=True))
             with engine.begin() as conn:
                 conn.execute(delete_sql, {"datas": datas_para_substituir})
