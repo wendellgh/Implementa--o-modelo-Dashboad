@@ -27,7 +27,7 @@ from dashboard.visualizations import (
 )
 
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
-ORACLE_DESTBOAD_MENU_ITEM = "Oracle DESTBOAD"
+ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 
 
 def render_consulta_destboad_oracle() -> None:

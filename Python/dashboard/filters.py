@@ -14,7 +14,7 @@ ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
 DATA_INICIO_PADRAO = date(2026, 1, 1)
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
-ORACLE_DESTBOAD_MENU_ITEM = "Oracle DESTBOAD"
+ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 PAGINA_ATUAL_KEY = "pagina_atual"
 
 MENU_ICONS = {

@@ -7,7 +7,7 @@ PAGE_CONFIG = {
 
 APP_TITLE = "Dashboard de Manutencao das Filiais"
 
-MENU_ITEMS = ["Dashboard", "Resumo", "Tabela", "Contando Frota - Teste", "Serviços Executados - Teste", "Oracle DESTBOAD"]
+MENU_ITEMS = ["Dashboard", "Resumo", "Tabela", "Contando Frota - Teste", "Serviços Executados - Teste", "Dados da Manutenção - Oracle"]
 
 PERFIL_ADMIN = "admin"
 PERFIL_USUARIO = "usuario"

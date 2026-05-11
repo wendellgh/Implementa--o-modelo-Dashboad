@@ -5,6 +5,21 @@ from dashboard.config import BASE_QUERY, BASE_QUERY_2
 from dashboard.database import get_engine
 
 
+def _converter_data_servicos(valores: pd.Series) -> pd.Series:
+    texto = valores.fillna("").astype(str).str.strip()
+    datas = pd.to_datetime(texto, format="%d/%m/%Y", errors="coerce")
+
+    pendentes = datas.isna() & texto.ne("")
+    if pendentes.any():
+        datas.loc[pendentes] = pd.to_datetime(
+            texto.loc[pendentes],
+            dayfirst=True,
+            errors="coerce",
+        )
+
+    return datas
+
+
 @st.cache_data
 def carregar_base() -> pd.DataFrame:
 
@@ -41,7 +56,7 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
             f"Colunas retornadas: {', '.join(dados_servicos.columns)}"
         )
 
-    dados_servicos["data_ref"] = pd.to_datetime(dados_servicos["data_ref"], errors="coerce")
+    dados_servicos["data_ref"] = _converter_data_servicos(dados_servicos["data_ref"])
     dados_servicos["qtd_servico"] = pd.to_numeric(
         dados_servicos["qtd_servico"],
         errors="coerce"
