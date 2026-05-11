@@ -31,6 +31,12 @@ USUARIOS_APP = {
         "perfil": PERFIL_ADMIN,
         "prioridade": 100,
     },
+    "ednei": {
+        "senha": "000000",
+        "nome": "Ednei",
+        "perfil": PERFIL_ADMIN,
+        "prioridade": 100,
+    },
 }
 
 DB_SETTINGS = {

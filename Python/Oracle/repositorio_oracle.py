@@ -6,6 +6,9 @@ import pandas as pd
 from Oracle.conexao_oracle import get_oracle_connection
 from Oracle.consultas_oracle import QUERY_DESTBOAD
 
+ORACLE_DIR = Path(__file__).resolve().parent
+DEFAULT_DESTBOAD_CSV = ORACLE_DIR / "saida_oracle_destboad.csv"
+
 
 def validar_select(sql: str) -> None:
     sql_limpo = sql.strip().lower()
@@ -95,8 +98,9 @@ def consultar_destboad_dataframe() -> pd.DataFrame:
     return consultar_oracle_dataframe(QUERY_DESTBOAD)
 
 
-def gerar_destboad_csv(caminho_saida: str | Path = "saida_oracle_destboad.csv") -> Path:
-    caminho = Path(caminho_saida)
+def gerar_destboad_csv(caminho_saida: str | Path | None = None) -> Path:
+    caminho = Path(caminho_saida) if caminho_saida else DEFAULT_DESTBOAD_CSV
+    caminho.parent.mkdir(parents=True, exist_ok=True)
     df = consultar_destboad_dataframe()
     df.to_csv(caminho, index=False, encoding="utf-8-sig")
     return caminho

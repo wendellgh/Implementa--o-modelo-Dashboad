@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 
 from dashboard.auth import render_login, usuario_eh_admin
 from dashboard.config import APP_TITLE, PAGE_CONFIG
@@ -32,32 +31,94 @@ ORACLE_DESTBOAD_MENU_ITEM = "Oracle DESTBOAD"
 
 
 def render_consulta_destboad_oracle() -> None:
-    st.subheader("Consulta Oracle - DESTBOAD")
+    st.subheader("Dados da Manutenção - Oracle")
 
     if not usuario_eh_admin():
         st.warning("A consulta Oracle esta disponivel apenas para usuarios administradores.")
         return
 
+    st.info(
+        "Consultar Oracle salva os CSVs localmente. Para atualizar o dashboard, "
+        "mantenha a carga no banco habilitada."
+    )
+
+    carregar_apos_consulta = st.checkbox("Carregar no banco apos consultar", value=True)
+    substituir_tabela = st.checkbox("Substituir toda a tabela servicos_executados")
+
     if st.button("Consultar Oracle", type="primary"):
         try:
-            from Oracle.repositorio_oracle import consultar_destboad_json
+            from Oracle.repositorio_oracle import consultar_destboad_dataframe
+            from Oracle.servicos_executados_pipeline import (
+                CSV_DESTBOAD_BRUTO,
+                CSV_SERVICOS_EXECUTADOS,
+                carregar_servicos_executados_csv,
+                salvar_servicos_executados_csv,
+                transformar_destboad_em_servicos_executados,
+            )
 
-            dados = consultar_destboad_json()
-            df_destboad = pd.DataFrame(dados)
+            df_destboad = consultar_destboad_dataframe()
 
-            st.success(f"Consulta realizada com sucesso. Registros retornados: {len(dados)}")
-            st.json(dados)
+            CSV_DESTBOAD_BRUTO.parent.mkdir(parents=True, exist_ok=True)
+            df_destboad.to_csv(CSV_DESTBOAD_BRUTO, index=False, encoding="utf-8-sig")
 
-            csv = df_destboad.to_csv(index=False).encode("utf-8-sig")
+            df_servicos = transformar_destboad_em_servicos_executados(df_destboad)
+            salvar_servicos_executados_csv(df_servicos, CSV_SERVICOS_EXECUTADOS)
+
+            st.success(
+                "Consulta realizada com sucesso. "
+                f"Registros Oracle: {len(df_destboad)} | "
+                f"linhas para servicos_executados: {len(df_servicos)}"
+            )
+            st.caption(f"CSV bruto salvo em: {CSV_DESTBOAD_BRUTO}")
+            st.caption(f"CSV para carga salvo em: {CSV_SERVICOS_EXECUTADOS}")
+
+            st.dataframe(df_servicos.head(100), use_container_width=True)
+
+            if carregar_apos_consulta:
+                total_carregado = carregar_servicos_executados_csv(
+                    CSV_SERVICOS_EXECUTADOS,
+                    substituir_tabela=substituir_tabela,
+                    substituir_periodos_csv=not substituir_tabela,
+                )
+                carregar_base_outra_tabela.clear()
+                st.success(f"Banco atualizado. Linhas carregadas: {total_carregado}")
+
+            csv_oracle = df_destboad.to_csv(index=False).encode("utf-8-sig")
             st.download_button(
-                "Baixar CSV",
-                data=csv,
+                "Baixar CSV Oracle bruto",
+                data=csv_oracle,
                 file_name="saida_oracle_destboad.csv",
+                mime="text/csv",
+            )
+
+            csv_servicos = df_servicos.to_csv(sep=";", index=False).encode("utf-8-sig")
+            st.download_button(
+                "Baixar CSV servicos_executados",
+                data=csv_servicos,
+                file_name="servicos_executados.csv",
                 mime="text/csv",
             )
 
         except Exception as erro:
             st.error("Erro ao consultar Oracle.")
+            st.exception(erro)
+
+    if st.button("Carregar CSV no banco"):
+        try:
+            from Oracle.servicos_executados_pipeline import (
+                CSV_SERVICOS_EXECUTADOS,
+                carregar_servicos_executados_csv,
+            )
+
+            total_carregado = carregar_servicos_executados_csv(
+                CSV_SERVICOS_EXECUTADOS,
+                substituir_tabela=substituir_tabela,
+                substituir_periodos_csv=not substituir_tabela,
+            )
+            carregar_base_outra_tabela.clear()
+            st.success(f"Carga concluida. Linhas carregadas: {total_carregado}")
+        except Exception as erro:
+            st.error("Erro ao carregar CSV local.")
             st.exception(erro)
 
 

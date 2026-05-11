@@ -96,6 +96,28 @@ def _render_database_target() -> None:
     )
 
 
+def _eh_pagina_servicos_executados(menu: str) -> bool:
+    return "Executados" in menu and menu.startswith("Servi")
+
+
+def _obter_base_para_filtros(menu: str, df_base: pd.DataFrame) -> pd.DataFrame:
+    if not _eh_pagina_servicos_executados(menu):
+        return df_base
+
+    try:
+        from dashboard.data import carregar_base_outra_tabela
+
+        df_servicos = carregar_base_outra_tabela()
+    except Exception as erro:
+        st.warning(f"Erro ao carregar filtros de servicos_executados: {erro}")
+        return df_base
+
+    if df_servicos.empty:
+        return df_base
+
+    return df_servicos
+
+
 def _render_usuario_logado() -> None:
     usuario_logado = obter_usuario_logado()
     if not usuario_logado:
@@ -164,7 +186,16 @@ def _indice_mes(meses: list[pd.Timestamp], mes_procurado: pd.Timestamp) -> int:
 
 
 def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
-    data_valida = df_base["data_ref"].dropna()
+    with st.sidebar:
+        _render_sidebar_logo()
+        _render_usuario_logado()
+        _render_database_target()
+        st.markdown("### Navegacao")
+        menu = _render_navegacao()
+
+    df_filtros = _obter_base_para_filtros(menu, df_base)
+
+    data_valida = df_filtros["data_ref"].dropna()
     if data_valida.empty:
         data_min = date.today()
         data_max = date.today()
@@ -176,12 +207,6 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
     periodo_padrao = _obter_periodo_padrao(meses_disponiveis)
 
     with st.sidebar:
-        _render_sidebar_logo()
-        _render_usuario_logado()
-        _render_database_target()
-        st.markdown("### Navegacao")
-        menu = _render_navegacao()
-
         st.markdown("### Filtros")
         periodo_mensal = st.select_slider(
             "Periodo",
@@ -215,13 +240,13 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
         fim_mes = pd.Timestamp(mes_fim) + pd.offsets.MonthEnd(0)
         periodo = (inicio_mes, fim_mes)
 
-        contratos = sorted([x for x in df_base["contrato"].dropna().unique().tolist() if x])
+        contratos = sorted([x for x in df_filtros["contrato"].dropna().unique().tolist() if x])
         filtro_contrato = st.multiselect("Contrato", contratos)
 
-        operadoras = sorted([x for x in df_base["operadora"].dropna().unique().tolist() if x])
+        operadoras = sorted([x for x in df_filtros["operadora"].dropna().unique().tolist() if x])
         filtro_operadora = st.multiselect("Operadora", operadoras)
 
-        equipamentos = sorted([x for x in df_base["equipamento"].dropna().unique().tolist() if x])
+        equipamentos = sorted([x for x in df_filtros["equipamento"].dropna().unique().tolist() if x])
         filtro_equipamento = st.multiselect("Equipamento", equipamentos)
 
     return {
