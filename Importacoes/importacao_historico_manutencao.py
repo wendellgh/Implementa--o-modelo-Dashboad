@@ -145,6 +145,20 @@ def preparar_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Colunas ausentes apos rename: {faltantes}")
 
     chunk = chunk[colunas_origem].copy()
+
+    linhas_vazias = (
+        chunk[colunas_origem]
+        .fillna("")
+        .astype(str)
+        .apply(lambda coluna: coluna.str.strip())
+        .eq("")
+        .all(axis=1)
+    )
+    chunk = chunk.loc[~linhas_vazias].copy()
+
+    if chunk.empty:
+        return chunk.reindex(columns=COLUNAS_DESTINO)
+
     chunk["data_ref"] = converter_datas(chunk["data_ref"])
     chunk["data_competencia"] = converter_para_competencia_mensal(chunk["data_ref"])
 
@@ -239,6 +253,7 @@ def carregar_csv(
 
     total_linhas = 0
     total_datas_invalidas = 0
+    total_linhas_vazias = 0
 
     for chunk in pd.read_csv(
         caminho_csv,
@@ -247,7 +262,14 @@ def carregar_csv(
         chunksize=chunksize,
         dtype=str,
     ):
+        linhas_lidas = len(chunk)
         chunk = preparar_chunk(chunk)
+        total_linhas_vazias += linhas_lidas - len(chunk)
+
+        if chunk.empty:
+            print(f"{linhas_lidas} linhas vazias ignoradas")
+            continue
+
         total_datas_invalidas += int(chunk["data_ref"].isna().sum())
 
         chunk.to_sql(
@@ -265,6 +287,7 @@ def carregar_csv(
 
     print("Importacao concluida com sucesso.")
     print(f"Total de linhas importadas: {total_linhas}")
+    print(f"Total de linhas vazias ignoradas: {total_linhas_vazias}")
     print(f"Total de datas invalidas: {total_datas_invalidas}")
     return total_linhas
 
@@ -283,7 +306,10 @@ def parse_args() -> argparse.Namespace:
     modo.add_argument(
         "--append",
         action="store_true",
-        help="Adiciona as linhas do CSV sem apagar dados existentes.",
+        help=(
+            "Adiciona as linhas do CSV sem apagar dados existentes. "
+            "Use apenas para dados novos; recarregar o mesmo periodo duplica registros."
+        ),
     )
     modo.add_argument(
         "--replace-table",
