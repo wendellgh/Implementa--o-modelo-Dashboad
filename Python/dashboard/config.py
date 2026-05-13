@@ -1,5 +1,5 @@
 PAGE_CONFIG = {
-    "page_title": "Dashboard de Manutencao",
+    "page_title": "Dashboard de Manutenção Geral",
     "page_icon": ":bar_chart:",
     "layout": "wide",
     "initial_sidebar_state": "auto",
