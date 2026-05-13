@@ -9,7 +9,7 @@ Use a connection string direta do Neon para migracao. Evite a URL com
 `-pooler` em comandos de migracao.
 
 ```powershell
-$env:NEON_DATABASE_URL="postgresql://usuario:senha@ep-....neon.tech/dbname?sslmode=require"
+$env:NEON_DATABASE_URL="postgresql://neondb_owner:npg_GfTjZ3CpS0Hy@ep-lively-water-acsdt1ns.sa-east-1.aws.neon.tech/neondb?sslmode=require"
 ```
 
 No Streamlit Cloud, configure o mesmo valor em Secrets como:
