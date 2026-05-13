@@ -372,16 +372,15 @@ def render_consulta_destboad_oracle() -> None:
             st.exception(erro)
 
 
-def render_servicos_executados_dashboard(filtros: dict[str, object]) -> None:
+def montar_servicos_executados_dashboard(filtros: dict[str, object]):
     try:
         df_servicos = carregar_base_outra_tabela()
     except Exception as erro:
         st.warning(f"Erro ao carregar servicos_executados: {erro}")
-        return
+        return None
 
     if df_servicos.empty:
-        st.info("Sem dados na tabela servicos_executados.")
-        return
+        return None
 
     servicos_filtrados = aplicar_filtros(df_servicos, filtros)
     if servicos_filtrados.empty and filtros.get("periodo"):
@@ -389,10 +388,7 @@ def render_servicos_executados_dashboard(filtros: dict[str, object]) -> None:
         filtros_sem_periodo["periodo"] = None
         servicos_filtrados = aplicar_filtros(df_servicos, filtros_sem_periodo)
 
-    servicos_resumo = montar_servicos_executados_por_tipo(servicos_filtrados)
-
-    st.write("")
-    render_servicos_executados_chart(servicos_resumo)
+    return montar_servicos_executados_por_tipo(servicos_filtrados)
 
 
 def main() -> None:
@@ -434,6 +430,7 @@ def main() -> None:
 
     if menu == "Dashboard":
         kpis = calcular_kpis(resumo, evolucao_mensal)
+        servicos_resumo_dashboard = montar_servicos_executados_dashboard(filtros)
         render_kpis(kpis)
         st.write("")
         render_dashboard_charts(
@@ -441,8 +438,8 @@ def main() -> None:
             evolucao_mensal,
             manutencao_contrato,
             equipamentos_contrato,
+            servicos_resumo_dashboard,
         )
-        render_servicos_executados_dashboard(filtros)
     elif menu == "Resumo":
         render_resumo_chart(resumo)
         render_tabela_resumo(resumo)

@@ -102,6 +102,7 @@ def render_dashboard_charts(
     df_evolucao_mensal: pd.DataFrame,
     df_manutencao_contrato: pd.DataFrame,
     df_equipamentos_contrato: pd.DataFrame,
+    df_servicos_resumo: pd.DataFrame | None = None,
 ) -> None:
     if df_evolucao_mensal.empty:
         st.info("Sem dados para os filtros selecionados.")
@@ -112,9 +113,13 @@ def render_dashboard_charts(
     with col_top_1:
         with st.container(border=True):
             percentual_frota = df_evolucao_mensal.sort_values("mes").copy()
-            percentual_frota["mes_label"] = percentual_frota["mes"].apply(_formatar_mes_curto)
-            percentual_frota["cor_barra"] = percentual_frota["percentual_qtd_x_frota"].apply(
-                _cor_percentual_frota
+            percentual_frota["mes_label"] = percentual_frota["mes"].apply(
+                _formatar_mes_curto
+            )
+            percentual_frota["cor_barra"] = percentual_frota[
+                "percentual_qtd_x_frota"
+            ].apply(
+                _cor_percentual_frota,
             )
             ordem_meses = percentual_frota["mes_label"].tolist()
             fig_percentual = px.bar(
@@ -147,7 +152,9 @@ def render_dashboard_charts(
     with col_top_2:
         with st.container(border=True):
             if df_manutencao_contrato.empty:
-                st.info("Sem dados de manutenção por contrato para os filtros selecionados.")
+                st.info(
+                    "Sem dados de manutenção por contrato para os filtros selecionados."
+                )
             else:
                 manutencao_contrato = df_manutencao_contrato.sort_values(
                     "quantidade_manutencao",
@@ -182,42 +189,13 @@ def render_dashboard_charts(
 
     with col_bottom_1:
         with st.container(border=True):
-            servicos_mes = df_evolucao_mensal.copy()
-            servicos_mes["mes"] = (
-                pd.to_datetime(servicos_mes["mes"], dayfirst=True, errors="coerce")
-                .dt.to_period("M")
-                .dt.to_timestamp()
-            )
-            servicos_mes = (
-                servicos_mes.dropna(subset=["mes"])
-                .groupby("mes", as_index=False)
-                .agg(total_qtd=("total_qtd", "sum"))
-                .sort_values("mes")
-            )
-            servicos_mes["mes_label"] = servicos_mes["mes"].apply(_formatar_mes_curto)
-            ordem_meses_servicos = servicos_mes["mes_label"].tolist()
-            fig_servico = px.bar(
-                servicos_mes,
-                x="mes_label",
-                y="total_qtd",
-                title="SERVIÇOS EXECUTADOS",
-                text="total_qtd",
-                category_orders={"mes_label": ordem_meses_servicos},
-                labels={
-                    "mes_label": "Mês",
-                    "total_qtd": "Quantidade Serviços Executados",
-                },
-                color="total_qtd",
-                color_continuous_scale=ESCALA_OPERACIONAL,
-            )
-            fig_servico.update_xaxes(
-                type="category",
-                categoryorder="array",
-                categoryarray=ordem_meses_servicos,
-            )
-            _mostrar_rotulos_barras(fig_servico, "%{text:.0f}")
-            fig_servico.update_coloraxes(showscale=False)
-            st.plotly_chart(_estilizar_figura(fig_servico), use_container_width=True)
+            if df_servicos_resumo is None:
+                st.info("Sem dados de serviços executados por tipo.")
+            else:
+                render_servicos_executados_chart(
+                    df_servicos_resumo,
+                    usar_container=False,
+                )
 
     with col_bottom_2:
         with st.container(border=True):
@@ -319,28 +297,37 @@ def render_frota_operadora_chart(df_frota_operadora: pd.DataFrame) -> None:
         st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
 
 
-def render_servicos_executados_chart(df_servicos_resumo: pd.DataFrame) -> None:
+def render_servicos_executados_chart(
+    df_servicos_resumo: pd.DataFrame,
+    usar_container: bool = True,
+) -> None:
     if df_servicos_resumo.empty:
         st.info("Sem serviços executados para os filtros selecionados.")
         return
 
-    ranking = df_servicos_resumo.sort_values("quantidade_servicos", ascending=True).tail(5)
+    ranking = df_servicos_resumo.sort_values(
+        "quantidade_servicos",
+        ascending=True,
+    ).tail(5)
+    fig = px.bar(
+        ranking,
+        x="quantidade_servicos",
+        y="servico_executado",
+        orientation="h",
+        title="SERVIÇOS EXECUTADOS POR TIPO",
+        text="quantidade_servicos",
+        color="quantidade_servicos",
+        color_continuous_scale=ESCALA_RANKING,
+        labels={
+            "servico_executado": "Serviços Executados",
+            "quantidade_servicos": "Quantidade",
+        },
+    )
+    _mostrar_rotulos_barras(fig, "%{text:.0f}")
+    fig.update_coloraxes(showscale=False)
 
-    with st.container(border=True):
-        fig = px.bar(
-            ranking,
-            x="quantidade_servicos",
-            y="servico_executado",
-            orientation="h",
-            title="SERVIÇOS EXECUTADOS POR TIPO",
-            text="quantidade_servicos",
-            color="quantidade_servicos",
-            color_continuous_scale=ESCALA_RANKING,
-            labels={
-                "servico_executado": "Serviços Executados",
-                "quantidade_servicos": "Quantidade",
-            },
-        )
-        _mostrar_rotulos_barras(fig, "%{text:.0f}")
-        fig.update_coloraxes(showscale=False)
+    if usar_container:
+        with st.container(border=True):
+            st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
+    else:
         st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
