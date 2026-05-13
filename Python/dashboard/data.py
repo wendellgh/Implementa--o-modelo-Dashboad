@@ -49,7 +49,11 @@ def _adicionar_colunas_competencia(
 
 def _obter_serie_competencia(df: pd.DataFrame) -> pd.Series:
     if "data_competencia" in df.columns:
-        return pd.to_datetime(df["data_competencia"], dayfirst=True, errors="coerce")
+        return (
+            pd.to_datetime(df["data_competencia"], dayfirst=True, errors="coerce")
+            .dt.to_period("M")
+            .dt.to_timestamp()
+        )
 
     return (
         pd.to_datetime(df["data_ref"], dayfirst=True, errors="coerce")

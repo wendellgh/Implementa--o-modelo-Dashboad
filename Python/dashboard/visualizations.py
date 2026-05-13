@@ -182,7 +182,18 @@ def render_dashboard_charts(
 
     with col_bottom_1:
         with st.container(border=True):
-            servicos_mes = df_evolucao_mensal.sort_values("mes").copy()
+            servicos_mes = df_evolucao_mensal.copy()
+            servicos_mes["mes"] = (
+                pd.to_datetime(servicos_mes["mes"], dayfirst=True, errors="coerce")
+                .dt.to_period("M")
+                .dt.to_timestamp()
+            )
+            servicos_mes = (
+                servicos_mes.dropna(subset=["mes"])
+                .groupby("mes", as_index=False)
+                .agg(total_qtd=("total_qtd", "sum"))
+                .sort_values("mes")
+            )
             servicos_mes["mes_label"] = servicos_mes["mes"].apply(_formatar_mes_curto)
             ordem_meses_servicos = servicos_mes["mes_label"].tolist()
             fig_servico = px.bar(
