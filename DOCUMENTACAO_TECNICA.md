@@ -202,6 +202,61 @@ Etapas:
 
 ---
 
+## 7.1) Carga complementar de `servicos_executados`
+
+A tabela `servicos_executados` pode receber dados de duas origens:
+- Oracle, via `Python/Oracle/servicos_executados_pipeline.py`;
+- CSV antigo `Importacoes/bsa_serv_exce.csv`, via `Importacoes/importa_servicos_executados.py`.
+
+As duas origens passam pela normalização comum em `Python/dashboard/servicos_executados_schema.py`. Isso garante que, independentemente do cabeçalho original, o banco receba sempre o mesmo contrato de colunas:
+
+```text
+DATA
+DATA_COMPETENCIA
+ID_CONTRATO
+CONTRATO
+ID_EQUIPAMENTO
+EQUIPAMENTO
+ID_OPERADORA
+OPERADORA
+ID_SERVICO_EXECUTADO
+SERVIC_EXECUTADO
+QTD_SERVICO
+```
+
+### Fluxo recomendado
+
+Use o Oracle para carregar os períodos/serviços disponíveis nessa origem. Depois use o CSV antigo para complementar períodos ou serviços que não existam no Oracle.
+
+Na tela **Dados da Manutenção - Oracle**, o campo **Modo de carga no banco** oferece três comportamentos:
+- `Substituir periodos do CSV`: remove apenas os períodos presentes no CSV gerado e insere esses períodos novamente. É o modo recomendado para recarregar sem duplicar.
+- `Apenas adicionar (append)`: só insere registros. Use apenas para dados novos, porque recarregar o mesmo arquivo pode duplicar informações.
+- `Substituir toda a tabela servicos_executados`: limpa toda a tabela antes da carga. Use apenas quando a intenção for reconstruir a tabela inteira.
+
+Para importar o CSV antigo sem apagar toda a tabela:
+
+```powershell
+python Importacoes\importa_servicos_executados.py
+```
+
+Esse modo remove apenas os períodos presentes no próprio CSV e insere novamente esses períodos. Os demais períodos, inclusive os carregados pelo Oracle, são preservados.
+
+Para apenas adicionar registros, sem remover períodos existentes:
+
+```powershell
+python Importacoes\importa_servicos_executados.py --append
+```
+
+Para limpar toda a tabela e recarregar somente pelo CSV antigo:
+
+```powershell
+python Importacoes\importa_servicos_executados.py --replace-table
+```
+
+Use `--replace-table` apenas quando a intenção for substituir completamente a tabela `servicos_executados`.
+
+---
+
 ## 8) Pontos fortes atuais
 
 - Código modular e legível, com separação por responsabilidade.

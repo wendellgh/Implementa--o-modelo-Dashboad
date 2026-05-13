@@ -30,6 +30,13 @@ ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 
 
+def _parametros_modo_carga_servicos(modo_carga: str) -> tuple[bool, bool]:
+    substituir_tabela = modo_carga.startswith("Substituir toda")
+    append = modo_carga.startswith("Apenas adicionar")
+    substituir_periodos_csv = not substituir_tabela and not append
+    return substituir_tabela, substituir_periodos_csv
+
+
 def render_consulta_destboad_oracle() -> None:
     st.subheader("Dados da Manutenção - Oracle")
 
@@ -43,7 +50,24 @@ def render_consulta_destboad_oracle() -> None:
     )
 
     carregar_apos_consulta = st.checkbox("Carregar no banco apos consultar", value=True)
-    substituir_tabela = st.checkbox("Substituir toda a tabela servicos_executados")
+    modo_carga = st.radio(
+        "Modo de carga no banco",
+        [
+            "Substituir periodos do CSV",
+            "Apenas adicionar (append)",
+            "Substituir toda a tabela servicos_executados",
+        ],
+        help=(
+            "Use append apenas para dados novos. Para recarregar um periodo sem duplicar, "
+            "use a substituicao de periodos."
+        ),
+    )
+    substituir_tabela, substituir_periodos_csv = _parametros_modo_carga_servicos(modo_carga)
+    if modo_carga.startswith("Apenas adicionar"):
+        st.warning(
+            "Append nao remove registros existentes. Use apenas quando tiver certeza "
+            "de que os dados ainda nao foram carregados."
+        )
 
     if st.button("Consultar Oracle", type="primary"):
         try:
@@ -78,7 +102,7 @@ def render_consulta_destboad_oracle() -> None:
                 total_carregado = carregar_servicos_executados_csv(
                     CSV_SERVICOS_EXECUTADOS,
                     substituir_tabela=substituir_tabela,
-                    substituir_periodos_csv=not substituir_tabela,
+                    substituir_periodos_csv=substituir_periodos_csv,
                 )
                 carregar_base_outra_tabela.clear()
                 st.success(f"Banco atualizado. Linhas carregadas: {total_carregado}")
@@ -113,7 +137,7 @@ def render_consulta_destboad_oracle() -> None:
             total_carregado = carregar_servicos_executados_csv(
                 CSV_SERVICOS_EXECUTADOS,
                 substituir_tabela=substituir_tabela,
-                substituir_periodos_csv=not substituir_tabela,
+                substituir_periodos_csv=substituir_periodos_csv,
             )
             carregar_base_outra_tabela.clear()
             st.success(f"Carga concluida. Linhas carregadas: {total_carregado}")

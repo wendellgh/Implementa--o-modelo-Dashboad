@@ -11,6 +11,12 @@ PYTHON_DIR = Path(__file__).resolve().parents[1]
 if str(PYTHON_DIR) not in sys.path:
     sys.path.insert(0, str(PYTHON_DIR))
 
+from dashboard.servicos_executados_schema import (
+    COLUNAS_SERVICOS_EXECUTADOS,
+    competencia_mensal_date,
+    normalizar_servicos_executados,
+)
+
 ORACLE_DIR = Path(__file__).resolve().parent
 CSV_DESTBOAD_BRUTO = ORACLE_DIR / "saida_oracle_destboad.csv"
 CSV_SERVICOS_EXECUTADOS = ORACLE_DIR / "servicos_executados.csv"
@@ -19,19 +25,7 @@ CHUNKSIZE = 5000
 ANO_DATA_MINIMO = 1900
 ANO_DATA_MAXIMO = 2100
 
-COLUNAS_DESTINO = [
-    "DATA",
-    "DATA_COMPETENCIA",
-    "ID_CONTRATO",
-    "CONTRATO",
-    "ID_EQUIPAMENTO",
-    "EQUIPAMENTO",
-    "ID_OPERADORA",
-    "OPERADORA",
-    "ID_SERVICO_EXECUTADO",
-    "SERVIC_EXECUTADO",
-    "QTD_SERVICO",
-]
+COLUNAS_DESTINO = COLUNAS_SERVICOS_EXECUTADOS
 
 GARANTIR_COLUNAS_AUXILIARES_SQL = f"""
 ALTER TABLE public.{TABELA_DESTINO}
@@ -183,23 +177,6 @@ def _converter_datas(df: pd.DataFrame, agrupar_por_mes: bool) -> pd.Series:
     return datas_formatadas.where(datas.notna(), None)
 
 
-def _competencia_mensal(valores: pd.Series) -> pd.Series:
-    datas = _converter_texto_para_data(valores)
-    competencia = datas.dt.to_period("M").dt.to_timestamp()
-    return competencia
-
-
-def _competencia_mensal_formatada(valores: pd.Series) -> pd.Series:
-    competencia = _competencia_mensal(valores)
-    competencia_formatada = competencia.dt.strftime("%d/%m/%Y")
-    return competencia_formatada.where(competencia.notna(), None)
-
-
-def _competencia_mensal_date(valores: pd.Series) -> pd.Series:
-    competencia = _competencia_mensal(valores)
-    return competencia.dt.date.where(competencia.notna(), None)
-
-
 def ler_csv_destboad(caminho_csv: str | Path) -> pd.DataFrame:
     return pd.read_csv(
         caminho_csv,
@@ -208,6 +185,23 @@ def ler_csv_destboad(caminho_csv: str | Path) -> pd.DataFrame:
         encoding="utf-8-sig",
         dtype=str,
     )
+
+
+def _detectar_encoding_csv(caminho_csv: str | Path) -> str:
+    for encoding in ["utf-8-sig", "cp1252"]:
+        try:
+            pd.read_csv(
+                caminho_csv,
+                sep=";",
+                encoding=encoding,
+                nrows=5,
+                dtype=str,
+            )
+            return encoding
+        except UnicodeDecodeError:
+            continue
+
+    return "utf-8-sig"
 
 
 def validar_colunas_destboad(df_destboad: pd.DataFrame) -> None:
@@ -285,15 +279,7 @@ def transformar_destboad_em_servicos_executados(
         )
         df_servicos["DATA"] = df_servicos["DATA_COMPETENCIA"]
 
-    df_servicos["QTD_SERVICO"] = (
-        pd.to_numeric(df_servicos["QTD_SERVICO"], errors="coerce")
-        .fillna(0)
-        .round()
-        .astype(int)
-        .astype(str)
-    )
-
-    return df_servicos[COLUNAS_DESTINO]
+    return normalizar_servicos_executados(df_servicos)
 
 
 def salvar_servicos_executados_csv(
@@ -302,6 +288,7 @@ def salvar_servicos_executados_csv(
 ) -> Path:
     caminho = Path(caminho_csv)
     caminho.parent.mkdir(parents=True, exist_ok=True)
+    df_servicos = normalizar_servicos_executados(df_servicos)
     df_servicos.to_csv(caminho, sep=";", index=False, encoding="utf-8-sig")
     return caminho
 
@@ -330,14 +317,10 @@ def carregar_servicos_executados_csv(
     if not caminho.exists():
         raise FileNotFoundError(f"Arquivo nao encontrado: {caminho}")
 
-    teste = pd.read_csv(caminho, sep=";", encoding="utf-8-sig", nrows=5, dtype=str)
+    encoding = _detectar_encoding_csv(caminho)
+    teste = pd.read_csv(caminho, sep=";", encoding=encoding, nrows=5, dtype=str)
     teste.columns = teste.columns.str.strip()
-    colunas_obrigatorias = [
-        coluna for coluna in COLUNAS_DESTINO if coluna != "DATA_COMPETENCIA"
-    ]
-    faltantes = [coluna for coluna in colunas_obrigatorias if coluna not in teste.columns]
-    if faltantes:
-        raise ValueError(f"Colunas ausentes no CSV de carga: {faltantes}")
+    normalizar_servicos_executados(teste)
 
     from dashboard.database import get_db_target_label, get_engine
 
@@ -358,14 +341,15 @@ def carregar_servicos_executados_csv(
         datas_csv = pd.read_csv(
             caminho,
             sep=";",
-            encoding="utf-8-sig",
-            usecols=["DATA_COMPETENCIA"] if "DATA_COMPETENCIA" in teste.columns else ["DATA"],
+            encoding=encoding,
             dtype=str,
         )
-        coluna_datas = "DATA_COMPETENCIA" if "DATA_COMPETENCIA" in datas_csv.columns else "DATA"
+        datas_csv = normalizar_servicos_executados(datas_csv)
         datas_para_substituir = sorted(
             data
-            for data in _competencia_mensal_date(datas_csv[coluna_datas]).dropna().tolist()
+            for data in competencia_mensal_date(datas_csv["DATA_COMPETENCIA"])
+            .dropna()
+            .tolist()
         )
 
         if datas_para_substituir:
@@ -386,18 +370,16 @@ def carregar_servicos_executados_csv(
     for chunk in pd.read_csv(
         caminho,
         sep=";",
-        encoding="utf-8-sig",
+        encoding=encoding,
         chunksize=chunksize,
         dtype=str,
     ):
         chunk.columns = chunk.columns.str.strip()
-        if "DATA_COMPETENCIA" not in chunk.columns:
-            chunk["DATA_COMPETENCIA"] = _competencia_mensal_formatada(chunk["DATA"])
-        chunk = chunk[COLUNAS_DESTINO].copy()
+        chunk = normalizar_servicos_executados(chunk)
 
         for coluna in COLUNAS_DESTINO:
             chunk[coluna] = chunk[coluna].fillna("").astype(str).str.strip()
-        chunk["DATA_COMPETENCIA"] = _competencia_mensal_date(chunk["DATA_COMPETENCIA"])
+        chunk["DATA_COMPETENCIA"] = competencia_mensal_date(chunk["DATA_COMPETENCIA"])
 
         chunk.to_sql(
             TABELA_DESTINO,

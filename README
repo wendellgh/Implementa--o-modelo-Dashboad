@@ -155,6 +155,36 @@ COPY servicos_executados (\
 docker exec -it postgres_app psql -U app_user -d app_db -c "SELECT COUNT(*) FROM servicos_executados;"
 ```
 
+### Carga complementar com Oracle e CSV antigo
+
+A tabela `servicos_executados` pode ser alimentada tanto pelo Oracle quanto pelo CSV antigo `Importacoes/bsa_serv_exce.csv`. Os dois caminhos passam pela mesma normalização de colunas antes da carga, então podem conviver na mesma tabela.
+
+Na tela **Dados da Manutenção - Oracle**, use **Modo de carga no banco**:
+
+- `Substituir periodos do CSV`: recarrega apenas os períodos do CSV gerado, sem duplicar.
+- `Apenas adicionar (append)`: só adiciona registros novos; pode duplicar se o mesmo arquivo for carregado de novo.
+- `Substituir toda a tabela servicos_executados`: limpa tudo antes da carga.
+
+Use o CSV antigo para complementar dados que não existam no Oracle:
+
+```powershell
+python Importacoes\importa_servicos_executados.py
+```
+
+Esse comando preserva os períodos já carregados pelo Oracle e substitui apenas os períodos presentes no CSV.
+
+Para apenas adicionar registros, sem remover períodos existentes:
+
+```powershell
+python Importacoes\importa_servicos_executados.py --append
+```
+
+Para limpar toda a tabela e recarregar somente pelo CSV:
+
+```powershell
+python Importacoes\importa_servicos_executados.py --replace-table
+```
+
 ---
 
 ## 🐍 Rodando o Streamlit sem Docker
