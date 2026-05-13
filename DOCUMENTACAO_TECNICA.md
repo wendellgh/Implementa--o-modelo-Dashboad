@@ -239,6 +239,13 @@ Na mesma tela, a seção **Importar CSV externo** facilita a carga de dados que 
 
 O botão **Carregar CSV externo no banco** usa o mesmo **Modo de carga no banco** selecionado acima.
 
+A seção **Teste: importar Basehistorica.csv** permite carregar dados de teste para a tabela `base_historica_manutencao`. Ela também aceita upload pelo navegador ou usa o arquivo padrão `Importacoes/Basehistorica.csv`.
+
+Essa carga tem modo próprio:
+- `Substituir periodos da Basehistorica`: remove apenas os períodos presentes no CSV e insere esses períodos novamente;
+- `Apenas adicionar Basehistorica (append)`: só insere registros e pode duplicar se o mesmo arquivo for carregado novamente;
+- `Substituir toda a tabela base_historica_manutencao`: limpa toda a tabela histórica antes da carga.
+
 Para importar o CSV antigo sem apagar toda a tabela:
 
 ```powershell

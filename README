@@ -167,6 +167,8 @@ Na tela **Dados da Manutenção - Oracle**, use **Modo de carga no banco**:
 
 Na seção **Importar CSV externo**, use **Carregar CSV externo no banco** para enviar um CSV pelo navegador ou carregar o arquivo padrão `Importacoes/bsa_serv_exce.csv`. Esse botão usa o mesmo modo de carga selecionado acima.
 
+Na seção **Teste: importar Basehistorica.csv**, use **Carregar Basehistorica.csv de teste no banco** para enviar um arquivo pelo navegador ou carregar o padrão `Importacoes/Basehistorica.csv`. Essa carga possui modo próprio para substituir períodos, fazer append ou substituir toda a tabela `base_historica_manutencao`.
+
 Use o CSV antigo para complementar dados que não existam no Oracle:
 
 ```powershell

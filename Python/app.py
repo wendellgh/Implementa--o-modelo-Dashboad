@@ -1,4 +1,6 @@
+import importlib.util
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 import streamlit as st
@@ -7,6 +9,7 @@ from dashboard.auth import render_login, usuario_eh_admin
 from dashboard.config import APP_TITLE, PAGE_CONFIG
 from dashboard.data import (
     carregar_base,
+    carregar_base_outra_tabela,
     montar_equipamentos_por_contrato,
     montar_evolucao_mensal,
     montar_frota_operadora_por_mes,
@@ -14,14 +17,22 @@ from dashboard.data import (
     montar_resumo_equipamento,
     montar_servicos_executados_por_tipo,
     montar_tabela_evolucao,
-    carregar_base_outra_tabela
 )
 from dashboard.database import get_db_diagnostics, get_db_target_label
 from dashboard.data_entry import render_entrada_dados
 from dashboard.filters import aplicar_filtros, render_sidebar
-from dashboard.metrics import calcular_kpis, render_kpis, render_total_servicos_executados
+from dashboard.metrics import (
+    calcular_kpis,
+    render_kpis,
+    render_total_servicos_executados,
+)
 from dashboard.styles import aplicar_estilos_globais, render_titulo_principal
-from dashboard.tables import render_tabela_detalhe, render_tabela_evolucao, render_tabela_resumo, render_servicos_executados
+from dashboard.tables import (
+    render_servicos_executados,
+    render_tabela_detalhe,
+    render_tabela_evolucao,
+    render_tabela_resumo,
+)
 from dashboard.visualizations import (
     render_dashboard_charts,
     render_frota_operadora_chart,
@@ -31,9 +42,70 @@ from dashboard.visualizations import (
 
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
-CSV_SERVICOS_EXTERNO_PADRAO = (
-    Path(__file__).resolve().parents[1] / "Importacoes" / "bsa_serv_exce.csv"
+CSV_SERVICOS_EXTERNO_RELATIVO = Path("Importacoes") / "bsa_serv_exce.csv"
+CSV_BASE_HISTORICA_RELATIVO = Path("Importacoes") / "Basehistorica.csv"
+IMPORTADOR_BASE_HISTORICA_RELATIVO = (
+    Path("Importacoes") / "importacao_historico_manutencao.py"
 )
+
+
+def _candidatos_arquivo_importacao(caminho_relativo: Path) -> list[Path]:
+    app_path = Path(__file__).resolve()
+    candidatos = [
+        caminho_relativo,
+        Path.cwd() / caminho_relativo,
+        app_path.parents[1] / caminho_relativo,
+        app_path.parent / caminho_relativo,
+    ]
+    return list(dict.fromkeys(candidatos))
+
+
+def _candidatos_csv_servicos_externo_padrao() -> list[Path]:
+    return _candidatos_arquivo_importacao(CSV_SERVICOS_EXTERNO_RELATIVO)
+
+
+def _resolver_csv_servicos_externo_padrao() -> Path | None:
+    for caminho in _candidatos_csv_servicos_externo_padrao():
+        if caminho.exists():
+            return caminho
+    return None
+
+
+def _candidatos_csv_base_historica_padrao() -> list[Path]:
+    return _candidatos_arquivo_importacao(CSV_BASE_HISTORICA_RELATIVO)
+
+
+def _resolver_csv_base_historica_padrao() -> Path | None:
+    for caminho in _candidatos_csv_base_historica_padrao():
+        if caminho.exists():
+            return caminho
+    return None
+
+
+def _carregar_importador_base_historica() -> Callable[..., int]:
+    for caminho in _candidatos_arquivo_importacao(IMPORTADOR_BASE_HISTORICA_RELATIVO):
+        if caminho.exists():
+            spec = importlib.util.spec_from_file_location(
+                "importacao_historico_manutencao",
+                caminho,
+            )
+            if spec is None or spec.loader is None:
+                break
+
+            modulo = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(modulo)
+            return modulo.carregar_csv
+
+    caminhos_tentados = "\n".join(
+        str(caminho)
+        for caminho in _candidatos_arquivo_importacao(
+            IMPORTADOR_BASE_HISTORICA_RELATIVO
+        )
+    )
+    raise FileNotFoundError(
+        "Importador da Basehistorica nao encontrado. "
+        f"Caminhos verificados:\n{caminhos_tentados}"
+    )
 
 
 def _parametros_modo_carga_servicos(modo_carga: str) -> tuple[bool, bool]:
@@ -47,7 +119,9 @@ def render_consulta_destboad_oracle() -> None:
     st.subheader("Dados da Manutenção - Oracle")
 
     if not usuario_eh_admin():
-        st.warning("A consulta Oracle esta disponivel apenas para usuarios administradores.")
+        st.warning(
+            "A consulta Oracle esta disponivel apenas para usuarios administradores."
+        )
         return
 
     st.info(
@@ -64,11 +138,13 @@ def render_consulta_destboad_oracle() -> None:
             "Substituir toda a tabela servicos_executados",
         ],
         help=(
-            "Use append apenas para dados novos. Para recarregar um periodo sem duplicar, "
-            "use a substituicao de periodos."
+            "Use append apenas para dados novos. Para recarregar um periodo sem "
+            "duplicar, use a substituicao de periodos."
         ),
     )
-    substituir_tabela, substituir_periodos_csv = _parametros_modo_carga_servicos(modo_carga)
+    substituir_tabela, substituir_periodos_csv = _parametros_modo_carga_servicos(
+        modo_carga
+    )
     if modo_carga.startswith("Apenas adicionar"):
         st.warning(
             "Append nao remove registros existentes. Use apenas quando tiver certeza "
@@ -157,26 +233,37 @@ def render_consulta_destboad_oracle() -> None:
         "Use para carregar dados complementares que vieram de fora, como "
         "`Importacoes/bsa_serv_exce.csv`."
     )
+    csv_externo_padrao = _resolver_csv_servicos_externo_padrao()
     csv_externo = st.file_uploader(
         "Enviar CSV externo de serviços executados",
         type=["csv"],
         help=(
             "Se nenhum arquivo for enviado, o botão usa o arquivo padrão "
-            f"{CSV_SERVICOS_EXTERNO_PADRAO}."
+            f"{CSV_SERVICOS_EXTERNO_RELATIVO}."
         ),
     )
-    st.caption(f"Arquivo padrão: {CSV_SERVICOS_EXTERNO_PADRAO}")
+    if csv_externo_padrao is None:
+        st.caption(f"Arquivo padrão: {CSV_SERVICOS_EXTERNO_RELATIVO}")
+    else:
+        st.caption(f"Arquivo padrão encontrado: {csv_externo_padrao}")
 
     if st.button("Carregar CSV externo no banco"):
         try:
-            from Oracle.servicos_executados_pipeline import carregar_servicos_executados_csv
+            from Oracle.servicos_executados_pipeline import (
+                carregar_servicos_executados_csv,
+            )
 
             if csv_externo is None:
-                if not CSV_SERVICOS_EXTERNO_PADRAO.exists():
-                    st.warning(f"Arquivo padrão não encontrado: {CSV_SERVICOS_EXTERNO_PADRAO}")
+                if csv_externo_padrao is None:
+                    caminhos_tentados = "\n".join(
+                        str(caminho)
+                        for caminho in _candidatos_csv_servicos_externo_padrao()
+                    )
+                    st.warning("Arquivo padrão não encontrado. Caminhos verificados:")
+                    st.code(caminhos_tentados)
                     return
 
-                caminho_csv_externo = CSV_SERVICOS_EXTERNO_PADRAO
+                caminho_csv_externo = csv_externo_padrao
                 total_carregado = carregar_servicos_executados_csv(
                     caminho_csv_externo,
                     substituir_tabela=substituir_tabela,
@@ -196,6 +283,92 @@ def render_consulta_destboad_oracle() -> None:
             st.success(f"CSV externo carregado. Linhas carregadas: {total_carregado}")
         except Exception as erro:
             st.error("Erro ao carregar CSV externo.")
+            st.exception(erro)
+
+    st.divider()
+    st.subheader("Teste: importar Basehistorica.csv")
+    st.caption(
+        "Use para subir uma base histórica de teste em `base_historica_manutencao`."
+    )
+    modo_carga_base = st.radio(
+        "Modo de carga da Basehistorica",
+        [
+            "Substituir periodos da Basehistorica",
+            "Apenas adicionar Basehistorica (append)",
+            "Substituir toda a tabela base_historica_manutencao",
+        ],
+        help=(
+            "Para testes recorrentes, prefira substituir períodos. Append pode "
+            "duplicar se o mesmo arquivo for carregado novamente."
+        ),
+    )
+    substituir_tabela_base = modo_carga_base.startswith("Substituir toda")
+    append_base = modo_carga_base.startswith("Apenas adicionar")
+    substituir_periodos_base = not substituir_tabela_base and not append_base
+    if append_base:
+        st.warning(
+            "Append nao remove registros existentes. Use apenas para dados realmente "
+            "novos."
+        )
+
+    csv_base_historica_padrao = _resolver_csv_base_historica_padrao()
+    csv_base_historica = st.file_uploader(
+        "Enviar Basehistorica.csv",
+        type=["csv"],
+        key="upload_basehistorica_teste",
+        help=(
+            "Se nenhum arquivo for enviado, o botão usa o arquivo padrão "
+            f"{CSV_BASE_HISTORICA_RELATIVO}."
+        ),
+    )
+    if csv_base_historica_padrao is None:
+        st.caption(f"Arquivo padrão: {CSV_BASE_HISTORICA_RELATIVO}")
+    else:
+        st.caption(f"Arquivo padrão encontrado: {csv_base_historica_padrao}")
+
+    if st.button("Carregar Basehistorica.csv de teste no banco"):
+        try:
+            carregar_csv = _carregar_importador_base_historica()
+
+            if csv_base_historica is None:
+                if csv_base_historica_padrao is None:
+                    caminhos_tentados = "\n".join(
+                        str(caminho)
+                        for caminho in _candidatos_csv_base_historica_padrao()
+                    )
+                    st.warning(
+                        "Basehistorica.csv padrão não encontrada. Caminhos verificados:"
+                    )
+                    st.code(caminhos_tentados)
+                    return
+
+                caminho_base_historica = csv_base_historica_padrao
+                total_carregado = carregar_csv(
+                    caminho_base_historica,
+                    substituir_tabela=substituir_tabela_base,
+                    substituir_periodos_csv=substituir_periodos_base,
+                    chunksize=5000,
+                )
+            else:
+                with tempfile.TemporaryDirectory() as pasta_temp:
+                    caminho_base_historica = (
+                        Path(pasta_temp) / Path(csv_base_historica.name).name
+                    )
+                    caminho_base_historica.write_bytes(csv_base_historica.getvalue())
+                    total_carregado = carregar_csv(
+                        caminho_base_historica,
+                        substituir_tabela=substituir_tabela_base,
+                        substituir_periodos_csv=substituir_periodos_base,
+                        chunksize=5000,
+                    )
+
+            carregar_base.clear()
+            st.success(
+                "Basehistorica.csv carregado para teste. "
+                f"Linhas carregadas: {total_carregado}"
+            )
+        except Exception as erro:
+            st.error("Erro ao carregar Basehistorica.csv.")
             st.exception(erro)
 
 
@@ -263,7 +436,12 @@ def main() -> None:
         kpis = calcular_kpis(resumo, evolucao_mensal)
         render_kpis(kpis)
         st.write("")
-        render_dashboard_charts(resumo, evolucao_mensal, manutencao_contrato, equipamentos_contrato)
+        render_dashboard_charts(
+            resumo,
+            evolucao_mensal,
+            manutencao_contrato,
+            equipamentos_contrato,
+        )
         render_servicos_executados_dashboard(filtros)
     elif menu == "Resumo":
         render_resumo_chart(resumo)
