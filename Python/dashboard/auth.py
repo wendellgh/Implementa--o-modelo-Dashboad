@@ -69,11 +69,20 @@ def render_login() -> dict[str, Any]:
     if usuario_logado:
         return usuario_logado
 
-    st.markdown("## Login")
-    st.caption("Informe seu usuario e senha para acessar o dashboard.")
-
     col_esquerda, col_centro, col_direita = st.columns([1, 1.2, 1])
     with col_centro:
+        st.markdown(
+            """
+            <div style="text-align: center; margin-bottom: 1rem;">
+                <h2 style="margin-bottom: 0.25rem;">Login</h2>
+                <p style="margin: 0; opacity: 0.75;">
+                    Informe seu usuario e senha para acessar o dashboard.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
         with st.form("form_login"):
             usuario = st.text_input("Usuario")
             senha = st.text_input("Senha", type="password")

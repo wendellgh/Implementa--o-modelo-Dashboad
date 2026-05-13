@@ -104,15 +104,15 @@ Tem três funções:
 
 ## 4.4 `dashboard/metrics.py`
 
-### `calcular_kpis(df_resumo)`
+### `calcular_kpis(df_resumo, df_evolucao_mensal)`
 Calcula:
-- `media_entrada_manut`: média de `media_percentual`;
+- `entrada_media_mensal`: média mensal de `total_qtd` a partir de `df_evolucao_mensal`;
 - `total_qtd`: soma de `total_qtd`;
 - `total_frota`: soma de `total_frota`;
 - `percentual_geral`: `(total_qtd / total_frota) * 100`, com proteção de divisão por zero.
 
 ### `render_kpis(kpis)`
-Renderiza 4 cards (colunas Streamlit), formatando:
+Renderiza 5 cards (colunas Streamlit), formatando:
 - percentuais com 2 casas;
 - totais inteiros com separador de milhar.
 

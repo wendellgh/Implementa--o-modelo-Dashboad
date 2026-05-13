@@ -183,7 +183,7 @@ def main() -> None:
     render_titulo_principal(APP_TITLE)
 
     if menu == "Dashboard":
-        kpis = calcular_kpis(resumo)
+        kpis = calcular_kpis(resumo, evolucao_mensal)
         render_kpis(kpis)
         st.write("")
         render_dashboard_charts(resumo, evolucao_mensal, manutencao_contrato, equipamentos_contrato)
