@@ -1,3 +1,6 @@
+import tempfile
+from pathlib import Path
+
 import streamlit as st
 
 from dashboard.auth import render_login, usuario_eh_admin
@@ -28,6 +31,9 @@ from dashboard.visualizations import (
 
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
+CSV_SERVICOS_EXTERNO_PADRAO = (
+    Path(__file__).resolve().parents[1] / "Importacoes" / "bsa_serv_exce.csv"
+)
 
 
 def _parametros_modo_carga_servicos(modo_carga: str) -> tuple[bool, bool]:
@@ -143,6 +149,53 @@ def render_consulta_destboad_oracle() -> None:
             st.success(f"Carga concluida. Linhas carregadas: {total_carregado}")
         except Exception as erro:
             st.error("Erro ao carregar CSV local.")
+            st.exception(erro)
+
+    st.divider()
+    st.subheader("Importar CSV externo")
+    st.caption(
+        "Use para carregar dados complementares que vieram de fora, como "
+        "`Importacoes/bsa_serv_exce.csv`."
+    )
+    csv_externo = st.file_uploader(
+        "Enviar CSV externo de serviços executados",
+        type=["csv"],
+        help=(
+            "Se nenhum arquivo for enviado, o botão usa o arquivo padrão "
+            f"{CSV_SERVICOS_EXTERNO_PADRAO}."
+        ),
+    )
+    st.caption(f"Arquivo padrão: {CSV_SERVICOS_EXTERNO_PADRAO}")
+
+    if st.button("Carregar CSV externo no banco"):
+        try:
+            from Oracle.servicos_executados_pipeline import carregar_servicos_executados_csv
+
+            if csv_externo is None:
+                if not CSV_SERVICOS_EXTERNO_PADRAO.exists():
+                    st.warning(f"Arquivo padrão não encontrado: {CSV_SERVICOS_EXTERNO_PADRAO}")
+                    return
+
+                caminho_csv_externo = CSV_SERVICOS_EXTERNO_PADRAO
+                total_carregado = carregar_servicos_executados_csv(
+                    caminho_csv_externo,
+                    substituir_tabela=substituir_tabela,
+                    substituir_periodos_csv=substituir_periodos_csv,
+                )
+            else:
+                with tempfile.TemporaryDirectory() as pasta_temp:
+                    caminho_csv_externo = Path(pasta_temp) / Path(csv_externo.name).name
+                    caminho_csv_externo.write_bytes(csv_externo.getvalue())
+                    total_carregado = carregar_servicos_executados_csv(
+                        caminho_csv_externo,
+                        substituir_tabela=substituir_tabela,
+                        substituir_periodos_csv=substituir_periodos_csv,
+                    )
+
+            carregar_base_outra_tabela.clear()
+            st.success(f"CSV externo carregado. Linhas carregadas: {total_carregado}")
+        except Exception as erro:
+            st.error("Erro ao carregar CSV externo.")
             st.exception(erro)
 
 

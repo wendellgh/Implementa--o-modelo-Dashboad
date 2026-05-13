@@ -165,6 +165,8 @@ Na tela **Dados da Manutenção - Oracle**, use **Modo de carga no banco**:
 - `Apenas adicionar (append)`: só adiciona registros novos; pode duplicar se o mesmo arquivo for carregado de novo.
 - `Substituir toda a tabela servicos_executados`: limpa tudo antes da carga.
 
+Na seção **Importar CSV externo**, use **Carregar CSV externo no banco** para enviar um CSV pelo navegador ou carregar o arquivo padrão `Importacoes/bsa_serv_exce.csv`. Esse botão usa o mesmo modo de carga selecionado acima.
+
 Use o CSV antigo para complementar dados que não existam no Oracle:
 
 ```powershell
@@ -288,3 +290,10 @@ Feito com Streamlit + PostgreSQL + Plotly ❤️
 
 admin / admin123: perfil administrador
 usuario / usuario123: perfil comum
+
+
+## Fechar portas no Win:
+
+tasklist /FI "PID eq 9684"
+taskkill /PID 9684 /F
+netstat -ano | findstr :8501

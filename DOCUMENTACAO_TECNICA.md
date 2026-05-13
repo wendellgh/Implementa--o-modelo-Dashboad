@@ -233,6 +233,12 @@ Na tela **Dados da Manutenção - Oracle**, o campo **Modo de carga no banco** o
 - `Apenas adicionar (append)`: só insere registros. Use apenas para dados novos, porque recarregar o mesmo arquivo pode duplicar informações.
 - `Substituir toda a tabela servicos_executados`: limpa toda a tabela antes da carga. Use apenas quando a intenção for reconstruir a tabela inteira.
 
+Na mesma tela, a seção **Importar CSV externo** facilita a carga de dados que vêm de fora do Oracle. Ela permite:
+- enviar um CSV pelo navegador;
+- ou, se nenhum arquivo for enviado, carregar o arquivo padrão `Importacoes/bsa_serv_exce.csv`.
+
+O botão **Carregar CSV externo no banco** usa o mesmo **Modo de carga no banco** selecionado acima.
+
 Para importar o CSV antigo sem apagar toda a tabela:
 
 ```powershell
