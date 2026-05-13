@@ -196,7 +196,7 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
         _render_sidebar_logo()
         _render_usuario_logado()
         _render_database_target()
-        st.markdown("### Navegacao")
+        st.markdown("### Navegação")
         menu = _render_navegacao()
 
     df_filtros = _obter_base_para_filtros(menu, df_base)

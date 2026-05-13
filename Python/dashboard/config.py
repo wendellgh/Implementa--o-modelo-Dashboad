@@ -5,7 +5,7 @@ PAGE_CONFIG = {
     "initial_sidebar_state": "auto",
 }
 
-APP_TITLE = "Dashboard de Manutencao das Filiais"
+APP_TITLE = "Relatório de Manutenção das Filiais"
 
 MENU_ITEMS = ["Dashboard", "Resumo", "Tabela", "Contando Frota - Teste", "Serviços Executados - Teste", "Dados da Manutenção - Oracle"]
 

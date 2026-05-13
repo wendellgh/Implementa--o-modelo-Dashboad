@@ -50,7 +50,7 @@ def render_kpis(kpis: dict[str, float | int | str]) -> None:
     with c2:
         _render_card("MTBF (Horas)", str(kpis["mtbf_horas"]))
     with c3:
-        _render_card("Total QTD", _format_int(int(kpis["total_qtd"])))
+        _render_card("Equipamentos em Manutenção", _format_int(int(kpis["total_qtd"])))
     with c4:
         _render_card("Total Frota", _format_int(int(kpis["total_frota"])))
     with c5:
