@@ -61,4 +61,4 @@ def render_total_servicos_executados(total_servicos: int) -> None:
     coluna_total, _, _, _ = st.columns([1.3, 1, 1, 1])
 
     with coluna_total:
-        _render_card("Total Geral", _format_int(total_servicos))
+        _render_card("Total de Serviços Executados", _format_int(total_servicos))
