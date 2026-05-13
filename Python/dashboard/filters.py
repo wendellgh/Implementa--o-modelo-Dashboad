@@ -248,13 +248,25 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
         periodo = (inicio_mes, fim_mes)
 
         contratos = sorted([x for x in df_filtros["contrato"].dropna().unique().tolist() if x])
-        filtro_contrato = st.multiselect("Contrato", contratos)
+        filtro_contrato = st.multiselect(
+            "Contrato",
+            contratos,
+            placeholder="Selecione os contratos",
+        )
 
         operadoras = sorted([x for x in df_filtros["operadora"].dropna().unique().tolist() if x])
-        filtro_operadora = st.multiselect("Operadora", operadoras)
+        filtro_operadora = st.multiselect(
+            "Operadora",
+            operadoras,
+            placeholder="Selecione as operadoras",
+        )
 
         equipamentos = sorted([x for x in df_filtros["equipamento"].dropna().unique().tolist() if x])
-        filtro_equipamento = st.multiselect("Equipamento", equipamentos)
+        filtro_equipamento = st.multiselect(
+            "Equipamento",
+            equipamentos,
+            placeholder="Selecione os equipamentos",
+        )
 
     return {
         "menu": menu,

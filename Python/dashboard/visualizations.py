@@ -121,10 +121,13 @@ def render_dashboard_charts(
                 percentual_frota,
                 x="mes_label",
                 y="percentual_qtd_x_frota",
-                title="% QTD x FROTA",
+                title="% TOTAL DA FROTA EM MANUTENÇÃO",
                 text="percentual_qtd_x_frota",
                 category_orders={"mes_label": ordem_meses},
-                labels={"mes_label": "mes"},
+                labels={
+                    "mes_label": "Mês",
+                    "percentual_qtd_x_frota": "% Equipamentos",
+                },
                 hover_data={
                     "mes_label": False,
                     "cor_barra": False,
@@ -144,7 +147,7 @@ def render_dashboard_charts(
     with col_top_2:
         with st.container(border=True):
             if df_manutencao_contrato.empty:
-                st.info("Sem dados de manutencao por contrato para os filtros selecionados.")
+                st.info("Sem dados de manutenção por contrato para os filtros selecionados.")
             else:
                 manutencao_contrato = df_manutencao_contrato.sort_values(
                     "quantidade_manutencao",
@@ -162,7 +165,7 @@ def render_dashboard_charts(
                     text="quantidade_manutencao",
                     labels={
                         "contrato": "Contrato",
-                        "quantidade_manutencao": "Quantidade em manutencao",
+                        "quantidade_manutencao": "Quantidade em manutenção",
                     },
                 )
                 fig_manutencao_contrato.update_xaxes(
@@ -179,14 +182,27 @@ def render_dashboard_charts(
 
     with col_bottom_1:
         with st.container(border=True):
+            servicos_mes = df_evolucao_mensal.sort_values("mes").copy()
+            servicos_mes["mes_label"] = servicos_mes["mes"].apply(_formatar_mes_curto)
+            ordem_meses_servicos = servicos_mes["mes_label"].tolist()
             fig_servico = px.bar(
-                df_evolucao_mensal,
-                x="mes",
+                servicos_mes,
+                x="mes_label",
                 y="total_qtd",
-                title="SERVICOS EXECUTADOS",
+                title="SERVIÇOS EXECUTADOS",
                 text="total_qtd",
+                category_orders={"mes_label": ordem_meses_servicos},
+                labels={
+                    "mes_label": "Mês",
+                    "total_qtd": "Quantidade Serviços Executados",
+                },
                 color="total_qtd",
                 color_continuous_scale=ESCALA_OPERACIONAL,
+            )
+            fig_servico.update_xaxes(
+                type="category",
+                categoryorder="array",
+                categoryarray=ordem_meses_servicos,
             )
             _mostrar_rotulos_barras(fig_servico, "%{text:.0f}")
             fig_servico.update_coloraxes(showscale=False)
@@ -205,7 +221,7 @@ def render_dashboard_charts(
                 color="total_qtd",
                 color_continuous_scale=ESCALA_RANKING,
                 labels={
-                    "total_qtd": "Quantidade em manutencao",
+                    "total_qtd": "Quantidade em manutenção",
                     "equipamento": "Equipamento",
                 },
             )
@@ -221,14 +237,14 @@ def render_dashboard_charts(
                 df_equipamentos_contrato,
                 x="contrato",
                 y="quantidade_equipamentos",
-                title="EQUIPAMENTOS POR CONTRATO - MES MAIS RECENTE",
+                title="NÚMERO DE EQUIPAMENTOS POR CONTRATO",
                 text="quantidade_equipamentos",
                 color="quantidade_equipamentos",
                 hover_data={"mes": "|%Y-%m", "quantidade_equipamentos": ":.0f"},
                 color_continuous_scale=ESCALA_OPERACIONAL,
                 labels={
-                    "contrato": "contrato",
-                    "quantidade_equipamentos": "quantidade_equipamentos",
+                    "contrato": "Contrato",
+                    "quantidade_equipamentos": "Equipamentos por Contrato",
                 },
             )
             _mostrar_rotulos_barras(fig_contrato, "%{text:.0f}")
@@ -305,12 +321,12 @@ def render_servicos_executados_chart(df_servicos_resumo: pd.DataFrame) -> None:
             x="quantidade_servicos",
             y="servico_executado",
             orientation="h",
-            title="SERVICOS EXECUTADOS POR TIPO",
+            title="SERVIÇOS EXECUTADOS POR TIPO",
             text="quantidade_servicos",
             color="quantidade_servicos",
             color_continuous_scale=ESCALA_RANKING,
             labels={
-                "servico_executado": "Servico executado",
+                "servico_executado": "Serviços Executados",
                 "quantidade_servicos": "Quantidade",
             },
         )
