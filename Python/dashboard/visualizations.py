@@ -118,6 +118,29 @@ def _cor_percentual_frota(valor: float) -> str:
     return COR_PERCENTUAL_BAIXO
 
 
+def _calcular_tendencia_linear(valores: pd.Series) -> pd.Series:
+    serie = pd.to_numeric(valores, errors="coerce")
+    x = pd.Series(range(len(serie)), index=serie.index, dtype="float")
+    validos = serie.notna()
+
+    if validos.sum() < 2:
+        return pd.Series([pd.NA] * len(serie), index=serie.index)
+
+    x_validos = x[validos]
+    y_validos = serie[validos].astype(float)
+    variancia_x = ((x_validos - x_validos.mean()) ** 2).sum()
+
+    if variancia_x == 0:
+        return pd.Series([y_validos.iloc[0]] * len(serie), index=serie.index)
+
+    inclinacao = (
+        (x_validos - x_validos.mean()) * (y_validos - y_validos.mean())
+    ).sum() / variancia_x
+    intercepto = y_validos.mean() - inclinacao * x_validos.mean()
+
+    return (intercepto + inclinacao * x).clip(lower=0).round(2)
+
+
 def render_dashboard_charts(
     df_resumo: pd.DataFrame,
     df_evolucao_mensal: pd.DataFrame,
@@ -195,6 +218,25 @@ def render_dashboard_charts(
                 },
             )
             fig_percentual.update_traces(marker_color=percentual_frota["cor_barra"])
+            percentual_frota["tendencia_percentual"] = _calcular_tendencia_linear(
+                percentual_frota["percentual_qtd_x_frota"]
+            )
+            if percentual_frota["tendencia_percentual"].notna().any():
+                fig_percentual.add_scatter(
+                    x=percentual_frota["mes_label"],
+                    y=percentual_frota["tendencia_percentual"],
+                    mode="lines+markers",
+                    name="Tendencia",
+                    line={"color": PALETA["destaque_tecnico"], "width": 3},
+                    marker={
+                        "color": PALETA["destaque_tecnico"],
+                        "size": 7,
+                        "symbol": "circle",
+                    },
+                    hovertemplate=(
+                        "Mes=%{x}<br>Tendencia=%{y:.2f}%<extra></extra>"
+                    ),
+                )
             fig_percentual.update_xaxes(
                 type="category",
                 categoryorder="array",

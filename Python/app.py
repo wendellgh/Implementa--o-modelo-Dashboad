@@ -440,23 +440,29 @@ def main() -> None:
         filtros = render_filtros(df_base, menu)
 
     df_filtrado = aplicar_filtros(df_base, filtros)
+    filtros_sem_periodo = dict(filtros)
+    filtros_sem_periodo["periodo"] = None
+    df_filtrado_sem_periodo = aplicar_filtros(df_base, filtros_sem_periodo)
 
     resumo = montar_resumo_equipamento(df_filtrado)
     equipamentos_contrato = montar_equipamentos_por_contrato(df_filtrado)
-    evolucao_mensal = montar_evolucao_mensal(df_filtrado)
+    evolucao_mensal_12_meses = montar_evolucao_mensal(
+        df_filtrado_sem_periodo,
+        limite_meses=12,
+    )
     evolucao_tabela = montar_tabela_evolucao(df_filtrado)
     frota_operadora = montar_frota_operadora_por_mes(df_filtrado)
     manutencao_contrato = montar_manutencao_por_contrato(df_filtrado)
 
     if menu == "Dashboard":
-        kpis = calcular_kpis(resumo, evolucao_mensal)
+        kpis = calcular_kpis(resumo, evolucao_mensal_12_meses)
         servicos_resumo_dashboard = montar_servicos_executados_dashboard(filtros)
         with kpis_area:
             render_kpis(kpis)
         st.write("")
         render_dashboard_charts(
             resumo,
-            evolucao_mensal,
+            evolucao_mensal_12_meses,
             manutencao_contrato,
             equipamentos_contrato,
             servicos_resumo_dashboard,

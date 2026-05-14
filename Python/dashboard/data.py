@@ -258,7 +258,10 @@ def montar_frota_operadora_por_mes(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     return frota_operadora[colunas]
 
 
-def montar_evolucao_mensal(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+def montar_evolucao_mensal(
+    df_filtrado: pd.DataFrame,
+    limite_meses: int | None = None,
+) -> pd.DataFrame:
     if df_filtrado.empty:
         return pd.DataFrame(
             columns=["mes", "total_qtd", "total_frota", "percentual_qtd_x_frota"]
@@ -266,6 +269,18 @@ def montar_evolucao_mensal(df_filtrado: pd.DataFrame) -> pd.DataFrame:
 
     df_aux = df_filtrado.copy()
     df_aux["mes"] = _obter_serie_competencia(df_aux)
+    df_aux = df_aux[df_aux["mes"].notna()]
+    if df_aux.empty:
+        return pd.DataFrame(
+            columns=["mes", "total_qtd", "total_frota", "percentual_qtd_x_frota"]
+        )
+
+    meses_referencia = None
+    if limite_meses is not None and limite_meses > 0:
+        mes_final = df_aux["mes"].max()
+        mes_inicial = mes_final - pd.DateOffset(months=limite_meses - 1)
+        meses_referencia = pd.date_range(mes_inicial, mes_final, freq="MS")
+        df_aux = df_aux[df_aux["mes"].between(mes_inicial, mes_final)]
 
     evolucao = (
         df_aux.groupby("mes", as_index=False)
@@ -275,6 +290,13 @@ def montar_evolucao_mensal(df_filtrado: pd.DataFrame) -> pd.DataFrame:
         )
         .sort_values("mes")
     )
+
+    if meses_referencia is not None:
+        evolucao = (
+            pd.DataFrame({"mes": meses_referencia})
+            .merge(evolucao, on="mes", how="left")
+            .fillna({"total_qtd": 0, "total_frota": 0})
+        )
 
     evolucao["percentual_qtd_x_frota"] = evolucao.apply(
         lambda row: (row["total_qtd"] / row["total_frota"] * 100) if row["total_frota"] else 0.0,
@@ -314,5 +336,4 @@ def montar_tabela_evolucao(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     evolucao["total_frota"] = evolucao["total_frota"].astype(int)
 
     return evolucao
-
 

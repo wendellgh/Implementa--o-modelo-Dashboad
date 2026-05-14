@@ -307,6 +307,19 @@ def aplicar_estilos_globais() -> None:
                 font-weight: 760;
             }
 
+            section[data-testid="stSidebar"] details > summary,
+            section[data-testid="stSidebar"] details > summary > div {
+                background: var(--tacom-panel) !important;
+                color: var(--tacom-text) !important;
+            }
+
+            section[data-testid="stSidebar"] details > summary *,
+            section[data-testid="stSidebar"] details > summary svg {
+                color: var(--tacom-text) !important;
+                fill: currentColor !important;
+                -webkit-text-fill-color: var(--tacom-text) !important;
+            }
+
             section[data-testid="stSidebar"] [data-testid="stExpanderDetails"] {
                 border-top: 1px solid var(--tacom-border);
                 padding-top: 0.45rem;
@@ -450,7 +463,7 @@ def aplicar_estilos_globais() -> None:
             }
 
             .kpi-card::after {
-                content: "⚙️";
+                content: attr(data-icon);
                 position: absolute;
                 right: 1rem;
                 top: 1.1rem;
@@ -459,13 +472,13 @@ def aplicar_estilos_globais() -> None:
                 border-radius: 8px;
                 background:
                     linear-gradient(135deg, var(--tacom-red-light) 0%, var(--tacom-red) 48%, var(--tacom-red-dark) 100%);
-                box-shadow: 0 12px 28px rgba(255, 59, 48, 0.32);
+                box-shadow: none;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 font-size: 1.4rem;
                 color: white;
-                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                text-shadow: none;
             }
 
             .kpi-title {

@@ -1,14 +1,36 @@
 import pandas as pd
 import streamlit as st
 
+MESES_MEDIA_MENSAL_ANUAL = 12
+
+
+def _calcular_entrada_media_mensal_anual(
+    df_evolucao_mensal: pd.DataFrame | None,
+) -> int:
+    if (
+        df_evolucao_mensal is None
+        or df_evolucao_mensal.empty
+        or "total_qtd" not in df_evolucao_mensal.columns
+    ):
+        return 0
+
+    total_12_meses = pd.to_numeric(
+        df_evolucao_mensal["total_qtd"],
+        errors="coerce",
+    ).fillna(0).sum()
+
+    return int(round(float(total_12_meses) / MESES_MEDIA_MENSAL_ANUAL))
+
 
 def calcular_kpis(
     df_resumo: pd.DataFrame,
     df_evolucao_mensal: pd.DataFrame | None = None,
 ) -> dict[str, float | int | str]:
+    entrada_media_mensal = _calcular_entrada_media_mensal_anual(df_evolucao_mensal)
+
     if df_resumo.empty:
         return {
-            "entrada_media_mensal": 0,
+            "entrada_media_mensal": entrada_media_mensal,
             "total_qtd": 0,
             "total_frota": 0,
             "percentual_geral": 0.0,
@@ -18,9 +40,6 @@ def calcular_kpis(
     total_qtd = int(df_resumo["total_qtd"].sum())
     total_frota = int(df_resumo["total_frota"].sum())
     percentual_geral = round((total_qtd / total_frota) * 100, 2) if total_frota else 0.0
-    entrada_media_mensal = 0
-    if df_evolucao_mensal is not None and not df_evolucao_mensal.empty:
-        entrada_media_mensal = int(round(float(df_evolucao_mensal["total_qtd"].mean())))
 
     return {
         "entrada_media_mensal": entrada_media_mensal,
@@ -35,10 +54,10 @@ def _format_int(value: int) -> str:
     return f"{value:,}".replace(",", ".")
 
 
-def _render_card(titulo: str, valor: str) -> None:
+def _render_card(titulo: str, valor: str, icone: str = "⚙️") -> None:
     st.markdown(
         f"""
-        <div class="kpi-card">
+        <div class="kpi-card" data-icon="{icone}">
             <div class="kpi-title">{titulo}</div>
             <div class="kpi-value">{valor}</div>
         </div>
@@ -51,15 +70,35 @@ def render_kpis(kpis: dict[str, float | int | str]) -> None:
     c1, c2, c3, c4, c5 = st.columns(5)
 
     with c1:
-        _render_card("Equipamentos com Intervenção Técnica", _format_int(int(kpis["total_qtd"])))
+        _render_card(
+            "Equipamentos com Entrada em Manutenção",
+            _format_int(int(kpis["total_qtd"])),
+            "⚙️",
+        )
     with c2:
-          _render_card("Equips. em Manutenção x Frota %", f"{float(kpis['percentual_geral']):.2f}%")    
+        _render_card(
+            "Equips. em Manutenção x Frota %",
+            f"{float(kpis['percentual_geral']):.2f}%",
+            "📊",
+        )
     with c3:
-         _render_card("Entrada Média Mensal", _format_int(int(kpis["entrada_media_mensal"])))
+        _render_card(
+            "Entrada Média Mensal",
+            _format_int(int(kpis["entrada_media_mensal"])),
+            "📈",
+        )
     with c4:
-        _render_card("Total Frota", _format_int(int(kpis["total_frota"])))
+        _render_card(
+            "Total Frota",
+            _format_int(int(kpis["total_frota"])),
+            "🚌",
+        )
     with c5:
-        _render_card("MTBF (Horas)", str(kpis["mtbf_horas"]))
+        _render_card(
+            "MTBF (Horas)",
+            str(kpis["mtbf_horas"]),
+            "⏱️",
+        )
 
 
 def render_total_servicos_executados(total_servicos: int) -> None:
