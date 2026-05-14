@@ -9,13 +9,21 @@ import streamlit as st
 from dashboard.auth import encerrar_sessao, obter_usuario_logado, usuario_eh_admin
 from dashboard.config import MENU_ITEMS
 from dashboard.database import get_db_target_info
+from dashboard.styles import (
+    TEMA_CLARO_ATIVO_KEY,
+    tema_claro_ativo,
+)
 
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
-DATA_INICIO_PADRAO = date(2026, 1, 1)
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 PAGINA_ATUAL_KEY = "pagina_atual"
+FILTRO_MES_INICIO_KEY = "filtro_mes_inicio"
+FILTRO_MES_FIM_KEY = "filtro_mes_fim"
+FILTRO_CONTRATO_KEY = "filtro_contrato"
+FILTRO_OPERADORA_KEY = "filtro_operadora"
+FILTRO_EQUIPAMENTO_KEY = "filtro_equipamento"
 
 MENU_ICONS = {
     "Dashboard": ":material/dashboard:",
@@ -29,36 +37,67 @@ MENU_ICONS = {
     ENTRADA_DADOS_MENU_ITEM: ":material/edit_note:",
 }
 
+NAVIGATION_GROUPS = (
+    (
+        "Entrada de Dados",
+        (
+            ("Inserir dados da manutenção", ENTRADA_DADOS_MENU_ITEM),
+            ("Dados da Manutenção - Oracle", ORACLE_DESTBOAD_MENU_ITEM),
+        ),
+    ),
+    (
+        "Dashboard",
+        (
+            ("Resumo", "Dashboard"),
+            ("Análise por equipamento", "Resumo"),
+            ("Tabela", "Tabela"),
+            ("Contando Frota", "Contando Frota - Teste"),
+            ("Serviços executados", "Serviços Executados - Teste"),
+        ),
+    ),
+)
+
 
 def _obter_paginas_navegacao() -> list[str]:
-    paginas = [ENTRADA_DADOS_MENU_ITEM, *MENU_ITEMS]
+    paginas = [
+        pagina
+        for _, itens in NAVIGATION_GROUPS
+        for _, pagina in itens
+    ]
+    paginas.extend([ENTRADA_DADOS_MENU_ITEM, *MENU_ITEMS])
     return list(dict.fromkeys(paginas))
 
 
 def _render_navegacao() -> str:
     paginas = _obter_paginas_navegacao()
-    st.session_state.setdefault(PAGINA_ATUAL_KEY, paginas[1] if len(paginas) > 1 else paginas[0])
+    pagina_padrao = "Dashboard" if "Dashboard" in paginas else paginas[0]
+    st.session_state.setdefault(PAGINA_ATUAL_KEY, pagina_padrao)
     pagina_atual = str(st.session_state[PAGINA_ATUAL_KEY])
     if pagina_atual not in paginas:
-        pagina_atual = paginas[0]
+        pagina_atual = pagina_padrao
     if pagina_atual == ORACLE_DESTBOAD_MENU_ITEM and not usuario_eh_admin():
         pagina_atual = "Dashboard" if "Dashboard" in paginas else paginas[0]
 
     pagina_selecionada = pagina_atual
-    for indice, pagina in enumerate(paginas):
-        oracle_bloqueado = pagina == ORACLE_DESTBOAD_MENU_ITEM and not usuario_eh_admin()
-        clicou = st.button(
-            pagina,
-            key=f"botao_pagina_{indice}",
-            type="primary" if pagina == pagina_atual else "secondary",
-            icon=MENU_ICONS.get(pagina),
-            width="stretch",
-            disabled=oracle_bloqueado,
-        )
-        if oracle_bloqueado:
-            st.caption("Disponivel apenas para administradores.")
-        if clicou:
-            pagina_selecionada = pagina
+    for indice_grupo, (grupo, itens) in enumerate(NAVIGATION_GROUPS):
+        paginas_grupo = [pagina for _, pagina in itens]
+        with st.expander(grupo, expanded=pagina_atual in paginas_grupo):
+            for indice_item, (rotulo, pagina) in enumerate(itens):
+                oracle_bloqueado = (
+                    pagina == ORACLE_DESTBOAD_MENU_ITEM and not usuario_eh_admin()
+                )
+                clicou = st.button(
+                    rotulo,
+                    key=f"botao_pagina_{indice_grupo}_{indice_item}",
+                    type="primary" if pagina == pagina_atual else "secondary",
+                    icon=MENU_ICONS.get(pagina),
+                    width="stretch",
+                    disabled=oracle_bloqueado,
+                )
+                if oracle_bloqueado:
+                    st.caption("Disponivel apenas para administradores.")
+                if clicou:
+                    pagina_selecionada = pagina
 
     st.session_state[PAGINA_ATUAL_KEY] = pagina_selecionada
 
@@ -69,7 +108,11 @@ def _render_sidebar_logo() -> None:
     if not SIDEBAR_LOGO_PATH.exists():
         return
 
-    svg_base64 = base64.b64encode(SIDEBAR_LOGO_PATH.read_bytes()).decode("utf-8")
+    svg_texto = SIDEBAR_LOGO_PATH.read_text(encoding="utf-8")
+    if tema_claro_ativo():
+        svg_texto = svg_texto.replace("#FFFFFF", "#1f2937")
+
+    svg_base64 = base64.b64encode(svg_texto.encode("utf-8")).decode("utf-8")
     st.markdown(
         (
             '<div class="sidebar-logo">'
@@ -94,6 +137,13 @@ def _render_database_target() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def _render_tema_visual() -> None:
+    if TEMA_CLARO_ATIVO_KEY not in st.session_state:
+        st.session_state[TEMA_CLARO_ATIVO_KEY] = tema_claro_ativo()
+
+    st.toggle("Tema claro", key=TEMA_CLARO_ATIVO_KEY)
 
 
 def _eh_pagina_servicos_executados(menu: str) -> bool:
@@ -149,20 +199,20 @@ def _render_usuario_logado() -> None:
 
 def _formatar_mes(data_mes: pd.Timestamp) -> str:
     meses_pt = {
-        1: "jan",
-        2: "fev",
-        3: "mar",
-        4: "abr",
-        5: "mai",
-        6: "jun",
-        7: "jul",
-        8: "ago",
-        9: "set",
-        10: "out",
-        11: "nov",
-        12: "dez",
+        1: "JANEIRO",
+        2: "FEVEREIRO",
+        3: "MARCO",
+        4: "ABRIL",
+        5: "MAIO",
+        6: "JUNHO",
+        7: "JULHO",
+        8: "AGOSTO",
+        9: "SETEMBRO",
+        10: "OUTUBRO",
+        11: "NOVEMBRO",
+        12: "DEZEMBRO",
     }
-    return f"{meses_pt[data_mes.month]}/{data_mes:%Y}"
+    return f"{meses_pt[data_mes.month]}/{data_mes:%y}"
 
 
 def _criar_opcoes_mensais(data_min: date, data_max: date) -> list[pd.Timestamp]:
@@ -172,16 +222,15 @@ def _criar_opcoes_mensais(data_min: date, data_max: date) -> list[pd.Timestamp]:
 
 
 def _obter_periodo_padrao(meses: list[pd.Timestamp]) -> tuple[pd.Timestamp, pd.Timestamp]:
-    mes_inicio_padrao = pd.Timestamp(DATA_INICIO_PADRAO).to_period("M").to_timestamp()
-    mes_fim_padrao = pd.Timestamp(date.today()).to_period("M").to_timestamp()
+    mes_anterior = (
+        pd.Timestamp(date.today()).to_period("M").to_timestamp()
+        - pd.DateOffset(months=1)
+    )
+    mes_padrao = next((mes for mes in reversed(meses) if mes <= mes_anterior), None)
+    if mes_padrao is None:
+        mes_padrao = meses[0]
 
-    inicio = next((mes for mes in meses if mes >= mes_inicio_padrao), meses[0])
-    fim = next((mes for mes in reversed(meses) if mes <= mes_fim_padrao), meses[-1])
-
-    if inicio > fim:
-        inicio = fim
-
-    return inicio, fim
+    return mes_padrao, mes_padrao
 
 
 def _indice_mes(meses: list[pd.Timestamp], mes_procurado: pd.Timestamp) -> int:
@@ -191,14 +240,54 @@ def _indice_mes(meses: list[pd.Timestamp], mes_procurado: pd.Timestamp) -> int:
     return 0
 
 
-def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
+def _normalizar_mes_sessao(
+    chave: str,
+    meses: list[pd.Timestamp],
+    mes_padrao: pd.Timestamp,
+) -> pd.Timestamp:
+    if chave not in st.session_state:
+        return mes_padrao
+
+    valor = st.session_state.get(chave, mes_padrao)
+    try:
+        mes = pd.Timestamp(valor).to_period("M").to_timestamp()
+    except (TypeError, ValueError):
+        mes = mes_padrao
+
+    if mes not in meses:
+        mes = mes_padrao
+        st.session_state[chave] = mes
+
+    return mes
+
+
+def _normalizar_multiselect_sessao(chave: str, opcoes: list[object]) -> None:
+    if chave not in st.session_state:
+        return
+
+    valores = st.session_state.get(chave, [])
+    if not isinstance(valores, list):
+        valores = []
+
+    opcoes_set = set(opcoes)
+    valores_validos = [valor for valor in valores if valor in opcoes_set]
+    if valores_validos != valores:
+        st.session_state[chave] = valores_validos
+
+
+def render_sidebar(df_base: pd.DataFrame) -> str:
     with st.sidebar:
         _render_sidebar_logo()
         _render_usuario_logado()
         _render_database_target()
+        _render_tema_visual()
         st.markdown("### Navegação")
         menu = _render_navegacao()
 
+    return menu
+
+
+def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
     df_filtros = _obter_base_para_filtros(menu, df_base)
     coluna_periodo = _obter_coluna_periodo(df_filtros)
 
@@ -213,60 +302,85 @@ def render_sidebar(df_base: pd.DataFrame) -> dict[str, object]:
     meses_disponiveis = _criar_opcoes_mensais(data_min, data_max)
     periodo_padrao = _obter_periodo_padrao(meses_disponiveis)
 
-    with st.sidebar:
-        st.markdown("### Filtros")
-        periodo_mensal = st.select_slider(
-            "Periodo",
-            options=meses_disponiveis,
-            value=periodo_padrao,
-            format_func=_formatar_mes,
+    with st.container(border=True):
+        st.markdown(
+            '<div class="filters-title">Filtros aplicados</div>',
+            unsafe_allow_html=True,
         )
-
-        usar_selecao_manual = st.checkbox("Selecionar periodo por lista")
-        if usar_selecao_manual:
-            inicio_selecionado = pd.Timestamp(periodo_mensal[0])
-            fim_selecionado = pd.Timestamp(periodo_mensal[1])
-
+        col_inicio, col_fim = st.columns(2)
+        with col_inicio:
+            inicio_sessao = _normalizar_mes_sessao(
+                FILTRO_MES_INICIO_KEY,
+                meses_disponiveis,
+                periodo_padrao[0],
+            )
             mes_inicio = st.selectbox(
                 "Mes inicial",
                 options=meses_disponiveis,
-                index=_indice_mes(meses_disponiveis, inicio_selecionado),
+                index=_indice_mes(meses_disponiveis, inicio_sessao),
                 format_func=_formatar_mes,
+                key=FILTRO_MES_INICIO_KEY,
             )
+        with col_fim:
             meses_finais = [mes for mes in meses_disponiveis if mes >= mes_inicio]
+            fim_padrao = (
+                periodo_padrao[1]
+                if periodo_padrao[1] >= mes_inicio
+                else mes_inicio
+            )
+            fim_sessao = _normalizar_mes_sessao(
+                FILTRO_MES_FIM_KEY,
+                meses_finais,
+                fim_padrao,
+            )
             mes_fim = st.selectbox(
                 "Mes final",
                 options=meses_finais,
-                index=_indice_mes(meses_finais, max(fim_selecionado, mes_inicio)),
+                index=_indice_mes(meses_finais, fim_sessao),
                 format_func=_formatar_mes,
+                key=FILTRO_MES_FIM_KEY,
             )
-        else:
-            mes_inicio, mes_fim = periodo_mensal
 
         inicio_mes = pd.Timestamp(mes_inicio)
         fim_mes = pd.Timestamp(mes_fim) + pd.offsets.MonthEnd(0)
         periodo = (inicio_mes, fim_mes)
 
-        contratos = sorted([x for x in df_filtros["contrato"].dropna().unique().tolist() if x])
-        filtro_contrato = st.multiselect(
-            "Contrato",
-            contratos,
-            placeholder="Selecione os contratos",
+        contratos = sorted(
+            [x for x in df_filtros["contrato"].dropna().unique().tolist() if x]
+        )
+        operadoras = sorted(
+            [x for x in df_filtros["operadora"].dropna().unique().tolist() if x]
+        )
+        equipamentos = sorted(
+            [x for x in df_filtros["equipamento"].dropna().unique().tolist() if x]
         )
 
-        operadoras = sorted([x for x in df_filtros["operadora"].dropna().unique().tolist() if x])
-        filtro_operadora = st.multiselect(
-            "Operadora",
-            operadoras,
-            placeholder="Selecione as operadoras",
-        )
+        _normalizar_multiselect_sessao(FILTRO_CONTRATO_KEY, contratos)
+        _normalizar_multiselect_sessao(FILTRO_OPERADORA_KEY, operadoras)
+        _normalizar_multiselect_sessao(FILTRO_EQUIPAMENTO_KEY, equipamentos)
 
-        equipamentos = sorted([x for x in df_filtros["equipamento"].dropna().unique().tolist() if x])
-        filtro_equipamento = st.multiselect(
-            "Equipamento",
-            equipamentos,
-            placeholder="Selecione os equipamentos",
-        )
+        col_contrato, col_operadora, col_equipamento = st.columns(3)
+        with col_contrato:
+            filtro_contrato = st.multiselect(
+                "Contrato",
+                contratos,
+                placeholder="Selecione os contratos",
+                key=FILTRO_CONTRATO_KEY,
+            )
+        with col_operadora:
+            filtro_operadora = st.multiselect(
+                "Operadora",
+                operadoras,
+                placeholder="Selecione as operadoras",
+                key=FILTRO_OPERADORA_KEY,
+            )
+        with col_equipamento:
+            filtro_equipamento = st.multiselect(
+                "Equipamento",
+                equipamentos,
+                placeholder="Selecione os equipamentos",
+                key=FILTRO_EQUIPAMENTO_KEY,
+            )
 
     return {
         "menu": menu,

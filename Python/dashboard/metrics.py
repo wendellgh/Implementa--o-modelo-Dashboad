@@ -51,7 +51,7 @@ def render_kpis(kpis: dict[str, float | int | str]) -> None:
     c1, c2, c3, c4, c5 = st.columns(5)
 
     with c1:
-        _render_card("Equipamentos em Manutenção", _format_int(int(kpis["total_qtd"])))
+        _render_card("Equipamentos que Demandaram Manutenção", _format_int(int(kpis["total_qtd"])))
     with c2:
           _render_card("Equips. em Manutenção x Frota %", f"{float(kpis['percentual_geral']):.2f}%")    
     with c3:

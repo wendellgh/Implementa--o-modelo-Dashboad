@@ -2,6 +2,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from dashboard.styles import tema_claro_ativo
+
 PALETA = {
     "primaria": "#007AFF",
     "secundaria": "#34C759",
@@ -33,8 +35,16 @@ CORES_CATEGORICAS = [
 ]
 
 
+def _tema_claro() -> bool:
+    return tema_claro_ativo()
+
+
 def _cor_texto_tema() -> str:
-    return PALETA["texto_eixos"]
+    return "#1f2937" if _tema_claro() else PALETA["texto_eixos"]
+
+
+def _cor_grade_tema() -> str:
+    return "rgba(31,41,55,0.16)" if _tema_claro() else "rgba(224,224,224,0.18)"
 
 
 def _estilizar_figura(fig):
@@ -43,8 +53,10 @@ def _estilizar_figura(fig):
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font={"color": text_color},
+        title={"font": {"color": text_color}},
         margin={"l": 20, "r": 20, "t": 50, "b": 20},
         legend={
+            "font": {"color": text_color},
             "orientation": "h",
             "yanchor": "top",
             "y": -0.18,
@@ -52,8 +64,17 @@ def _estilizar_figura(fig):
             "x": 0.5,
         },
     )
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(gridcolor="rgba(224,224,224,0.18)")
+    axis_font = {"color": text_color}
+    fig.update_xaxes(
+        showgrid=False,
+        tickfont=axis_font,
+        title_font=axis_font,
+    )
+    fig.update_yaxes(
+        gridcolor=_cor_grade_tema(),
+        tickfont=axis_font,
+        title_font=axis_font,
+    )
     return fig
 
 
@@ -64,7 +85,7 @@ def _mostrar_rotulos_barras(fig, template: str = "%{text}") -> None:
         insidetextanchor="middle",
         constraintext="none",
         cliponaxis=False,
-        textfont={"color": PALETA["texto_eixos"], "size": 12},
+        textfont={"color": _cor_texto_tema(), "size": 12},
         selector={"type": "bar"},
     )
     fig.update_layout(uniformtext={"minsize": 10, "mode": "show"})
@@ -112,6 +133,39 @@ def render_dashboard_charts(
 
     with col_top_1:
         with st.container(border=True):
+            ranking = df_resumo.sort_values("total_qtd", ascending=True).tail(8)
+            fig_ranking = px.bar(
+                ranking,
+                x="total_qtd",
+                y="equipamento",
+                orientation="h",
+                title="PRINCIPAIS EQUIPAMENTOS NA MANUTENÇÃO",
+                text="total_qtd",
+                color="total_qtd",
+                color_continuous_scale=ESCALA_RANKING,
+                labels={
+                    "total_qtd": "Quantidade em manutenção",
+                    "equipamento": "Equipamento",
+                },
+            )
+            _mostrar_rotulos_barras(fig_ranking, "%{text:.0f}")
+            fig_ranking.update_coloraxes(showscale=False)
+            st.plotly_chart(_estilizar_figura(fig_ranking), use_container_width=True)
+
+    with col_top_2:
+        with st.container(border=True):
+            if df_servicos_resumo is None:
+                st.info("Sem dados de serviços executados por tipo.")
+            else:
+                render_servicos_executados_chart(
+                    df_servicos_resumo,
+                    usar_container=False,
+                )
+
+    col_bottom_1, col_bottom_2 = st.columns(2)
+
+    with col_bottom_1:
+        with st.container(border=True):
             percentual_frota = df_evolucao_mensal.sort_values("mes").copy()
             percentual_frota["mes_label"] = percentual_frota["mes"].apply(
                 _formatar_mes_curto
@@ -149,7 +203,7 @@ def render_dashboard_charts(
             _mostrar_rotulos_barras(fig_percentual, "%{text:.2f}%")
             st.plotly_chart(_estilizar_figura(fig_percentual), use_container_width=True)
 
-    with col_top_2:
+    with col_bottom_2:
         with st.container(border=True):
             if df_manutencao_contrato.empty:
                 st.info(
@@ -168,7 +222,7 @@ def render_dashboard_charts(
                     color="contrato",
                     color_discrete_sequence=CORES_CATEGORICAS,
                     category_orders={"contrato": ordem_contratos},
-                    title="EQUIPAMENTOS EM MANUTENCAO POR CONTRATO",
+                    title="EQUIPAMENTOS EM MANUTENÇÃO POR CONTRATO",
                     text="quantidade_manutencao",
                     labels={
                         "contrato": "Contrato",
@@ -184,39 +238,6 @@ def render_dashboard_charts(
                     _estilizar_figura(fig_manutencao_contrato),
                     use_container_width=True,
                 )
-
-    col_bottom_1, col_bottom_2 = st.columns(2)
-
-    with col_bottom_1:
-        with st.container(border=True):
-            if df_servicos_resumo is None:
-                st.info("Sem dados de serviços executados por tipo.")
-            else:
-                render_servicos_executados_chart(
-                    df_servicos_resumo,
-                    usar_container=False,
-                )
-
-    with col_bottom_2:
-        with st.container(border=True):
-            ranking = df_resumo.sort_values("total_qtd", ascending=True).tail(8)
-            fig_ranking = px.bar(
-                ranking,
-                x="total_qtd",
-                y="equipamento",
-                orientation="h",
-                title="PRINCIPAIS EQUIPAMENTOS NA MANUTENCAO",
-                text="total_qtd",
-                color="total_qtd",
-                color_continuous_scale=ESCALA_RANKING,
-                labels={
-                    "total_qtd": "Quantidade em manutenção",
-                    "equipamento": "Equipamento",
-                },
-            )
-            _mostrar_rotulos_barras(fig_ranking, "%{text:.0f}")
-            fig_ranking.update_coloraxes(showscale=False)
-            st.plotly_chart(_estilizar_figura(fig_ranking), use_container_width=True)
 
     with st.container(border=True):
         if df_equipamentos_contrato.empty:

@@ -1,17 +1,72 @@
 import streamlit as st
 
+TEMA_VISUAL_KEY = "tema_visual"
+TEMA_CLARO_ATIVO_KEY = "tema_claro_ativo"
+TEMA_ESCURO = "Escuro"
+TEMA_CLARO = "Claro"
+TEMAS_DISPONIVEIS = (TEMA_ESCURO, TEMA_CLARO)
 
-def aplicar_estilos_globais() -> None:
-    st.markdown(
-        """
-        <style>
+
+def obter_tema_visual() -> str:
+    return TEMA_CLARO if tema_claro_ativo() else TEMA_ESCURO
+
+
+def tema_claro_ativo() -> bool:
+    tema_toggle = st.session_state.get(TEMA_CLARO_ATIVO_KEY)
+    if isinstance(tema_toggle, bool):
+        return tema_toggle
+
+    tema_antigo = str(st.session_state.get(TEMA_VISUAL_KEY, TEMA_ESCURO))
+    if tema_antigo in TEMAS_DISPONIVEIS:
+        return tema_antigo == TEMA_CLARO
+
+    return False
+
+
+def _tokens_tema_css() -> str:
+    if tema_claro_ativo():
+        return """
+            :root,
             .stApp {
+                --tacom-page-background: linear-gradient(135deg, #f7f9fc 0%, #eef4fb 100%);
+                --tacom-bg: #f7f9fc;
+                --tacom-bg-soft: #eef3f8;
+                --tacom-sidebar: #ffffff;
+                --tacom-panel: #ffffff;
+                --tacom-panel-strong: #f8fbff;
+                --tacom-panel-hover: #edf4ff;
+                --tacom-input-bg: #ffffff;
+                --tacom-border: rgba(37, 56, 78, 0.18);
+                --tacom-border-strong: rgba(20, 120, 255, 0.38);
+                --tacom-primary: #1478ff;
+                --tacom-primary-strong: #0b5ed7;
+                --tacom-secondary: #087f95;
+                --tacom-success: #17803d;
+                --tacom-warning: #a16207;
+                --tacom-accent: #d92d20;
+                --tacom-red: #d92d20;
+                --tacom-red-dark: #9f1712;
+                --tacom-red-light: #ef6f68;
+                --tacom-text: #1f2937;
+                --tacom-muted: #526071;
+                --tacom-muted-2: #7b8794;
+                --tacom-shadow: 0 18px 50px rgba(17, 24, 39, 0.08);
+                --tacom-glow: 0 0 0 1px rgba(20, 120, 255, 0.10),
+                    0 18px 40px rgba(17, 24, 39, 0.08);
+            }
+        """
+
+    return """
+            :root,
+            .stApp {
+                --tacom-page-background: linear-gradient(135deg, #050b14 0%, #06111e 48%, #03101d 100%);
                 --tacom-bg: #050b14;
                 --tacom-bg-soft: #071321;
                 --tacom-sidebar: #040914;
                 --tacom-panel: #0a1727;
                 --tacom-panel-strong: #0d1f34;
                 --tacom-panel-hover: #102842;
+                --tacom-input-bg: #071321;
                 --tacom-border: rgba(118, 150, 190, 0.22);
                 --tacom-border-strong: rgba(0, 180, 255, 0.38);
                 --tacom-primary: #1478ff;
@@ -29,9 +84,25 @@ def aplicar_estilos_globais() -> None:
                 --tacom-shadow: 0 18px 50px rgba(0, 0, 0, 0.34);
                 --tacom-glow: 0 0 0 1px rgba(0, 180, 255, 0.12),
                     0 18px 40px rgba(0, 0, 0, 0.28);
-                background:
-                    linear-gradient(135deg, #050b14 0%, #06111e 48%, #03101d 100%);
+            }
+        """
+
+
+def aplicar_estilos_globais() -> None:
+    st.markdown(
+        """
+        <style>
+        """
+        + _tokens_tema_css()
+        + """
+            .stApp,
+            div[data-testid="stAppViewContainer"] {
+                background: var(--tacom-page-background) !important;
+                background-attachment: fixed !important;
                 color: var(--tacom-text);
+            }
+
+            .stApp {
                 font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
             }
 
@@ -40,14 +111,13 @@ def aplicar_estilos_globais() -> None:
             }
 
             .stMain,
-            div[data-testid="stAppViewContainer"],
             section[data-testid="stAppScrollToBottomContainer"] {
-                background: transparent;
+                background: transparent !important;
             }
 
             header[data-testid="stHeader"] {
-                background: rgba(5, 11, 20, 0.82);
-                border-bottom: 1px solid rgba(118, 150, 190, 0.12);
+                background: color-mix(in srgb, var(--tacom-bg) 86%, transparent);
+                border-bottom: 1px solid var(--tacom-border);
                 box-shadow: none;
                 backdrop-filter: blur(14px);
             }
@@ -83,11 +153,19 @@ def aplicar_estilos_globais() -> None:
                 overflow-wrap: anywhere;
             }
 
+            .filters-title {
+                margin: 0.15rem 0 0.8rem 0;
+                color: var(--tacom-text);
+                font-size: 0.86rem;
+                font-weight: 760;
+                text-transform: uppercase;
+            }
+
             section[data-testid="stSidebar"] {
                 background:
-                    linear-gradient(180deg, rgba(4, 9, 20, 0.98) 0%, rgba(4, 13, 25, 0.98) 100%);
-                border-right: 1px solid rgba(118, 150, 190, 0.18);
-                box-shadow: 18px 0 38px rgba(0, 0, 0, 0.24);
+                    linear-gradient(180deg, var(--tacom-sidebar) 0%, var(--tacom-bg-soft) 100%);
+                border-right: 1px solid var(--tacom-border);
+                box-shadow: 18px 0 38px rgba(0, 0, 0, 0.18);
             }
 
             div[data-testid="stSidebarContent"] {
@@ -117,7 +195,7 @@ def aplicar_estilos_globais() -> None:
             .sidebar-logo {
                 margin: 0 0 1rem 0;
                 padding: 0.15rem 0 0.9rem 0;
-                border-bottom: 1px solid rgba(118, 150, 190, 0.14);
+                border-bottom: 1px solid var(--tacom-border);
             }
 
             .sidebar-logo img {
@@ -133,11 +211,11 @@ def aplicar_estilos_globais() -> None:
                 width: 100%;
                 margin: 0 0 0.85rem 0;
                 padding: 0.75rem 0.85rem;
-                border: 1px solid rgba(118, 150, 190, 0.18);
+                border: 1px solid var(--tacom-border);
                 border-radius: 8px;
-                background: rgba(10, 23, 39, 0.74);
+                background: var(--tacom-panel);
                 color: var(--tacom-text);
-                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+                box-shadow: inset 0 1px 0 color-mix(in srgb, var(--tacom-text) 4%, transparent);
             }
 
             .user-session-badge {
@@ -217,6 +295,23 @@ def aplicar_estilos_globais() -> None:
                 text-transform: uppercase;
             }
 
+            section[data-testid="stSidebar"] details {
+                border: 1px solid var(--tacom-border);
+                border-radius: 8px;
+                background: color-mix(in srgb, var(--tacom-panel) 92%, transparent);
+                overflow: hidden;
+            }
+
+            section[data-testid="stSidebar"] details summary {
+                color: var(--tacom-text);
+                font-weight: 760;
+            }
+
+            section[data-testid="stSidebar"] [data-testid="stExpanderDetails"] {
+                border-top: 1px solid var(--tacom-border);
+                padding-top: 0.45rem;
+            }
+
             div[data-testid="stSidebarContent"] .stButton > button,
             div[data-testid="stSidebarContent"] button[data-testid="stBaseButton-secondary"] {
                 display: flex !important;
@@ -229,7 +324,7 @@ def aplicar_estilos_globais() -> None:
                 border: 1px solid transparent;
                 border-radius: 8px;
                 background: transparent;
-                color: #c7d2e2;
+                color: var(--tacom-muted);
                 font-weight: 620;
                 text-align: left;
                 box-shadow: none;
@@ -258,8 +353,8 @@ def aplicar_estilos_globais() -> None:
 
             div[data-testid="stSidebarContent"] .stButton > button:hover,
             div[data-testid="stSidebarContent"] button[data-testid="stBaseButton-secondary"]:hover {
-                border-color: rgba(118, 150, 190, 0.18);
-                background: rgba(16, 40, 66, 0.62);
+                border-color: var(--tacom-border);
+                background: var(--tacom-panel-hover);
                 color: var(--tacom-text);
             }
 
@@ -339,7 +434,7 @@ def aplicar_estilos_globais() -> None:
                 border: 1px solid var(--tacom-border);
                 border-radius: 8px;
                 background:
-                    linear-gradient(145deg, rgba(13, 31, 52, 0.96), rgba(8, 20, 35, 0.96));
+                    linear-gradient(145deg, var(--tacom-panel-strong), var(--tacom-panel));
                 box-shadow: var(--tacom-glow);
             }
 
@@ -392,7 +487,7 @@ def aplicar_estilos_globais() -> None:
                 border: 1px solid var(--tacom-border);
                 border-radius: 8px;
                 background:
-                    linear-gradient(145deg, rgba(10, 23, 39, 0.98), rgba(7, 19, 33, 0.98));
+                    linear-gradient(145deg, var(--tacom-panel), var(--tacom-bg-soft));
                 box-shadow: var(--tacom-shadow);
             }
 
@@ -432,9 +527,9 @@ def aplicar_estilos_globais() -> None:
             div[data-baseweb="select"] > div,
             div[data-baseweb="input"] > div,
             div[data-baseweb="textarea"] textarea {
-                border-color: rgba(118, 150, 190, 0.18) !important;
+                border-color: var(--tacom-border) !important;
                 border-radius: 8px !important;
-                background-color: rgba(7, 19, 33, 0.88) !important;
+                background-color: var(--tacom-input-bg) !important;
                 color: var(--tacom-text) !important;
                 box-shadow: none !important;
             }
@@ -442,7 +537,7 @@ def aplicar_estilos_globais() -> None:
             div[data-baseweb="select"] > div:hover,
             div[data-baseweb="input"] > div:hover,
             div[data-baseweb="textarea"] textarea:hover {
-                border-color: rgba(32, 208, 232, 0.36) !important;
+                border-color: var(--tacom-border-strong) !important;
             }
 
             div[data-baseweb="select"] span,
@@ -450,6 +545,15 @@ def aplicar_estilos_globais() -> None:
             div[data-baseweb="input"] input,
             textarea {
                 color: var(--tacom-text) !important;
+                -webkit-text-fill-color: var(--tacom-text) !important;
+            }
+
+            div[data-baseweb="select"] input::placeholder,
+            div[data-baseweb="input"] input::placeholder,
+            textarea::placeholder {
+                color: var(--tacom-muted) !important;
+                -webkit-text-fill-color: var(--tacom-muted) !important;
+                opacity: 0.92 !important;
             }
 
             div[data-baseweb="select"] svg,
@@ -459,24 +563,44 @@ def aplicar_estilos_globais() -> None:
 
             div[data-baseweb="tag"] {
                 border-radius: 6px !important;
-                background: rgba(20, 120, 255, 0.18) !important;
+                background: color-mix(in srgb, var(--tacom-primary) 18%, transparent) !important;
                 color: var(--tacom-text) !important;
             }
 
             [data-baseweb="popover"] ul,
+            [data-baseweb="popover"] [role="listbox"],
             [data-baseweb="menu"] {
                 border: 1px solid var(--tacom-border) !important;
                 border-radius: 8px !important;
-                background: #071321 !important;
+                background: var(--tacom-panel) !important;
+                color: var(--tacom-text) !important;
                 box-shadow: var(--tacom-shadow) !important;
             }
 
-            [data-baseweb="menu"] li {
+            [data-baseweb="popover"],
+            [data-baseweb="popover"] div,
+            [data-baseweb="popover"] span,
+            [data-baseweb="popover"] li,
+            [data-baseweb="popover"] [role="option"],
+            [data-baseweb="menu"] li,
+            [data-baseweb="menu"] li div,
+            [data-baseweb="menu"] li span {
                 color: var(--tacom-text) !important;
+                -webkit-text-fill-color: var(--tacom-text) !important;
+                opacity: 1 !important;
             }
 
+            [data-baseweb="popover"] [role="option"][aria-selected="true"],
+            [data-baseweb="popover"] [role="option"][aria-selected="true"] *,
+            [data-baseweb="menu"] li[aria-selected="true"],
+            [data-baseweb="menu"] li[aria-selected="true"] * {
+                color: #ffffff !important;
+                -webkit-text-fill-color: #ffffff !important;
+            }
+
+            [data-baseweb="popover"] [role="option"]:hover,
             [data-baseweb="menu"] li:hover {
-                background: rgba(20, 120, 255, 0.18) !important;
+                background: color-mix(in srgb, var(--tacom-primary) 18%, transparent) !important;
             }
 
             .stCheckbox [data-baseweb="checkbox"] {
@@ -489,9 +613,9 @@ def aplicar_estilos_globais() -> None:
 
             .stButton > button,
             button[data-testid="stBaseButton-secondary"] {
-                border: 1px solid rgba(118, 150, 190, 0.2);
+                border: 1px solid var(--tacom-border);
                 border-radius: 8px;
-                background: rgba(10, 23, 39, 0.84);
+                background: var(--tacom-panel);
                 color: var(--tacom-text);
                 font-weight: 700;
                 box-shadow: none;
@@ -499,9 +623,9 @@ def aplicar_estilos_globais() -> None:
 
             .stButton > button:hover,
             button[data-testid="stBaseButton-secondary"]:hover {
-                border-color: rgba(32, 208, 232, 0.4);
-                background: rgba(16, 40, 66, 0.9);
-                color: #ffffff;
+                border-color: var(--tacom-border-strong);
+                background: var(--tacom-panel-hover);
+                color: var(--tacom-text);
             }
 
             button[data-testid="stBaseButton-primary"] {
@@ -513,13 +637,19 @@ def aplicar_estilos_globais() -> None:
                 box-shadow: 0 12px 26px rgba(20, 120, 255, 0.28);
             }
 
+            button[data-testid="stBaseButton-primary"] *,
+            div[data-testid="stSidebarContent"] button[data-testid="stBaseButton-primary"] * {
+                color: #ffffff !important;
+                -webkit-text-fill-color: #ffffff !important;
+            }
+
             button[data-testid="stBaseButton-primary"]:hover {
                 border-color: rgba(32, 208, 232, 0.62);
                 background: linear-gradient(135deg, #2592ff, #1158ea);
             }
 
             hr {
-                border-color: rgba(118, 150, 190, 0.16);
+                border-color: var(--tacom-border);
             }
 
             ::-webkit-scrollbar {
@@ -528,13 +658,13 @@ def aplicar_estilos_globais() -> None:
             }
 
             ::-webkit-scrollbar-track {
-                background: rgba(5, 11, 20, 0.8);
+                background: var(--tacom-bg);
             }
 
             ::-webkit-scrollbar-thumb {
-                border: 2px solid rgba(5, 11, 20, 0.8);
+                border: 2px solid var(--tacom-bg);
                 border-radius: 999px;
-                background: rgba(118, 150, 190, 0.38);
+                background: var(--tacom-muted-2);
             }
 
             ::-webkit-scrollbar-thumb:hover {

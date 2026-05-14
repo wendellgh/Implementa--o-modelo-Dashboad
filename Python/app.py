@@ -20,7 +20,7 @@ from dashboard.data import (
 )
 from dashboard.database import get_db_diagnostics, get_db_target_label
 from dashboard.data_entry import render_entrada_dados
-from dashboard.filters import aplicar_filtros, render_sidebar
+from dashboard.filters import aplicar_filtros, render_filtros, render_sidebar
 from dashboard.metrics import (
     calcular_kpis,
     render_kpis,
@@ -415,8 +415,30 @@ def main() -> None:
         st.warning("Sem dados na tabela base_historica_manutencao.")
         st.stop()
 
-    filtros = render_sidebar(df_base)
-    menu = str(filtros["menu"])
+    menu = render_sidebar(df_base)
+    render_titulo_principal(APP_TITLE)
+
+    if menu == ENTRADA_DADOS_MENU_ITEM:
+        render_entrada_dados(df_base)
+        return
+
+    if menu == ORACLE_DESTBOAD_MENU_ITEM:
+        render_consulta_destboad_oracle()
+        return
+
+    if menu == "Dashboard":
+        kpis_area = st.container()
+        filtros_area = st.container()
+        with filtros_area:
+            filtros = render_filtros(df_base, menu)
+    elif menu == "Serviços Executados - Teste":
+        total_servicos_area = st.container()
+        filtros_area = st.container()
+        with filtros_area:
+            filtros = render_filtros(df_base, menu)
+    else:
+        filtros = render_filtros(df_base, menu)
+
     df_filtrado = aplicar_filtros(df_base, filtros)
 
     resumo = montar_resumo_equipamento(df_filtrado)
@@ -426,12 +448,11 @@ def main() -> None:
     frota_operadora = montar_frota_operadora_por_mes(df_filtrado)
     manutencao_contrato = montar_manutencao_por_contrato(df_filtrado)
 
-    render_titulo_principal(APP_TITLE)
-
     if menu == "Dashboard":
         kpis = calcular_kpis(resumo, evolucao_mensal)
         servicos_resumo_dashboard = montar_servicos_executados_dashboard(filtros)
-        render_kpis(kpis)
+        with kpis_area:
+            render_kpis(kpis)
         st.write("")
         render_dashboard_charts(
             resumo,
@@ -443,9 +464,7 @@ def main() -> None:
     elif menu == "Resumo":
         render_resumo_chart(resumo)
         render_tabela_resumo(resumo)
-    elif menu == ENTRADA_DADOS_MENU_ITEM:
-        render_entrada_dados(df_base)
-    elif menu == "Contando Frota - Teste.":
+    elif menu in {"Contando Frota - Teste", "Contando Frota - Teste."}:
         render_frota_operadora_chart(frota_operadora)
     elif menu =="Serviços Executados - Teste":
         df_servicos = carregar_base_outra_tabela()
@@ -456,13 +475,11 @@ def main() -> None:
         servicos_filtrados = aplicar_filtros(df_servicos, filtros)
         servicos_resumo = montar_servicos_executados_por_tipo(servicos_filtrados)
         total_servicos = int(servicos_filtrados["qtd_servico"].sum())
-        render_total_servicos_executados(total_servicos)
+        with total_servicos_area:
+            render_total_servicos_executados(total_servicos)
         st.write("")
         render_servicos_executados_chart(servicos_resumo)
         render_servicos_executados(servicos_filtrados)
-    elif menu == ORACLE_DESTBOAD_MENU_ITEM:
-        render_consulta_destboad_oracle()
-
     else:
         render_tabela_evolucao(evolucao_tabela)
         render_tabela_detalhe(df_filtrado)
