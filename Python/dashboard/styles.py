@@ -431,11 +431,11 @@ def aplicar_estilos_globais() -> None:
                 min-height: 118px;
                 padding: 1.15rem 1.15rem 1rem 1.15rem;
                 overflow: hidden;
-                border: 1px solid var(--tacom-border);
+                border: 1px solid var(--tacom-border) !important;
                 border-radius: 8px;
                 background:
-                    linear-gradient(145deg, var(--tacom-panel-strong), var(--tacom-panel));
-                box-shadow: var(--tacom-glow);
+                    linear-gradient(145deg, var(--tacom-panel-strong), var(--tacom-panel)) !important;
+                box-shadow: var(--tacom-glow) !important;
             }
 
             .kpi-card::before {
@@ -450,7 +450,7 @@ def aplicar_estilos_globais() -> None:
             }
 
             .kpi-card::after {
-                content: "";
+                content: "⚙️";
                 position: absolute;
                 right: 1rem;
                 top: 1.1rem;
@@ -458,8 +458,14 @@ def aplicar_estilos_globais() -> None:
                 height: 2.35rem;
                 border-radius: 8px;
                 background:
-                    linear-gradient(135deg, rgba(20, 120, 255, 0.82), rgba(32, 208, 232, 0.54));
-                box-shadow: 0 12px 28px rgba(20, 120, 255, 0.26);
+                    linear-gradient(135deg, var(--tacom-red-light) 0%, var(--tacom-red) 48%, var(--tacom-red-dark) 100%);
+                box-shadow: 0 12px 28px rgba(255, 59, 48, 0.32);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.4rem;
+                color: white;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
             }
 
             .kpi-title {
