@@ -208,14 +208,15 @@ def montar_manutencao_por_contrato(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     return manutencao_contrato
 
 
-def montar_frota_operadora_por_mes(df_filtrado: pd.DataFrame) -> pd.DataFrame:
-    colunas = ["mes", "mes_label", "operadora", "quantidade_frota"]
+def montar_frota_contrato_por_mes(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    colunas = ["mes", "mes_label", "contrato", "quantidade_frota"]
     if df_filtrado.empty:
         return pd.DataFrame(columns=colunas)
 
     df_aux = df_filtrado[
-        df_filtrado["operadora"].ne("")
+        df_filtrado["contrato"].ne("")
         & df_filtrado["equipamento"].str.contains("CCIT", case=False, na=False)
+        & ~df_filtrado["equipamento"].str.contains("CONNECTION", case=False, na=False)
     ].copy()
     if df_aux.empty:
         return pd.DataFrame(columns=colunas)
@@ -243,19 +244,19 @@ def montar_frota_operadora_por_mes(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     mes_mais_recente = df_aux["mes"].max()
     df_mes_recente = df_aux[df_aux["mes"].eq(mes_mais_recente)]
 
-    frota_operadora = (
-        df_mes_recente.groupby(["mes", "operadora"], as_index=False)
+    frota_contrato = (
+        df_mes_recente.groupby(["mes", "contrato"], as_index=False)
         .agg(quantidade_frota=("frota", "sum"))
         .sort_values("quantidade_frota", ascending=False)
         .head(6)
     )
 
-    frota_operadora["mes_label"] = frota_operadora["mes"].apply(
+    frota_contrato["mes_label"] = frota_contrato["mes"].apply(
         lambda mes: f"{meses_pt[mes.month]}/{mes:%y}"
     )
-    frota_operadora["quantidade_frota"] = frota_operadora["quantidade_frota"].astype(int)
+    frota_contrato["quantidade_frota"] = frota_contrato["quantidade_frota"].astype(int)
 
-    return frota_operadora[colunas]
+    return frota_contrato[colunas]
 
 
 def montar_evolucao_mensal(
@@ -336,4 +337,3 @@ def montar_tabela_evolucao(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     evolucao["total_frota"] = evolucao["total_frota"].astype(int)
 
     return evolucao
-

@@ -12,7 +12,7 @@ from dashboard.data import (
     carregar_base_outra_tabela,
     montar_equipamentos_por_contrato,
     montar_evolucao_mensal,
-    montar_frota_operadora_por_mes,
+    montar_frota_contrato_por_mes,
     montar_manutencao_por_contrato,
     montar_resumo_equipamento,
     montar_servicos_executados_por_tipo,
@@ -35,7 +35,7 @@ from dashboard.tables import (
 )
 from dashboard.visualizations import (
     render_dashboard_charts,
-    render_frota_operadora_chart,
+    render_frota_contrato_chart,
     render_resumo_chart,
     render_servicos_executados_chart,
 )
@@ -451,7 +451,7 @@ def main() -> None:
         limite_meses=12,
     )
     evolucao_tabela = montar_tabela_evolucao(df_filtrado)
-    frota_operadora = montar_frota_operadora_por_mes(df_filtrado)
+    frota_contrato = montar_frota_contrato_por_mes(df_filtrado)
     manutencao_contrato = montar_manutencao_por_contrato(df_filtrado)
 
     if menu == "Dashboard":
@@ -471,7 +471,7 @@ def main() -> None:
         render_resumo_chart(resumo)
         render_tabela_resumo(resumo)
     elif menu in {"Contando Frota - Teste", "Contando Frota - Teste."}:
-        render_frota_operadora_chart(frota_operadora)
+        render_frota_contrato_chart(frota_contrato)
     elif menu =="Serviços Executados - Teste":
         df_servicos = carregar_base_outra_tabela()
         if df_servicos.empty:

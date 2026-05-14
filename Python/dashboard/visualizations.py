@@ -162,7 +162,7 @@ def render_dashboard_charts(
                 x="total_qtd",
                 y="equipamento",
                 orientation="h",
-                title="PRINCIPAIS EQUIPAMENTOS NA MANUTENÇÃO",
+                title="EQUIPAMENTOS COM MAIOR NÚMERO DE MANUTENÇÕES",
                 text="total_qtd",
                 color="total_qtd",
                 color_continuous_scale=ESCALA_RANKING,
@@ -289,7 +289,7 @@ def render_dashboard_charts(
                 df_equipamentos_contrato,
                 x="contrato",
                 y="quantidade_equipamentos",
-                title="NÚMERO DE EQUIPAMENTOS POR CONTRATO",
+                title="EQUIPAMENTOS ALOCADOS POR CONTRATO",
                 text="quantidade_equipamentos",
                 color="quantidade_equipamentos",
                 hover_data={"mes": "|%Y-%m", "quantidade_equipamentos": ":.0f"},
@@ -324,24 +324,24 @@ def render_resumo_chart(df_resumo: pd.DataFrame) -> None:
         st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
 
 
-def render_frota_operadora_chart(df_frota_operadora: pd.DataFrame) -> None:
-    if df_frota_operadora.empty:
-        st.info("Sem dados de frota CCIT por operadora para os filtros selecionados.")
+def render_frota_contrato_chart(df_frota_contrato: pd.DataFrame) -> None:
+    if df_frota_contrato.empty:
+        st.info("Sem dados de frota CCIT por contrato para os filtros selecionados.")
         return
 
-    mes_label = str(df_frota_operadora["mes_label"].iloc[0]).upper()
+    mes_label = str(df_frota_contrato["mes_label"].iloc[0]).upper()
 
     with st.container(border=True):
         fig = px.bar(
-            df_frota_operadora,
-            x="operadora",
+            df_frota_contrato,
+            x="contrato",
             y="quantidade_frota",
             color="quantidade_frota",
-            title=f"FROTA CCIT POR OPERADORA - {mes_label}",
+            title=f"FROTA CCIT POR CONTRATO - {mes_label}",
             text="quantidade_frota",
             color_continuous_scale=ESCALA_OPERACIONAL,
             labels={
-                "operadora": "Operadora",
+                "contrato": "Contrato",
                 "quantidade_frota": "Frota",
                 "mes_label": "Data",
             },
@@ -353,7 +353,7 @@ def render_frota_operadora_chart(df_frota_operadora: pd.DataFrame) -> None:
         )
         fig.update_xaxes(
             categoryorder="array",
-            categoryarray=df_frota_operadora["operadora"].tolist(),
+            categoryarray=df_frota_contrato["contrato"].tolist(),
         )
         _mostrar_rotulos_barras(fig, "%{text:.0f}")
         fig.update_coloraxes(showscale=False)

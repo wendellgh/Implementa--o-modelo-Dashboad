@@ -83,9 +83,10 @@ def render_kpis(kpis: dict[str, float | int | str]) -> None:
         )
     with c3:
         _render_card(
-            "Entrada Média Mensal",
+            "Média de Manutenção Anual",
             _format_int(int(kpis["entrada_media_mensal"])),
             "📈",
+        
         )
     with c4:
         _render_card(

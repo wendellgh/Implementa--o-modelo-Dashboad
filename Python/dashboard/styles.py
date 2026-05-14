@@ -16,11 +16,11 @@ def tema_claro_ativo() -> bool:
     if isinstance(tema_toggle, bool):
         return tema_toggle
 
-    tema_antigo = str(st.session_state.get(TEMA_VISUAL_KEY, TEMA_ESCURO))
+    tema_antigo = str(st.session_state.get(TEMA_VISUAL_KEY, TEMA_CLARO))
     if tema_antigo in TEMAS_DISPONIVEIS:
         return tema_antigo == TEMA_CLARO
 
-    return False
+    return True
 
 
 def _tokens_tema_css() -> str:
@@ -182,6 +182,33 @@ def aplicar_estilos_globais() -> None:
                 top: 0.5rem;
                 right: 0.5rem;
                 z-index: 3;
+            }
+
+            div[data-testid="stSidebarHeader"] button,
+            div[data-testid="collapsedControl"] button,
+            button[data-testid="stBaseButton-headerNoPadding"] {
+                width: 2rem !important;
+                height: 2rem !important;
+                min-width: 2rem !important;
+                min-height: 2rem !important;
+                border: 1px solid var(--tacom-border) !important;
+                border-radius: 8px !important;
+                background: var(--tacom-panel) !important;
+                color: var(--tacom-text) !important;
+                opacity: 1 !important;
+                box-shadow: 0 6px 18px rgba(17, 24, 39, 0.10) !important;
+            }
+
+            div[data-testid="stSidebarHeader"] button *,
+            div[data-testid="stSidebarHeader"] button svg,
+            div[data-testid="collapsedControl"] button *,
+            div[data-testid="collapsedControl"] button svg,
+            button[data-testid="stBaseButton-headerNoPadding"] *,
+            button[data-testid="stBaseButton-headerNoPadding"] svg {
+                color: var(--tacom-text) !important;
+                stroke: currentColor !important;
+                fill: currentColor !important;
+                opacity: 1 !important;
             }
 
             div[data-testid="stSidebarUserContent"] {
@@ -553,6 +580,34 @@ def aplicar_estilos_globais() -> None:
                 box-shadow: none !important;
             }
 
+            div[data-baseweb="input"],
+            div[data-baseweb="input"] > div,
+            div[data-baseweb="input"] [data-baseweb="base-input"],
+            div[data-baseweb="input"] [data-baseweb="input-container"] {
+                background-color: var(--tacom-input-bg) !important;
+                color: var(--tacom-text) !important;
+            }
+
+            div[data-baseweb="input"] button,
+            div[data-baseweb="input"] [role="button"],
+            div[data-baseweb="input"] [aria-label*="password" i],
+            div[data-baseweb="input"] [aria-label*="senha" i] {
+                border: 0 !important;
+                background: transparent !important;
+                color: var(--tacom-muted) !important;
+                box-shadow: none !important;
+            }
+
+            div[data-baseweb="input"] button *,
+            div[data-baseweb="input"] button svg,
+            div[data-baseweb="input"] [role="button"] *,
+            div[data-baseweb="input"] [role="button"] svg {
+                color: var(--tacom-muted) !important;
+                stroke: currentColor !important;
+                fill: currentColor !important;
+                opacity: 1 !important;
+            }
+
             div[data-baseweb="select"] > div:hover,
             div[data-baseweb="input"] > div:hover,
             div[data-baseweb="textarea"] textarea:hover {
@@ -565,6 +620,13 @@ def aplicar_estilos_globais() -> None:
             textarea {
                 color: var(--tacom-text) !important;
                 -webkit-text-fill-color: var(--tacom-text) !important;
+                caret-color: var(--tacom-text) !important;
+            }
+
+            input,
+            textarea,
+            [contenteditable="true"] {
+                caret-color: var(--tacom-text) !important;
             }
 
             div[data-baseweb="select"] input::placeholder,
@@ -573,6 +635,15 @@ def aplicar_estilos_globais() -> None:
                 color: var(--tacom-muted) !important;
                 -webkit-text-fill-color: var(--tacom-muted) !important;
                 opacity: 0.92 !important;
+            }
+
+            div[data-baseweb="input"] input:-webkit-autofill,
+            div[data-baseweb="input"] input:-webkit-autofill:hover,
+            div[data-baseweb="input"] input:-webkit-autofill:focus {
+                box-shadow: 0 0 0 1000px var(--tacom-input-bg) inset !important;
+                -webkit-box-shadow: 0 0 0 1000px var(--tacom-input-bg) inset !important;
+                -webkit-text-fill-color: var(--tacom-text) !important;
+                caret-color: var(--tacom-text) !important;
             }
 
             div[data-baseweb="select"] svg,
