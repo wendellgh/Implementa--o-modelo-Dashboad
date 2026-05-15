@@ -307,7 +307,9 @@ def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
             '<div class="filters-title">Filtros aplicados</div>',
             unsafe_allow_html=True,
         )
-        col_inicio, col_fim = st.columns(2)
+        col_inicio, col_fim, col_contrato, col_operadora, col_equipamento = st.columns(
+            [0.9, 0.9, 1.35, 1.35, 1.35],
+        )
         with col_inicio:
             inicio_sessao = _normalizar_mes_sessao(
                 FILTRO_MES_INICIO_KEY,
@@ -359,7 +361,6 @@ def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
         _normalizar_multiselect_sessao(FILTRO_OPERADORA_KEY, operadoras)
         _normalizar_multiselect_sessao(FILTRO_EQUIPAMENTO_KEY, equipamentos)
 
-        col_contrato, col_operadora, col_equipamento = st.columns(3)
         with col_contrato:
             filtro_contrato = st.multiselect(
                 "Contrato",

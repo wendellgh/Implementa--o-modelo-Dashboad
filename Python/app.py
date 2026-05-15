@@ -427,10 +427,10 @@ def main() -> None:
         return
 
     if menu == "Dashboard":
-        kpis_area = st.container()
         filtros_area = st.container()
         with filtros_area:
             filtros = render_filtros(df_base, menu)
+        kpis_area = st.container()
     elif menu == "Serviços Executados - Teste":
         total_servicos_area = st.container()
         filtros_area = st.container()
