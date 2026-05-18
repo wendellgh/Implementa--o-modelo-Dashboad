@@ -162,6 +162,19 @@ def aplicar_estilos_globais() -> None:
                 text-transform: uppercase;
             }
 
+            .login-form-marker {
+                display: none;
+            }
+
+            div[data-testid="stElementContainer"]:has(.login-form-marker) {
+                display: none;
+            }
+
+            div[data-testid="stForm"]:has(.login-form-marker) {
+                max-width: 420px;
+                margin: 0 auto;
+            }
+
             .section-title {
                 margin: 0.25rem 0 0.95rem 0;
                 color: var(--tacom-text);

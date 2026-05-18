@@ -73,7 +73,7 @@ def render_login() -> dict[str, Any]:
     with col_centro:
         st.markdown(
             """
-            <div style="text-align: center; margin-bottom: 1rem; max-width="450px">
+            <div style="text-align: center; margin-bottom: 1rem;">
                 <h2 style="margin-bottom: 0.25rem;">Login</h2>
                 <p style="margin: 0; opacity: 0.75;">
                     Informe seu usuario e senha para acessar o dashboard.
@@ -84,6 +84,10 @@ def render_login() -> dict[str, Any]:
         )
 
         with st.form("form_login"):
+            st.markdown(
+                '<div class="login-form-marker"></div>',
+                unsafe_allow_html=True,
+            )
             usuario = st.text_input("Usuario")
             senha = st.text_input("Senha", type="password")
             enviar = st.form_submit_button("Entrar", type="primary", use_container_width=True)

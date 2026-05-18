@@ -40,13 +40,14 @@ def calcular_kpis(
     total_qtd = int(df_resumo["total_qtd"].sum())
     total_frota = int(df_resumo["total_frota"].sum())
     percentual_geral = round((total_qtd / total_frota) * 100, 2) if total_frota else 0.0
+    mtbf_horas = round((total_frota * 24 * 30 / total_qtd)) if total_qtd else "N/D"
 
     return {
         "entrada_media_mensal": entrada_media_mensal,
         "total_qtd": total_qtd,
         "total_frota": total_frota,
         "percentual_geral": percentual_geral,
-        "mtbf_horas": "N/D",
+        "mtbf_horas": mtbf_horas,
     }
 
 
@@ -97,7 +98,9 @@ def render_kpis(kpis: dict[str, float | int | str]) -> None:
     with c5:
         _render_card(
             "MTBF (Horas)",
-            str(kpis["mtbf_horas"]),
+            _format_int(int(kpis["mtbf_horas"]))
+            if isinstance(kpis["mtbf_horas"], (int, float))
+            else str(kpis["mtbf_horas"]),
             "⏱️",
         )
 
