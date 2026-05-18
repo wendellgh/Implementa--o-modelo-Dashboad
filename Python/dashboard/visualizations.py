@@ -152,7 +152,7 @@ def render_dashboard_charts(
         st.info("Sem dados para os filtros selecionados.")
         return
 
-    col_top_1, col_top_2 = st.columns(2)
+    col_top_1, col_top_2, col_top_3 = st.columns(3)
 
     with col_top_1:
         with st.container(border=True):
@@ -185,9 +185,51 @@ def render_dashboard_charts(
                     usar_container=False,
                 )
 
-    col_bottom_1, col_bottom_2 = st.columns(2)
+    with col_top_3:
+        with st.container(border=True):
+            if df_manutencao_contrato.empty:
+                st.info(
+                    "Sem dados de manutenção por contrato para os filtros selecionados."
+                )
+            else:
+                manutencao_contrato = df_manutencao_contrato.sort_values(
+                    "quantidade_manutencao",
+                    ascending=False,
+                )
+                ordem_contratos = manutencao_contrato["contrato"].tolist()
+                fig_manutencao_contrato = px.bar(
+                    manutencao_contrato,
+                    x="contrato",
+                    y="quantidade_manutencao",
+                    color="contrato",
+                    color_discrete_sequence=CORES_CATEGORICAS,
+                    category_orders={"contrato": ordem_contratos},
+                    title="EQUIPAMENTOS EM MANUTENÇÃO POR CONTRATO",
+                    text="quantidade_manutencao",
+                    labels={
+                        "contrato": "Contrato",
+                        "quantidade_manutencao": "Quantidade em manutenção",
+                    },
+                )
+                fig_manutencao_contrato.update_xaxes(
+                    categoryorder="array",
+                    categoryarray=ordem_contratos,
+                )
+                _mostrar_rotulos_barras(fig_manutencao_contrato, "%{text:.0f}")
+                st.plotly_chart(
+                    _estilizar_figura(fig_manutencao_contrato),
+                    use_container_width=True,
+                )
 
-    with col_bottom_1:
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-title">Gráficos anuais e variáveis</div>',
+        unsafe_allow_html=True,
+    )
+
+    col_anual_1, col_anual_2 = st.columns(2)
+
+    with col_anual_1:
         with st.container(border=True):
             percentual_frota = df_evolucao_mensal.sort_values("mes").copy()
             percentual_frota["mes_label"] = percentual_frota["mes"].apply(
@@ -239,63 +281,31 @@ def render_dashboard_charts(
             fig_percentual.update_yaxes(range=[0, limite_y], dtick=2)
             st.plotly_chart(_estilizar_figura(fig_percentual), use_container_width=True)
 
-    with col_bottom_2:
+    with col_anual_2:
         with st.container(border=True):
-            if df_manutencao_contrato.empty:
-                st.info(
-                    "Sem dados de manutenção por contrato para os filtros selecionados."
-                )
+            if df_equipamentos_contrato.empty:
+                st.info("Sem dados de contrato para os filtros selecionados.")
             else:
-                manutencao_contrato = df_manutencao_contrato.sort_values(
-                    "quantidade_manutencao",
-                    ascending=False,
-                )
-                ordem_contratos = manutencao_contrato["contrato"].tolist()
-                fig_manutencao_contrato = px.bar(
-                    manutencao_contrato,
+                fig_contrato = px.bar(
+                    df_equipamentos_contrato,
                     x="contrato",
-                    y="quantidade_manutencao",
-                    color="contrato",
-                    color_discrete_sequence=CORES_CATEGORICAS,
-                    category_orders={"contrato": ordem_contratos},
-                    title="EQUIPAMENTOS EM MANUTENÇÃO POR CONTRATO",
-                    text="quantidade_manutencao",
+                    y="quantidade_equipamentos",
+                    title="EQUIPAMENTOS ALOCADOS POR CONTRATO",
+                    text="quantidade_equipamentos",
+                    color="quantidade_equipamentos",
+                    hover_data={"mes": "|%Y-%m", "quantidade_equipamentos": ":.0f"},
+                    color_continuous_scale=ESCALA_OPERACIONAL,
                     labels={
                         "contrato": "Contrato",
-                        "quantidade_manutencao": "Quantidade em manutenção",
+                        "quantidade_equipamentos": "Equipamentos por Contrato",
                     },
                 )
-                fig_manutencao_contrato.update_xaxes(
-                    categoryorder="array",
-                    categoryarray=ordem_contratos,
-                )
-                _mostrar_rotulos_barras(fig_manutencao_contrato, "%{text:.0f}")
+                _mostrar_rotulos_barras(fig_contrato, "%{text:.0f}")
+                fig_contrato.update_coloraxes(showscale=False)
                 st.plotly_chart(
-                    _estilizar_figura(fig_manutencao_contrato),
+                    _estilizar_figura(fig_contrato),
                     use_container_width=True,
                 )
-
-    with st.container(border=True):
-        if df_equipamentos_contrato.empty:
-            st.info("Sem dados de contrato para os filtros selecionados.")
-        else:
-            fig_contrato = px.bar(
-                df_equipamentos_contrato,
-                x="contrato",
-                y="quantidade_equipamentos",
-                title="EQUIPAMENTOS ALOCADOS POR CONTRATO",
-                text="quantidade_equipamentos",
-                color="quantidade_equipamentos",
-                hover_data={"mes": "|%Y-%m", "quantidade_equipamentos": ":.0f"},
-                color_continuous_scale=ESCALA_OPERACIONAL,
-                labels={
-                    "contrato": "Contrato",
-                    "quantidade_equipamentos": "Equipamentos por Contrato",
-                },
-            )
-            _mostrar_rotulos_barras(fig_contrato, "%{text:.0f}")
-            fig_contrato.update_coloraxes(showscale=False)
-            st.plotly_chart(_estilizar_figura(fig_contrato), use_container_width=True)
 
 
 def render_resumo_chart(df_resumo: pd.DataFrame) -> None:

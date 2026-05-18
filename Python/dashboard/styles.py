@@ -154,11 +154,20 @@ def aplicar_estilos_globais() -> None:
             }
 
             .filters-title {
-                margin: 0.15rem 0 0.8rem 0;
+                margin: 0 0 0.45rem 0;
                 color: var(--tacom-text);
-                font-size: 0.86rem;
-                font-weight: 760;
+                font-size: 0.78rem;
+                font-weight: 780;
+                letter-spacing: 0.04em;
                 text-transform: uppercase;
+            }
+
+            .section-title {
+                margin: 0.25rem 0 0.95rem 0;
+                color: var(--tacom-text);
+                font-size: 1.02rem;
+                font-weight: 780;
+                line-height: 1.25;
             }
 
             section[data-testid="stSidebar"] {
@@ -468,8 +477,8 @@ def aplicar_estilos_globais() -> None:
 
             .kpi-card {
                 position: relative;
-                min-height: 118px;
-                padding: 1.15rem 1.15rem 1rem 1.15rem;
+                min-height: 104px;
+                padding: 1rem 1rem 0.9rem 1rem;
                 overflow: hidden;
                 border: 1px solid var(--tacom-border) !important;
                 border-radius: 8px;
@@ -492,10 +501,10 @@ def aplicar_estilos_globais() -> None:
             .kpi-card::after {
                 content: attr(data-icon);
                 position: absolute;
-                right: 1rem;
-                top: 1.1rem;
-                width: 2.35rem;
-                height: 2.35rem;
+                right: 0.85rem;
+                top: 0.85rem;
+                width: 2rem;
+                height: 2rem;
                 border-radius: 8px;
                 background:
                     linear-gradient(135deg, var(--tacom-red-light) 0%, var(--tacom-red) 48%, var(--tacom-red-dark) 100%);
@@ -503,7 +512,7 @@ def aplicar_estilos_globais() -> None:
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 1.4rem;
+                font-size: 1.1rem;
                 color: white;
                 text-shadow: none;
             }
@@ -512,9 +521,9 @@ def aplicar_estilos_globais() -> None:
                 position: relative;
                 z-index: 1;
                 max-width: calc(100% - 3.1rem);
-                margin-bottom: 0.6rem;
+                margin-bottom: 0.5rem;
                 color: var(--tacom-muted);
-                font-size: 0.8rem;
+                font-size: 0.75rem;
                 font-weight: 650;
                 line-height: 1.25;
             }
@@ -523,7 +532,7 @@ def aplicar_estilos_globais() -> None:
                 position: relative;
                 z-index: 1;
                 color: var(--tacom-text);
-                font-size: clamp(1.7rem, 2.2vw, 2.2rem);
+                font-size: clamp(1.45rem, 1.9vw, 1.95rem);
                 font-weight: 780;
                 line-height: 1;
             }
@@ -539,6 +548,39 @@ def aplicar_estilos_globais() -> None:
 
             div[data-testid="stVerticalBlockBorderWrapper"] {
                 padding: 0.35rem;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.filters-title) {
+                padding: 0.35rem 0.55rem 0.2rem 0.55rem;
+                background: color-mix(in srgb, var(--tacom-panel) 96%, var(--tacom-bg-soft)) !important;
+                box-shadow: none;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.filters-title)
+            div[data-testid="stHorizontalBlock"] {
+                gap: 0.55rem;
+                align-items: flex-end;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.filters-title)
+            div[data-testid="stSelectbox"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.filters-title)
+            div[data-testid="stMultiSelect"] {
+                margin-bottom: 0 !important;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.filters-title)
+            .stSelectbox label,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.filters-title)
+            .stMultiSelect label {
+                min-height: 1rem;
+                margin-bottom: 0.18rem;
+                font-size: 0.7rem;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.filters-title)
+            div[data-baseweb="select"] > div {
+                min-height: 2.15rem !important;
             }
 
             div[data-testid="stPlotlyChart"] {
@@ -739,7 +781,9 @@ def aplicar_estilos_globais() -> None:
             }
 
             hr {
-                border-color: var(--tacom-border);
+                margin: 1.55rem 0 1rem 0;
+                border: 0;
+                border-top: 1px solid var(--tacom-border);
             }
 
             ::-webkit-scrollbar {

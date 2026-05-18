@@ -71,28 +71,28 @@ def render_kpis(kpis: dict[str, float | int | str]) -> None:
 
     with c1:
         _render_card(
+            "Total Frota",
+            _format_int(int(kpis["total_frota"])),
+            "🚌",
+        )
+    with c2:
+        _render_card(
             "Equipamentos com Entrada em Manutenção",
             _format_int(int(kpis["total_qtd"])),
             "⚙️",
         )
-    with c2:
+    with c3:
         _render_card(
             "Equips. em Manutenção x Frota %",
             f"{float(kpis['percentual_geral']):.2f}%",
             "📊",
         )
-    with c3:
+    with c4:
         _render_card(
             "Média de Manutenção Anual",
             _format_int(int(kpis["entrada_media_mensal"])),
             "📈",
         
-        )
-    with c4:
-        _render_card(
-            "Total Frota",
-            _format_int(int(kpis["total_frota"])),
-            "🚌",
         )
     with c5:
         _render_card(
