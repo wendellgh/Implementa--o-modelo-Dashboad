@@ -193,18 +193,14 @@ def render_dashboard_charts(
             percentual_frota["mes_label"] = percentual_frota["mes"].apply(
                 _formatar_mes_curto
             )
-            percentual_frota["cor_barra"] = percentual_frota[
-                "percentual_qtd_x_frota"
-            ].apply(
-                _cor_percentual_frota,
-            )
             ordem_meses = percentual_frota["mes_label"].tolist()
-            fig_percentual = px.bar(
+            fig_percentual = px.line(
                 percentual_frota,
                 x="mes_label",
                 y="percentual_qtd_x_frota",
                 title="% TOTAL DA FROTA EM MANUTENÇÃO",
                 text="percentual_qtd_x_frota",
+                markers=True,
                 category_orders={"mes_label": ordem_meses},
                 labels={
                     "mes_label": "Mês",
@@ -212,37 +208,35 @@ def render_dashboard_charts(
                 },
                 hover_data={
                     "mes_label": False,
-                    "cor_barra": False,
                     "mes": "|%m/%Y",
                     "percentual_qtd_x_frota": ":.2f",
                 },
             )
-            fig_percentual.update_traces(marker_color=percentual_frota["cor_barra"])
-            percentual_frota["tendencia_percentual"] = _calcular_tendencia_linear(
-                percentual_frota["percentual_qtd_x_frota"]
+            fig_percentual.update_traces(
+                mode="lines+markers+text",
+                line={"color": PALETA["destaque_tecnico"], "width": 3},
+                marker={
+                    "color": PALETA["destaque_tecnico"],
+                    "size": 8,
+                    "symbol": "circle",
+                },
+                texttemplate="%{text:.2f}%",
+                textposition="top center",
+                cliponaxis=False,
+                hovertemplate=(
+                    "Mes=%{x}<br>% Equipamentos=%{y:.2f}%<extra></extra>"
+                ),
             )
-            if percentual_frota["tendencia_percentual"].notna().any():
-                fig_percentual.add_scatter(
-                    x=percentual_frota["mes_label"],
-                    y=percentual_frota["tendencia_percentual"],
-                    mode="lines+markers",
-                    name="Tendencia",
-                    line={"color": PALETA["destaque_tecnico"], "width": 3},
-                    marker={
-                        "color": PALETA["destaque_tecnico"],
-                        "size": 7,
-                        "symbol": "circle",
-                    },
-                    hovertemplate=(
-                        "Mes=%{x}<br>Tendencia=%{y:.2f}%<extra></extra>"
-                    ),
-                )
             fig_percentual.update_xaxes(
                 type="category",
                 categoryorder="array",
                 categoryarray=ordem_meses,
             )
-            _mostrar_rotulos_barras(fig_percentual, "%{text:.2f}%")
+            limite_y = max(
+                6,
+                percentual_frota["percentual_qtd_x_frota"].max() * 1.15,
+            )
+            fig_percentual.update_yaxes(range=[0, limite_y], dtick=2)
             st.plotly_chart(_estilizar_figura(fig_percentual), use_container_width=True)
 
     with col_bottom_2:

@@ -73,7 +73,7 @@ def render_login() -> dict[str, Any]:
     with col_centro:
         st.markdown(
             """
-            <div style="text-align: center; margin-bottom: 1rem;">
+            <div style="text-align: center; margin-bottom: 1rem; max-width="450px">
                 <h2 style="margin-bottom: 0.25rem;">Login</h2>
                 <p style="margin: 0; opacity: 0.75;">
                     Informe seu usuario e senha para acessar o dashboard.
