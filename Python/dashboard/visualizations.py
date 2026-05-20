@@ -78,17 +78,23 @@ def _estilizar_figura(fig):
     return fig
 
 
-def _mostrar_rotulos_barras(fig, template: str = "%{text}") -> None:
+def _mostrar_rotulos_barras(
+    fig,
+    template: str = "%{text}",
+    font_size: int = 12,
+    uniform_min_size: int = 10,
+) -> None:
     fig.update_traces(
         texttemplate=template,
         textposition="inside",
         insidetextanchor="middle",
         constraintext="none",
         cliponaxis=False,
-        textfont={"color": _cor_texto_tema(), "size": 12},
+        textfont={"color": _cor_texto_tema(), "size": font_size},
+        insidetextfont={"color": _cor_texto_tema(), "size": font_size},
         selector={"type": "bar"},
     )
-    fig.update_layout(uniformtext={"minsize": 10, "mode": "show"})
+    fig.update_layout(uniformtext={"minsize": uniform_min_size, "mode": "show"})
 
 
 def _formatar_mes_curto(data_mes: pd.Timestamp) -> str:
@@ -390,11 +396,19 @@ def render_servicos_executados_chart(
             "quantidade_servicos": "Quantidade",
         },
     )
-    _mostrar_rotulos_barras(fig, "%{text:.0f}")
+    _mostrar_rotulos_barras(
+        fig,
+        "%{text:.0f}",
+        font_size=18,
+        uniform_min_size=16,
+    )
     fig.update_coloraxes(showscale=False)
+    fig = _estilizar_figura(fig)
+    fig.update_xaxes(tickfont={"size": 14})
+    fig.update_yaxes(tickfont={"size": 15})
 
     if usar_container:
         with st.container(border=True):
-            st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
     else:
-        st.plotly_chart(_estilizar_figura(fig), use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)

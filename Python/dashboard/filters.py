@@ -18,6 +18,7 @@ ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
+ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 PAGINA_ATUAL_KEY = "pagina_atual"
 FILTRO_MES_INICIO_KEY = "filtro_mes_inicio"
 FILTRO_MES_FIM_KEY = "filtro_mes_fim"
@@ -33,6 +34,7 @@ MENU_ICONS = {
     "Contando Frota.": ":material/query_stats:",
     "Serviços Executados - Teste": ":material/build:",
     "ServiÃ§os Executados - Teste": ":material/build:",
+    ANALISE_FALHAS_MENU_ITEM: ":material/rule:",
     ORACLE_DESTBOAD_MENU_ITEM: ":material/database:",
     ENTRADA_DADOS_MENU_ITEM: ":material/edit_note:",
 }
@@ -53,6 +55,7 @@ NAVIGATION_GROUPS = (
             ("Tabela", "Tabela"),
             ("Contando Frota", "Contando Frota - Teste"),
             ("Serviços executados", "Serviços Executados - Teste"),
+            ("Análise de falhas", ANALISE_FALHAS_MENU_ITEM),
         ),
     ),
 )

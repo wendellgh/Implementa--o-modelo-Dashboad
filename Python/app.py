@@ -7,6 +7,7 @@ import streamlit as st
 
 from dashboard.auth import render_login, usuario_eh_admin
 from dashboard.config import APP_TITLE, PAGE_CONFIG
+from dashboard.analise_falhas import render_analise_falhas
 from dashboard.data import (
     carregar_base,
     carregar_base_outra_tabela,
@@ -42,6 +43,7 @@ from dashboard.visualizations import (
 
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
+ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 CSV_SERVICOS_EXTERNO_RELATIVO = Path("Importacoes") / "bsa_serv_exce.csv"
 CSV_BASE_HISTORICA_RELATIVO = Path("Importacoes") / "Basehistorica.csv"
 IMPORTADOR_BASE_HISTORICA_RELATIVO = (
@@ -286,9 +288,9 @@ def render_consulta_destboad_oracle() -> None:
             st.exception(erro)
 
     st.divider()
-    st.subheader("Teste: importar Basehistorica.csv")
+    st.subheader("Teste: Importar Basehistorica.csv")
     st.caption(
-        "Use para subir uma base histórica de teste em `base_historica_manutencao`."
+        "Use parama base histórica de teste em `base_historica_manutencao`."
     )
     modo_carga_base = st.radio(
         "Modo de carga da Basehistorica",
@@ -424,6 +426,10 @@ def main() -> None:
 
     if menu == ORACLE_DESTBOAD_MENU_ITEM:
         render_consulta_destboad_oracle()
+        return
+
+    if menu == ANALISE_FALHAS_MENU_ITEM:
+        render_analise_falhas()
         return
 
     if menu == "Dashboard":
