@@ -44,6 +44,33 @@ Tabelas migradas:
 O script tambem ajusta a sequence `base_historica_manutencao_id_seq` depois da
 copia.
 
+## 3.1 Migrar os dados do Neon para o banco local
+
+Use este script quando quiser restaurar no Postgres local os dados que estão no
+Neon:
+
+```powershell
+$env:NEON_DATABASE_URL="postgresql://usuario:senha@host.neon.tech/dbname?sslmode=require"
+.\.venv\Scripts\python.exe scripts\neon_to_local.py --yes --replace-local-tables
+```
+
+O comando faz o seguinte:
+
+- garante o schema das tabelas locais e no Neon
+- trunca as tabelas locais antes da carga
+- copia `public.base_historica_manutencao` e `public.servicos_executados`
+- ajusta a sequence `base_historica_manutencao_id_seq` no banco local
+
+Se você quiser usar outro banco local, informe `--local-url`:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\neon_to_local.py \
+  --local-url "postgresql+psycopg2://app_user:app123@localhost:5432/app_db" \
+  --yes --replace-local-tables
+```
+
+> O script requer `--yes --replace-local-tables` para executar a migração real.
+
 ## 4. Rodar o app apontando para o Neon
 
 Local:
