@@ -17,6 +17,7 @@ from dashboard.styles import (
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
+MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial"
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 PAGINA_ATUAL_KEY = "pagina_atual"
@@ -37,6 +38,7 @@ MENU_ICONS = {
     ANALISE_FALHAS_MENU_ITEM: ":material/rule:",
     ORACLE_DESTBOAD_MENU_ITEM: ":material/database:",
     ENTRADA_DADOS_MENU_ITEM: ":material/edit_note:",
+    MANUTENCAO_FILIAL_MENU_ITEM: ":material/edit_note:",
 }
 
 NAVIGATION_GROUPS = (
@@ -44,6 +46,7 @@ NAVIGATION_GROUPS = (
         "Entrada de Dados",
         (
             ("Inserir dados da manutenção", ENTRADA_DADOS_MENU_ITEM),
+            ("Manutenção Filial", MANUTENCAO_FILIAL_MENU_ITEM),
             ("Dados da Manutenção - Oracle", ORACLE_DESTBOAD_MENU_ITEM),
         ),
     ),
@@ -67,7 +70,7 @@ def _obter_paginas_navegacao() -> list[str]:
         for _, itens in NAVIGATION_GROUPS
         for _, pagina in itens
     ]
-    paginas.extend([ENTRADA_DADOS_MENU_ITEM, *MENU_ITEMS])
+    paginas.extend([ENTRADA_DADOS_MENU_ITEM, MANUTENCAO_FILIAL_MENU_ITEM, *MENU_ITEMS])
     return list(dict.fromkeys(paginas))
 
 

@@ -6,7 +6,6 @@ from sqlalchemy import text
 
 from dashboard.database import get_engine
 
-
 COLUNAS_OPERADORA = ["id_operadora", "operadora"]
 COLUNAS_EQUIPAMENTO = ["cod_equipamento", "equipamento"]
 COLUNAS_ULTIMAS_ENTRADAS = [
@@ -143,7 +142,9 @@ def _montar_tabela_ultimas_entradas(
         return pd.DataFrame(columns=COLUNAS_ULTIMAS_ENTRADAS)
 
     df_aux["_data_ref"] = pd.to_datetime(df_aux["data_ref"], errors="coerce")
-    df_aux = df_aux.sort_values("_data_ref", ascending=False, na_position="last").head(limite)
+    df_aux = df_aux.sort_values("_data_ref", ascending=False, na_position="last").head(
+        limite
+    )
 
     percentual = pd.to_numeric(df_aux["percentual"], errors="coerce").fillna(0)
     tabela = pd.DataFrame(
@@ -153,8 +154,12 @@ def _montar_tabela_ultimas_entradas(
             "Contrato": _serie_texto(df_aux, "contrato"),
             "Operadora": _serie_texto(df_aux, "operadora"),
             "Equipamento": _serie_texto(df_aux, "equipamento"),
-            "Frota": pd.to_numeric(df_aux["frota"], errors="coerce").fillna(0).astype(int),
-            "Qtd manutencao": pd.to_numeric(df_aux["qtd"], errors="coerce").fillna(0).astype(int),
+            "Frota": pd.to_numeric(df_aux["frota"], errors="coerce")
+            .fillna(0)
+            .astype(int),
+            "Qtd manutencao": pd.to_numeric(df_aux["qtd"], errors="coerce")
+            .fillna(0)
+            .astype(int),
             "%": percentual.map(lambda valor: f"{valor:.2f}%"),
         }
     )
@@ -174,7 +179,9 @@ def _existe_lancamento_mes(
 
     data_ref_periodo = pd.Timestamp(data_ref).to_period("M")
     df_aux = df_base.copy()
-    coluna_periodo = "data_competencia" if "data_competencia" in df_aux.columns else "data_ref"
+    coluna_periodo = (
+        "data_competencia" if "data_competencia" in df_aux.columns else "data_ref"
+    )
     df_aux["_mes_ref"] = pd.to_datetime(
         df_aux[coluna_periodo],
         errors="coerce",
@@ -182,9 +189,15 @@ def _existe_lancamento_mes(
 
     mascara = (
         df_aux["_mes_ref"].eq(data_ref_periodo)
-        & _serie_texto(df_aux, "contrato").str.lower().eq(_normalizar_texto(contrato).lower())
-        & _serie_texto(df_aux, "operadora").str.lower().eq(_normalizar_texto(operadora).lower())
-        & _serie_texto(df_aux, "equipamento").str.lower().eq(_normalizar_texto(equipamento).lower())
+        & _serie_texto(df_aux, "contrato")
+        .str.lower()
+        .eq(_normalizar_texto(contrato).lower())
+        & _serie_texto(df_aux, "operadora")
+        .str.lower()
+        .eq(_normalizar_texto(operadora).lower())
+        & _serie_texto(df_aux, "equipamento")
+        .str.lower()
+        .eq(_normalizar_texto(equipamento).lower())
     )
 
     return bool(mascara.any())
@@ -332,7 +345,9 @@ def _validar_lancamento(
     if not equipamento:
         erros.append("Informe o nome do equipamento.")
     if frota == 0 and qtd > 0:
-        erros.append("Informe uma frota maior que zero para lancar quantidade em manutencao.")
+        erros.append(
+            "Informe uma frota maior que zero para lancar quantidade em manutencao."
+        )
 
     return erros
 
@@ -363,8 +378,7 @@ def _atualizar_frota_por_selecao(contexto: str, ultima_frota: int | None) -> Non
 
 
 def salvar_lancamento_manutencao(dados: dict[str, object]) -> None:
-    insert_sql = text(
-        """
+    insert_sql = text("""
         insert into base_historica_manutencao (
             data_ref,
             data_competencia,
@@ -391,18 +405,13 @@ def salvar_lancamento_manutencao(dados: dict[str, object]) -> None:
             :qtd,
             :percentual
         )
-        """
-    )
+        """)
 
     with get_engine().begin() as conn:
-        conn.execute(
-            text(
-                """
+        conn.execute(text("""
                 alter table public.base_historica_manutencao
                     add column if not exists data_competencia date
-                """
-            )
-        )
+                """))
         conn.execute(insert_sql, dados)
 
     st.cache_data.clear()
@@ -459,7 +468,9 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
     if nova_operadora:
         id_operadora, operadora = _render_campos_nova_operadora()
         df_operadora = pd.DataFrame(columns=df_base.columns)
-        st.info("A nova operadora sera vinculada ao contrato quando o lancamento for salvo.")
+        st.info(
+            "A nova operadora sera vinculada ao contrato quando o lancamento for salvo."
+        )
     else:
         operadora = str(operadora_selecionada)
         df_operadora = _filtrar_por_operadora(df_contrato, operadora)

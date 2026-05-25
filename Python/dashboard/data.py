@@ -47,6 +47,42 @@ def _adicionar_colunas_competencia(
     return df
 
 
+def _pontuar_nome_cadastral(valor: object) -> tuple[int, int, int, int]:
+    texto = str(valor or "").strip()
+    caracteres_invalidos = texto.count("?")
+    caracteres_acentuados = sum(1 for caractere in texto if ord(caractere) > 127)
+    caixa_mista = int(not texto.isupper())
+    return (-caracteres_invalidos, caracteres_acentuados, caixa_mista, len(texto))
+
+
+def _aplicar_nomes_canonicos_por_id(
+    df: pd.DataFrame,
+    coluna_id: str,
+    coluna_nome: str,
+) -> pd.DataFrame:
+    if df.empty or coluna_id not in df.columns or coluna_nome not in df.columns:
+        return df
+
+    ids_preenchidos = df[coluna_id].fillna("").astype(str).str.strip().ne("")
+    if not ids_preenchidos.any():
+        return df
+
+    nomes_por_id = {}
+    for id_cadastro, grupo in df.loc[ids_preenchidos].groupby(coluna_id):
+        opcoes = [
+            nome
+            for nome in grupo[coluna_nome].fillna("").astype(str).str.strip().unique()
+            if nome
+        ]
+        if opcoes:
+            nomes_por_id[id_cadastro] = max(opcoes, key=_pontuar_nome_cadastral)
+
+    if nomes_por_id:
+        df[coluna_nome] = df[coluna_id].map(nomes_por_id).fillna(df[coluna_nome])
+
+    return df
+
+
 def _obter_serie_competencia(df: pd.DataFrame) -> pd.Series:
     if "data_competencia" in df.columns:
         return (
@@ -78,6 +114,9 @@ def carregar_base() -> pd.DataFrame:
 
     for coluna in ["id_contrato", "contrato", "id_operadora", "operadora", "cod_equipamento", "equipamento"]:
         df[coluna] = df[coluna].fillna("").astype(str).str.strip()
+
+    df = _aplicar_nomes_canonicos_por_id(df, "id_contrato", "contrato")
+    df = _aplicar_nomes_canonicos_por_id(df, "id_operadora", "operadora")
 
     return df
 

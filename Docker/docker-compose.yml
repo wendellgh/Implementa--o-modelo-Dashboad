@@ -18,6 +18,7 @@ services:
       DB_NAME: app_db
       DB_USER: app_user
       DB_PASSWORD: app123
+      DB_SSLMODE: disable
       ORACLE_CLIENT_LIB_DIR: /opt/oracle/instantclient
     ports:
       - "8501:8501"

@@ -144,6 +144,11 @@ def get_db_target_kind() -> str:
     return "remote"
 
 
+def _is_local_db_host(host: str | None) -> bool:
+    normalized = str(host or "").strip().lower()
+    return normalized in {"localhost", "127.0.0.1", "::1", "postgres", "host.docker.internal"}
+
+
 def get_db_target_info() -> dict[str, str]:
     kind = get_db_target_kind()
     titles = {
@@ -187,7 +192,7 @@ def get_engine() -> Engine:
         database=str(cfg["banco"]),
     )
 
-    if cfg.get("sslmode"):
+    if cfg.get("sslmode") and not _is_local_db_host(str(cfg.get("host") or "")):
         engine_kwargs["connect_args"] = {"sslmode": str(cfg["sslmode"])}
 
     return create_engine(url, **engine_kwargs)

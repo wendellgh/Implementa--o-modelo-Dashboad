@@ -22,6 +22,7 @@ from dashboard.data import (
 from dashboard.database import get_db_diagnostics, get_db_target_label
 from dashboard.data_entry import render_entrada_dados
 from dashboard.filters import aplicar_filtros, render_filtros, render_sidebar
+from dashboard.manutencao_filial_teste import render_manutencao_filial_teste
 from dashboard.metrics import (
     calcular_kpis,
     render_kpis,
@@ -42,6 +43,7 @@ from dashboard.visualizations import (
 )
 
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
+MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial"
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 CSV_SERVICOS_EXTERNO_RELATIVO = Path("Importacoes") / "bsa_serv_exce.csv"
@@ -422,6 +424,10 @@ def main() -> None:
 
     if menu == ENTRADA_DADOS_MENU_ITEM:
         render_entrada_dados(df_base)
+        return
+
+    if menu == MANUTENCAO_FILIAL_MENU_ITEM:
+        render_manutencao_filial_teste(df_base)
         return
 
     if menu == ORACLE_DESTBOAD_MENU_ITEM:

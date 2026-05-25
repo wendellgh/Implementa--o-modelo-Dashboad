@@ -6,9 +6,10 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from dotenv import load_dotenv
+from sqlalchemy.engine import URL
 from sqlalchemy.engine import Engine
 
-sys.path.append(str(Path(__file__).resolve().parent))
 
 from migrate_local_to_neon import (
     DEFAULT_LOCAL_DATABASE_URL,
@@ -22,6 +23,64 @@ from migrate_local_to_neon import (
     truncate_target_tables,
     count_rows_if_exists,
 )
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+sys.path.append(str(Path(__file__).resolve().parent))
+
+
+
+
+def _first_non_empty(*values: str | None) -> str | None:
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+def build_database_url_from_parts(args: argparse.Namespace) -> str | None:
+    values = {
+        "DB_HOST": args.db_host,
+        "DB_PORT": args.db_port,
+        "DB_NAME": args.db_name,
+        "DB_USER": args.db_user,
+        "DB_PASSWORD": args.db_password,
+    }
+
+    required_without_defaults = [
+        args.db_host,
+        args.db_name,
+        args.db_user,
+        args.db_password,
+    ]
+    if not any(_first_non_empty(value) for value in required_without_defaults):
+        return None
+
+    missing = [name for name, value in values.items() if not _first_non_empty(value)]
+    if missing:
+        raise ValueError(
+            "parametros DB incompletos: preencha "
+            + ", ".join(missing)
+            + " ou informe --neon-url."
+        )
+
+    query = {}
+    sslmode = _first_non_empty(args.db_sslmode)
+    if sslmode:
+        query["sslmode"] = sslmode
+
+    return URL.create(
+        drivername="postgresql+psycopg2",
+        username=str(args.db_user).strip(),
+        password=str(args.db_password).strip(),
+        host=str(args.db_host).strip(),
+        port=int(str(args.db_port).strip()),
+        database=str(args.db_name).strip(),
+        query=query,
+    ).render_as_string(hide_password=False)
 
 
 def migrate_table(
@@ -64,6 +123,12 @@ def parse_args() -> argparse.Namespace:
         default=os.getenv("NEON_DATABASE_URL") or os.getenv("DATABASE_URL"),
         help="Connection string direta do Neon. Tambem aceita NEON_DATABASE_URL.",
     )
+    parser.add_argument("--db-host", default=os.getenv("DB_HOST"))
+    parser.add_argument("--db-port", default=os.getenv("DB_PORT", "5432"))
+    parser.add_argument("--db-name", default=os.getenv("DB_NAME"))
+    parser.add_argument("--db-user", default=os.getenv("DB_USER"))
+    parser.add_argument("--db-password", default=os.getenv("DB_PASSWORD"))
+    parser.add_argument("--db-sslmode", default=os.getenv("DB_SSLMODE", "require"))
     parser.add_argument(
         "--replace-local-tables",
         action="store_true",
@@ -80,12 +145,24 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    if not args.neon_url:
-        print("Erro: informe --neon-url ou defina NEON_DATABASE_URL.", file=sys.stderr)
+    neon_url_arg = _first_non_empty(args.neon_url)
+    if not neon_url_arg:
+        try:
+            neon_url_arg = build_database_url_from_parts(args)
+        except ValueError as error:
+            print(f"Erro: {error}", file=sys.stderr)
+            return 2
+
+    if not neon_url_arg:
+        print(
+            "Erro: informe --neon-url, defina NEON_DATABASE_URL/DATABASE_URL "
+            "ou preencha DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD.",
+            file=sys.stderr,
+        )
         return 2
 
     local_url = normalize_database_url(args.local_url)
-    neon_url = prepare_neon_migration_url(normalize_database_url(args.neon_url))
+    neon_url = prepare_neon_migration_url(normalize_database_url(neon_url_arg))
 
     local_engine = make_engine(local_url)
     neon_engine = make_engine(neon_url)
