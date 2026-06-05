@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import argparse
 import os
 import sys
@@ -11,6 +10,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine, make_url
 
 DEFAULT_LOCAL_DATABASE_URL = "postgresql+psycopg2://app_user:app123@localhost:5432/app_db"
+
 
 
 TABLES = [
@@ -128,6 +128,8 @@ SELECT setval(
     true
 );
 """
+
+
 
 
 def normalize_database_url(database_url: str) -> str:
