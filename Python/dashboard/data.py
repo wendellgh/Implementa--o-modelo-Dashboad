@@ -4,6 +4,8 @@ import streamlit as st
 from dashboard.config import BASE_QUERY, BASE_QUERY_2
 from dashboard.database import get_engine
 
+ANO_MINIMO_COMPETENCIA = 1900
+
 
 def _converter_data_servicos(valores: pd.Series) -> pd.Series:
     texto = valores.fillna("").astype(str).str.strip()
@@ -27,14 +29,10 @@ def _adicionar_colunas_competencia(
     if df.empty or coluna_data not in df.columns:
         return df
 
-    competencia = pd.to_datetime(df[coluna_data], dayfirst=True, errors="coerce")
+    competencia = _remover_datas_fora_do_intervalo(df[coluna_data])
 
     if "data_competencia" in df.columns:
-        competencia_banco = pd.to_datetime(
-            df["data_competencia"],
-            dayfirst=True,
-            errors="coerce",
-        )
+        competencia_banco = _remover_datas_fora_do_intervalo(df["data_competencia"])
         competencia = competencia_banco.fillna(competencia)
 
     df["data_competencia"] = competencia.dt.to_period("M").dt.to_timestamp()
@@ -45,6 +43,12 @@ def _adicionar_colunas_competencia(
     df["mes_ano"] = df["data_competencia"].dt.strftime("%m/%Y").fillna("")
 
     return df
+
+
+def _remover_datas_fora_do_intervalo(datas: pd.Series) -> pd.Series:
+    datas = pd.to_datetime(datas, dayfirst=True, errors="coerce")
+    ano = datas.dt.year
+    return datas.where(ano.isna() | ano.ge(ANO_MINIMO_COMPETENCIA))
 
 
 def _pontuar_nome_cadastral(valor: object) -> tuple[int, int, int, int]:
@@ -85,17 +89,11 @@ def _aplicar_nomes_canonicos_por_id(
 
 def _obter_serie_competencia(df: pd.DataFrame) -> pd.Series:
     if "data_competencia" in df.columns:
-        return (
-            pd.to_datetime(df["data_competencia"], dayfirst=True, errors="coerce")
-            .dt.to_period("M")
-            .dt.to_timestamp()
-        )
+        datas = _remover_datas_fora_do_intervalo(df["data_competencia"])
+        return datas.dt.to_period("M").dt.to_timestamp()
 
-    return (
-        pd.to_datetime(df["data_ref"], dayfirst=True, errors="coerce")
-        .dt.to_period("M")
-        .dt.to_timestamp()
-    )
+    datas = _remover_datas_fora_do_intervalo(df["data_ref"])
+    return datas.dt.to_period("M").dt.to_timestamp()
 
 
 @st.cache_data
@@ -106,7 +104,7 @@ def carregar_base() -> pd.DataFrame:
     if df.empty:
         return df
 
-    df["data_ref"] = pd.to_datetime(df["data_ref"], errors="coerce")
+    df["data_ref"] = _remover_datas_fora_do_intervalo(df["data_ref"])
     df = _adicionar_colunas_competencia(df)
 
     for coluna in ["qtd", "frota", "percentual"]:

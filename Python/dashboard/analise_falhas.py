@@ -862,6 +862,31 @@ def _aplicar_estilos_analise_falhas() -> None:
                 color: var(--tacom-muted);
                 font-size: 0.68rem;
                 font-weight: 800;
+                align-items: center;
+            }
+
+            .falhas-os-table-header > span {
+                display: flex;
+                min-width: 0;
+                height: 100%;
+                align-items: center;
+                justify-content: flex-start;
+                line-height: 1.1;
+                text-align: left;
+            }
+
+            .falhas-os-table-header > span:nth-child(1) {
+                padding-left: calc(2rem + 0.65rem);
+            }
+
+            .falhas-os-table-header > span:nth-child(3) {
+                justify-content: center;
+                text-align: center;
+            }
+
+            .falhas-os-table-header > span:nth-child(5) {
+                justify-content: flex-end;
+                text-align: right;
             }
 
             .falhas-os-row-details {
@@ -898,6 +923,7 @@ def _aplicar_estilos_analise_falhas() -> None:
                 min-width: 0;
                 align-items: center;
                 gap: 0.65rem;
+                align-items: center;
             }
 
             .falhas-os-icon {
@@ -1136,7 +1162,7 @@ def _aplicar_estilos_analise_falhas() -> None:
             }
 
             .falhas-flow-arrow {
-                color: var(--status-color);
+                color: $FFFF;
                 font-size: 1rem;
                 font-weight: 800;
                 line-height: 1;
@@ -1751,6 +1777,7 @@ def render_graficos_analise_falhas(df_os: pd.DataFrame) -> None:
             status_df = status_df[status_df["quantidade_os"].gt(0)]
             fig_status = px.pie(
                 status_df,
+                title = " ",
                 names="status_comparacao",
                 values="quantidade_os",
                 hole=0.58,

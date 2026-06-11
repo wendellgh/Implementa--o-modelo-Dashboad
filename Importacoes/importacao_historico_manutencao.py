@@ -1,9 +1,9 @@
 import argparse
 import importlib
 import sys
+import pandas as pd
 from pathlib import Path
 
-import pandas as pd
 from sqlalchemy import bindparam, text
 
 ARQUIVO_CSV = Path(__file__).with_name("Basehistorica.csv")
@@ -12,6 +12,21 @@ PYTHON_DIR = Path(__file__).resolve().parents[1] / "Python"
 
 TABELA = "base_historica_manutencao"
 CHUNKSIZE = 5000
+ENCODINGS_CSV = ("utf-8-sig", "cp1252", "latin1")
+MESES_PT = {
+    "jan": 1,
+    "fev": 2,
+    "mar": 3,
+    "abr": 4,
+    "mai": 5,
+    "jun": 6,
+    "jul": 7,
+    "ago": 8,
+    "set": 9,
+    "out": 10,
+    "nov": 11,
+    "dez": 12,
+}
 
 COLUNAS_CSV_ESPERADAS = [
     "DATA",
@@ -76,8 +91,29 @@ def carregar_dependencias_banco():
 
 
 def converter_datas(valores: pd.Series) -> pd.Series:
-    texto = valores.fillna("").astype(str).str.strip()
+    texto = valores.fillna("").astype(str).str.strip().str.lower()
     datas = pd.to_datetime(texto, format="%d/%m/%Y", errors="coerce")
+
+    pendentes = datas.isna() & texto.ne("")
+    if pendentes.any():
+        mes_ano = texto.loc[pendentes].str.extract(
+            r"^(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/(\d{2}|\d{4})$"
+        )
+        datas_mes_ano = pd.Series(pd.NaT, index=texto.loc[pendentes].index)
+        linhas_mes_ano = mes_ano[0].notna()
+        if linhas_mes_ano.any():
+            anos = mes_ano.loc[linhas_mes_ano, 1].astype(int)
+            anos = anos.where(anos >= 100, anos + 2000)
+            datas_mes_ano.loc[linhas_mes_ano.index[linhas_mes_ano]] = pd.to_datetime(
+                {
+                    "year": anos,
+                    "month": mes_ano.loc[linhas_mes_ano, 0].map(MESES_PT),
+                    "day": 1,
+                },
+                errors="coerce",
+            )
+
+        datas.loc[pendentes] = datas_mes_ano
 
     pendentes = datas.isna() & texto.ne("")
     if pendentes.any():
@@ -91,11 +127,14 @@ def converter_datas(valores: pd.Series) -> pd.Series:
 
     pendentes = datas.isna() & texto.ne("")
     if pendentes.any():
-        datas.loc[pendentes] = pd.to_datetime(
-            texto.loc[pendentes],
-            dayfirst=True,
-            errors="coerce",
-        )
+        texto_com_ano = texto.loc[pendentes].str.contains(r"\d{4}", regex=True)
+        if texto_com_ano.any():
+            indices_com_ano = texto_com_ano.index[texto_com_ano]
+            datas.loc[indices_com_ano] = pd.to_datetime(
+                texto.loc[indices_com_ano],
+                dayfirst=True,
+                errors="coerce",
+            )
 
     return datas.dt.date.where(datas.notna(), None)
 
@@ -111,14 +150,37 @@ def garantir_colunas_auxiliares(engine) -> None:
         conn.execute(text(GARANTIR_COLUNAS_AUXILIARES_SQL))
 
 
-def validar_csv(caminho_csv: Path) -> None:
+def detectar_encoding_csv(caminho_csv: Path) -> str:
+    for encoding in ENCODINGS_CSV:
+        try:
+            pd.read_csv(
+                caminho_csv,
+                sep=";",
+                encoding=encoding,
+                nrows=5,
+                dtype=str,
+            )
+            return encoding
+        except UnicodeDecodeError:
+            continue
+
+    raise UnicodeDecodeError(
+        "csv",
+        b"",
+        0,
+        1,
+        f"Nao foi possivel ler o CSV com os encodings: {ENCODINGS_CSV}",
+    )
+
+
+def validar_csv(caminho_csv: Path, encoding: str) -> None:
     if not caminho_csv.exists():
         raise FileNotFoundError(f"Arquivo nao encontrado: {caminho_csv}")
 
     teste = pd.read_csv(
         caminho_csv,
         sep=";",
-        encoding="cp1252",
+        encoding=encoding,
         nrows=5,
         dtype=str,
     )
@@ -192,12 +254,12 @@ def preparar_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
     return chunk[COLUNAS_DESTINO]
 
 
-def ler_datas_csv(caminho_csv: Path) -> list[object]:
+def ler_datas_csv(caminho_csv: Path, encoding: str) -> list[object]:
     datas: set[object] = set()
     for chunk in pd.read_csv(
         caminho_csv,
         sep=";",
-        encoding="cp1252",
+        encoding=encoding,
         chunksize=CHUNKSIZE,
         dtype=str,
         usecols=["DATA"],
@@ -219,7 +281,9 @@ def carregar_csv(
     substituir_periodos_csv: bool,
     chunksize: int,
 ) -> int:
-    validar_csv(caminho_csv)
+    encoding = detectar_encoding_csv(caminho_csv)
+    print(f"Encoding do CSV: {encoding}")
+    validar_csv(caminho_csv, encoding=encoding)
 
     get_db_target_label, get_engine = carregar_dependencias_banco()
     engine = get_engine()
@@ -235,7 +299,7 @@ def carregar_csv(
             conn.execute(text(f"TRUNCATE TABLE public.{TABELA} RESTART IDENTITY;"))
         print(f"Tabela public.{TABELA} limpa com sucesso.")
     elif substituir_periodos_csv:
-        datas_para_substituir = ler_datas_csv(caminho_csv)
+        datas_para_substituir = ler_datas_csv(caminho_csv, encoding=encoding)
         if datas_para_substituir:
             delete_sql = text(
                 f"""
@@ -258,7 +322,7 @@ def carregar_csv(
     for chunk in pd.read_csv(
         caminho_csv,
         sep=";",
-        encoding="cp1252",
+        encoding=encoding,
         chunksize=chunksize,
         dtype=str,
     ):
