@@ -208,7 +208,11 @@ def aplicar_estilos_globais() -> None:
 
             div[data-testid="stSidebarHeader"] button,
             div[data-testid="collapsedControl"] button,
-            button[data-testid="stBaseButton-headerNoPadding"] {
+            button[data-testid="stBaseButton-headerNoPadding"],
+            button[aria-label*="sidebar" i],
+            button[aria-label*="barra lateral" i],
+            button[title*="sidebar" i],
+            button[title*="barra lateral" i] {
                 width: 2rem !important;
                 height: 2rem !important;
                 min-width: 2rem !important;
@@ -216,21 +220,72 @@ def aplicar_estilos_globais() -> None:
                 border: 1px solid var(--tacom-border) !important;
                 border-radius: 8px !important;
                 background: var(--tacom-panel) !important;
-                color: var(--tacom-text) !important;
+                color: #000000 !important;
                 opacity: 1 !important;
                 box-shadow: 0 6px 18px rgba(17, 24, 39, 0.10) !important;
             }
 
             div[data-testid="stSidebarHeader"] button *,
             div[data-testid="stSidebarHeader"] button svg,
+            div[data-testid="stSidebarHeader"] button svg *,
             div[data-testid="collapsedControl"] button *,
             div[data-testid="collapsedControl"] button svg,
+            div[data-testid="collapsedControl"] button svg *,
             button[data-testid="stBaseButton-headerNoPadding"] *,
-            button[data-testid="stBaseButton-headerNoPadding"] svg {
-                color: var(--tacom-text) !important;
-                stroke: currentColor !important;
-                fill: currentColor !important;
+            button[data-testid="stBaseButton-headerNoPadding"] svg,
+            button[data-testid="stBaseButton-headerNoPadding"] svg *,
+            button[aria-label*="sidebar" i],
+            button[aria-label*="sidebar" i] *,
+            button[aria-label*="sidebar" i] svg,
+            button[aria-label*="sidebar" i] svg *,
+            button[aria-label*="barra lateral" i],
+            button[aria-label*="barra lateral" i] *,
+            button[aria-label*="barra lateral" i] svg,
+            button[aria-label*="barra lateral" i] svg *,
+            button[title*="sidebar" i],
+            button[title*="sidebar" i] *,
+            button[title*="sidebar" i] svg,
+            button[title*="sidebar" i] svg *,
+            button[title*="barra lateral" i],
+            button[title*="barra lateral" i] *,
+            button[title*="barra lateral" i] svg,
+            button[title*="barra lateral" i] svg * {
+                color: #000000 !important;
+                stroke: #000000 !important;
                 opacity: 1 !important;
+                -webkit-text-fill-color: #000000 !important;
+            }
+
+            div[data-testid="stSidebarHeader"] button svg path,
+            div[data-testid="stSidebarHeader"] button svg polyline,
+            div[data-testid="stSidebarHeader"] button svg line,
+            div[data-testid="stSidebarHeader"] button svg use,
+            div[data-testid="collapsedControl"] button svg path,
+            div[data-testid="collapsedControl"] button svg polyline,
+            div[data-testid="collapsedControl"] button svg line,
+            div[data-testid="collapsedControl"] button svg use,
+            button[data-testid="stBaseButton-headerNoPadding"] svg path,
+            button[data-testid="stBaseButton-headerNoPadding"] svg polyline,
+            button[data-testid="stBaseButton-headerNoPadding"] svg line,
+            button[data-testid="stBaseButton-headerNoPadding"] svg use,
+            button[aria-label*="sidebar" i] svg path,
+            button[aria-label*="sidebar" i] svg polyline,
+            button[aria-label*="sidebar" i] svg line,
+            button[aria-label*="sidebar" i] svg use,
+            button[aria-label*="barra lateral" i] svg path,
+            button[aria-label*="barra lateral" i] svg polyline,
+            button[aria-label*="barra lateral" i] svg line,
+            button[aria-label*="barra lateral" i] svg use,
+            button[title*="sidebar" i] svg path,
+            button[title*="sidebar" i] svg polyline,
+            button[title*="sidebar" i] svg line,
+            button[title*="sidebar" i] svg use,
+            button[title*="barra lateral" i] svg path,
+            button[title*="barra lateral" i] svg polyline,
+            button[title*="barra lateral" i] svg line,
+            button[title*="barra lateral" i] svg use {
+                stroke: #000000 !important;
+                fill: #000000 !important;
             }
 
             div[data-testid="stSidebarUserContent"] {
@@ -757,7 +812,7 @@ def aplicar_estilos_globais() -> None:
             }
 
             .stButton > button,
-            button[data-testid="stBaseButton-secondary"] {
+            button[data-testid="stBaseButton-secondary"]:not([aria-label*="sidebar" i]):not([aria-label*="barra lateral" i]):not([title*="sidebar" i]):not([title*="barra lateral" i]) {
                 border: 1px solid var(--tacom-border);
                 border-radius: 8px;
                 background: var(--tacom-panel);
@@ -767,7 +822,7 @@ def aplicar_estilos_globais() -> None:
             }
 
             .stButton > button:hover,
-            button[data-testid="stBaseButton-secondary"]:hover {
+            button[data-testid="stBaseButton-secondary"]:hover:not([aria-label*="sidebar" i]):not([aria-label*="barra lateral" i]):not([title*="sidebar" i]):not([title*="barra lateral" i]) {
                 border-color: var(--tacom-border-strong);
                 background: var(--tacom-panel-hover);
                 color: var(--tacom-text);
@@ -925,6 +980,102 @@ def aplicar_estilos_globais() -> None:
                     min-width: 0 !important;
                     overflow-x: auto;
                 }
+            }
+
+            div[data-testid="collapsedControl"],
+            div[data-testid="collapsedControl"] *,
+            div[data-testid="stSidebarHeader"],
+            div[data-testid="stSidebarHeader"] *,
+            button[data-testid*="header" i],
+            button[data-testid*="header" i] *,
+            button[aria-label*="sidebar" i],
+            button[aria-label*="sidebar" i] *,
+            button[aria-label*="barra lateral" i],
+            button[aria-label*="barra lateral" i] *,
+            button[title*="sidebar" i],
+            button[title*="sidebar" i] *,
+            button[title*="barra lateral" i],
+            button[title*="barra lateral" i] * {
+                color: #000000 !important;
+                stroke: #000000 !important;
+                opacity: 1 !important;
+                -webkit-text-fill-color: #000000 !important;
+            }
+
+            div[data-testid="collapsedControl"] svg,
+            div[data-testid="collapsedControl"] svg *,
+            div[data-testid="stSidebarHeader"] svg,
+            div[data-testid="stSidebarHeader"] svg *,
+            button[data-testid*="header" i] svg,
+            button[data-testid*="header" i] svg *,
+            button[aria-label*="sidebar" i] svg,
+            button[aria-label*="sidebar" i] svg *,
+            button[aria-label*="barra lateral" i] svg,
+            button[aria-label*="barra lateral" i] svg *,
+            button[title*="sidebar" i] svg,
+            button[title*="sidebar" i] svg *,
+            button[title*="barra lateral" i] svg,
+            button[title*="barra lateral" i] svg * {
+                color: #000000 !important;
+                stroke: #000000 !important;
+                fill: #000000 !important;
+                opacity: 1 !important;
+            }
+
+            div[data-testid="collapsedControl"] button:hover,
+            div[data-testid="collapsedControl"] button:focus,
+            div[data-testid="collapsedControl"] button:active,
+            div[data-testid="stSidebarHeader"] button:hover,
+            div[data-testid="stSidebarHeader"] button:focus,
+            div[data-testid="stSidebarHeader"] button:active,
+            button[data-testid="stBaseButton-headerNoPadding"]:hover,
+            button[data-testid="stBaseButton-headerNoPadding"]:focus,
+            button[data-testid="stBaseButton-headerNoPadding"]:active,
+            button[aria-label*="sidebar" i]:hover,
+            button[aria-label*="sidebar" i]:focus,
+            button[aria-label*="sidebar" i]:active,
+            button[aria-label*="barra lateral" i]:hover,
+            button[aria-label*="barra lateral" i]:focus,
+            button[aria-label*="barra lateral" i]:active,
+            button[title*="sidebar" i]:hover,
+            button[title*="sidebar" i]:focus,
+            button[title*="sidebar" i]:active,
+            button[title*="barra lateral" i]:hover,
+            button[title*="barra lateral" i]:focus,
+            button[title*="barra lateral" i]:active {
+                border-color: var(--tacom-border) !important;
+                background: var(--tacom-panel) !important;
+                color: #000000 !important;
+                box-shadow: 0 6px 18px rgba(17, 24, 39, 0.10) !important;
+                opacity: 1 !important;
+            }
+
+            div[data-testid="collapsedControl"] button:hover *,
+            div[data-testid="collapsedControl"] button:focus *,
+            div[data-testid="collapsedControl"] button:active *,
+            div[data-testid="stSidebarHeader"] button:hover *,
+            div[data-testid="stSidebarHeader"] button:focus *,
+            div[data-testid="stSidebarHeader"] button:active *,
+            button[data-testid="stBaseButton-headerNoPadding"]:hover *,
+            button[data-testid="stBaseButton-headerNoPadding"]:focus *,
+            button[data-testid="stBaseButton-headerNoPadding"]:active *,
+            button[aria-label*="sidebar" i]:hover *,
+            button[aria-label*="sidebar" i]:focus *,
+            button[aria-label*="sidebar" i]:active *,
+            button[aria-label*="barra lateral" i]:hover *,
+            button[aria-label*="barra lateral" i]:focus *,
+            button[aria-label*="barra lateral" i]:active *,
+            button[title*="sidebar" i]:hover *,
+            button[title*="sidebar" i]:focus *,
+            button[title*="sidebar" i]:active *,
+            button[title*="barra lateral" i]:hover *,
+            button[title*="barra lateral" i]:focus *,
+            button[title*="barra lateral" i]:active * {
+                color: #000000 !important;
+                stroke: #000000 !important;
+                fill: #000000 !important;
+                opacity: 1 !important;
+                -webkit-text-fill-color: #000000 !important;
             }
         </style>
         """,

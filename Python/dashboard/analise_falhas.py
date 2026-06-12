@@ -787,6 +787,18 @@ def _aplicar_estilos_analise_falhas() -> None:
                 line-height: 1.25;
             }
 
+            .falhas-pagination-label {
+                display: flex;
+                min-height: 2.4rem;
+                align-items: center;
+                justify-content: center;
+                color: var(--tacom-text);
+                font-size: 0.82rem;
+                font-weight: 800;
+                line-height: 1;
+                white-space: nowrap;
+            }
+
             .falhas-kpi-card {
                 position: relative;
                 min-height: 98px;
@@ -834,7 +846,11 @@ def _aplicar_estilos_analise_falhas() -> None:
             }
 
             .falhas-os-table {
-                overflow: hidden;
+                width: min(100%, 1340px);
+                max-width: 1340px;
+                margin: 0 auto;
+                overflow-x: auto;
+                overflow-y: hidden;
                 border: 1px solid var(--tacom-border);
                 border-radius: 8px;
                 background: var(--tacom-panel);
@@ -844,19 +860,18 @@ def _aplicar_estilos_analise_falhas() -> None:
             .falhas-os-table-header,
             .falhas-os-row {
                 display: grid;
-                grid-template-columns:
-                    minmax(175px, 1.08fr)
-                    minmax(210px, 1.35fr)
-                    minmax(170px, 0.95fr)
-                    minmax(220px, 1.45fr)
-                    minmax(86px, 0.52fr);
-                gap: 0.75rem;
+                grid-template-columns: 380px 330px 130px 330px 70px;
+                column-gap: 16px;
                 align-items: center;
+                width: 1340px;
+                min-width: 1340px;
+                max-width: 1340px;
+                box-sizing: border-box;
             }
 
             .falhas-os-table-header {
                 min-height: 2.35rem;
-                padding: 0 0.95rem;
+                padding: 0 0.85rem;
                 border-bottom: 1px solid var(--tacom-border);
                 background: color-mix(in srgb, var(--tacom-bg-soft) 74%, var(--tacom-panel));
                 color: var(--tacom-muted);
@@ -879,19 +894,19 @@ def _aplicar_estilos_analise_falhas() -> None:
                 padding-left: calc(2rem + 0.65rem);
             }
 
-            .falhas-os-table-header > span:nth-child(3) {
+            .falhas-os-table-header > span:nth-child(3),
+            .falhas-os-table-header > span:nth-child(5) {
                 justify-content: center;
                 text-align: center;
             }
 
-            .falhas-os-table-header > span:nth-child(5) {
-                justify-content: flex-end;
-                text-align: right;
-            }
-
             .falhas-os-row-details {
+                width: 1340px;
+                min-width: 1340px;
+                max-width: 1340px;
                 margin: 0;
                 border-bottom: 1px solid var(--tacom-border);
+                box-sizing: border-box;
             }
 
             .falhas-os-row-details:last-child {
@@ -910,7 +925,7 @@ def _aplicar_estilos_analise_falhas() -> None:
 
             .falhas-os-row {
                 min-height: 4.75rem;
-                padding: 0.72rem 0.95rem;
+                padding: 0.72rem 0.85rem;
                 transition: background 0.18s ease;
             }
 
@@ -923,7 +938,7 @@ def _aplicar_estilos_analise_falhas() -> None:
                 min-width: 0;
                 align-items: center;
                 gap: 0.65rem;
-                align-items: center;
+                overflow-wrap: anywhere;
             }
 
             .falhas-os-icon {
@@ -946,6 +961,7 @@ def _aplicar_estilos_analise_falhas() -> None:
                 min-width: 0;
                 flex-direction: column;
                 gap: 0.22rem;
+                overflow-wrap: anywhere;
             }
 
             .falhas-os-link {
@@ -954,6 +970,7 @@ def _aplicar_estilos_analise_falhas() -> None:
                 font-weight: 850;
                 line-height: 1.15;
                 overflow-wrap: anywhere;
+                white-space: nowrap;
             }
 
             .falhas-os-subtitle {
@@ -969,6 +986,7 @@ def _aplicar_estilos_analise_falhas() -> None:
                 min-width: 0;
                 flex-direction: column;
                 gap: 0.4rem;
+                overflow-wrap: anywhere;
             }
 
             .falhas-cell-title {
@@ -976,6 +994,9 @@ def _aplicar_estilos_analise_falhas() -> None:
                 font-size: 0.66rem;
                 font-weight: 800;
                 line-height: 1;
+                 display: flex;
+                flex-wrap: wrap;
+                gap: 0.38rem;
             }
 
             .falhas-os-card {
@@ -1030,6 +1051,7 @@ def _aplicar_estilos_analise_falhas() -> None:
                 display: flex;
                 flex-wrap: wrap;
                 gap: 0.38rem;
+                
             }
 
             .falhas-chip {
@@ -1056,20 +1078,65 @@ def _aplicar_estilos_analise_falhas() -> None:
                 --chip-bg: color-mix(in srgb, #22c55e 14%, transparent);
                 --chip-border: color-mix(in srgb, #17803d 22%, var(--tacom-border));
                 --chip-color: #17803d;
+                justify-content: flex-end;
+                text-align: right;
+            }
+
+            .falhas-chip-row:has(.falhas-chip-encontrado) {
+                justify-content: flex-end;
+                text-align: right;
+            }
+
+            .falhas-os-identity,
+            .falhas-os-text,
+            .falhas-os-cell,
+            .falhas-chip-row,
+            .falhas-chip {
+                min-width: 0;
+                box-sizing: border-box;
+            }
+
+            .falhas-os-subtitle,
+            .falhas-chip {
+                white-space: normal;
+                overflow-wrap: anywhere;
+                word-break: normal;
+            }
+
+            .falhas-os-link {
+                white-space: nowrap;
             }
 
             .falhas-status-cell {
-                display: grid;
-                grid-template-columns: minmax(34px, 1fr) auto minmax(34px, 1fr);
-                gap: 0.45rem;
+                display: flex;
                 align-items: center;
-                min-width: 0;
+                justify-content: center;
+                gap: 6px;
+                width: 130px;
+                min-width: 130px;
+                max-width: 130px;
+                justify-self: center;
+                position: relative;
+                box-sizing: border-box;
             }
 
             .falhas-status-rail {
-                position: relative;
-                min-width: 1.9rem;
+                position: absolute;
+                top: 50%;
+                width: 24px;
+                max-width: 24px;
+                flex: 0 0 24px;
                 border-top: 1px dashed color-mix(in srgb, var(--tacom-muted) 55%, transparent);
+                transform: translateY(-50%);
+                pointer-events: none;
+            }
+
+            .falhas-status-rail:first-child {
+                right: calc(50% + 39px);
+            }
+
+            .falhas-status-rail:last-child {
+                left: calc(50% + 39px);
             }
 
             .falhas-status-rail::after {
@@ -1162,7 +1229,7 @@ def _aplicar_estilos_analise_falhas() -> None:
             }
 
             .falhas-flow-arrow {
-                color: $FFFF;
+                color: #000000;
                 font-size: 1rem;
                 font-weight: 800;
                 line-height: 1;
@@ -1171,16 +1238,21 @@ def _aplicar_estilos_analise_falhas() -> None:
             .falhas-action-cell {
                 display: inline-flex;
                 align-items: center;
-                justify-content: flex-end;
-                gap: 0.62rem;
+                justify-content: center;
+                gap: 0.28rem;
+                width: 70px;
+                min-width: 70px;
+                max-width: 70px;
+                justify-self: center;
+                box-sizing: border-box;
             }
 
             .falhas-action-button {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                width: 2.35rem;
-                height: 1.95rem;
+                width: 2rem;
+                height: 1.8rem;
                 border: 1px solid var(--tacom-border);
                 border-radius: 8px;
                 background: var(--tacom-panel);
@@ -1224,9 +1296,13 @@ def _aplicar_estilos_analise_falhas() -> None:
                 display: grid;
                 grid-template-columns: repeat(4, minmax(0, 1fr));
                 gap: 0.65rem;
+                width: 1340px;
+                min-width: 1340px;
+                max-width: 1340px;
                 padding: 0.75rem 0.95rem 0.9rem 3.6rem;
                 border-top: 1px solid color-mix(in srgb, var(--tacom-border) 70%, transparent);
                 background: color-mix(in srgb, var(--tacom-bg-soft) 45%, transparent);
+                box-sizing: border-box;
             }
 
             .falhas-row-detail-item {
@@ -1298,23 +1374,31 @@ def _aplicar_estilos_analise_falhas() -> None:
             }
 
             @media (max-width: 900px) {
-                .falhas-os-table-header {
-                    display: none;
+                .falhas-os-table {
+                    width: 100%;
+                    max-width: 100%;
                 }
 
+                .falhas-os-table-header,
                 .falhas-os-row {
-                    grid-template-columns: 1fr;
-                    min-height: auto;
-                    gap: 0.9rem;
+                    grid-template-columns: 330px 290px 130px 290px 60px;
+                    column-gap: 14px;
+                    width: 1200px;
+                    min-width: 1200px;
+                    max-width: 1200px;
                 }
 
-                .falhas-status-cell {
-                    grid-template-columns: minmax(34px, 1fr) auto minmax(34px, 1fr);
-                    justify-self: stretch;
+                .falhas-os-row-details,
+                .falhas-row-detail-panel {
+                    width: 1200px;
+                    min-width: 1200px;
+                    max-width: 1200px;
                 }
 
                 .falhas-action-cell {
-                    justify-content: flex-start;
+                    width: 60px;
+                    min-width: 60px;
+                    max-width: 60px;
                 }
 
                 .falhas-row-detail-panel {
@@ -1360,6 +1444,56 @@ def _render_chips(defeitos: list[str], classe: str) -> str:
         f'<span class="falhas-chip {classe}">{_html_escape(defeito)}</span>'
         for defeito in defeitos
     )
+
+
+def _preparar_download_detalhamento_os(df_os: pd.DataFrame) -> pd.DataFrame:
+    colunas = [
+        "OS",
+        "Equipamento",
+        "Defeitos reclamados",
+        "Status",
+        "Defeitos encontrados",
+        "Data",
+        "Contrato/operadora",
+        "Qtd. reclamados",
+        "Qtd. encontrados",
+    ]
+    linhas: list[dict[str, object]] = []
+
+    for _, row in df_os.iterrows():
+        reclamados = _obter_lista_defeitos(
+            row,
+            "defeitos_reclamados_lista",
+            "defeitos_reclamados_agrupados",
+        )
+        encontrados = _obter_lista_defeitos(
+            row,
+            "defeitos_encontrados_lista",
+            "defeitos_encontrados_agrupados",
+        )
+        data = pd.to_datetime(row.get("data"), errors="coerce")
+        qtd_reclamados = row.get("qtd_reclamados", 0)
+        qtd_encontrados = row.get("qtd_encontrados", 0)
+
+        linhas.append(
+            {
+                "OS": _texto(row.get("os")),
+                "Equipamento": _texto(row.get("equipamento")),
+                "Defeitos reclamados": " | ".join(reclamados) or "Sem registro",
+                "Status": _texto(row.get("status_comparacao")),
+                "Defeitos encontrados": " | ".join(encontrados) or "Sem registro",
+                "Data": data.strftime("%Y-%m-%d") if pd.notna(data) else "",
+                "Contrato/operadora": _texto(row.get("contrato_operadora")),
+                "Qtd. reclamados": (
+                    int(qtd_reclamados) if pd.notna(qtd_reclamados) else 0
+                ),
+                "Qtd. encontrados": (
+                    int(qtd_encontrados) if pd.notna(qtd_encontrados) else 0
+                ),
+            }
+        )
+
+    return pd.DataFrame(linhas, columns=colunas)
 
 
 def _limpar_filtros_analise_falhas() -> None:
@@ -1839,22 +1973,54 @@ def render_tabela_analise_falhas(df_os: pd.DataFrame) -> None:
         total_paginas = max(1, (total_os + FALHAS_OS_POR_PAGINA - 1) // FALHAS_OS_POR_PAGINA)
         pagina_atual = int(st.session_state.get(FALHAS_DETALHE_PAGINA_KEY, 1))
         pagina_atual = min(max(1, pagina_atual), total_paginas)
+        st.session_state[FALHAS_DETALHE_PAGINA_KEY] = pagina_atual
+        df_download = _preparar_download_detalhamento_os(df_ordenado)
+        csv_download = df_download.to_csv(sep=";", index=False).encode("utf-8-sig")
 
-        col_info, col_pagina = st.columns([2.5, 0.9])
+        col_info, col_download, col_pagina = st.columns([2.1, 0.9, 0.95])
+        with col_download:
+            st.download_button(
+                "Baixar CSV",
+                data=csv_download,
+                file_name="analise_falhas_detalhamento_os.csv",
+                mime="text/csv",
+                key="falhas_download_detalhamento_os_csv",
+            )
+        with col_pagina:
+            col_anterior, col_rotulo, col_proxima = st.columns([0.28, 0.44, 0.28])
+            with col_anterior:
+                voltar = st.button(
+                    "‹",
+                    help="Página anterior",
+                    disabled=pagina_atual <= 1,
+                    key="falhas_pagina_anterior",
+                    width="stretch",
+                )
+            with col_proxima:
+                avancar = st.button(
+                    "›",
+                    help="Próxima página",
+                    disabled=pagina_atual >= total_paginas,
+                    key="falhas_pagina_proxima",
+                    width="stretch",
+                )
+
+            if voltar:
+                pagina_atual = max(1, pagina_atual - 1)
+            elif avancar:
+                pagina_atual = min(total_paginas, pagina_atual + 1)
+
+            st.session_state[FALHAS_DETALHE_PAGINA_KEY] = pagina_atual
+            with col_rotulo:
+                st.markdown(
+                    f'<div class="falhas-pagination-label">{pagina_atual} de {total_paginas}</div>',
+                    unsafe_allow_html=True,
+                )
         with col_info:
             inicio_exibicao = (pagina_atual - 1) * FALHAS_OS_POR_PAGINA + 1
             fim_exibicao = min(pagina_atual * FALHAS_OS_POR_PAGINA, total_os)
             st.caption(
                 f"Exibindo {inicio_exibicao}-{fim_exibicao} de {total_os} OS filtradas"
-            )
-        with col_pagina:
-            pagina_atual = st.number_input(
-                "Página",
-                min_value=1,
-                max_value=total_paginas,
-                value=pagina_atual,
-                step=1,
-                key=FALHAS_DETALHE_PAGINA_KEY,
             )
 
         inicio = (int(pagina_atual) - 1) * FALHAS_OS_POR_PAGINA
