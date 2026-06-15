@@ -11,6 +11,7 @@ PALETA = {
     "acento": "#FF3B30",
     "destaque_tecnico": "#00D4FF",
     "texto_eixos": "#E0E0E0",
+    "vermelho_tacom":"#a51a24"
 }
 
 ESCALA_ALERTA = [PALETA["secundaria"], PALETA["primaria"], PALETA["acento"]]
@@ -246,7 +247,7 @@ def render_dashboard_charts(
                 percentual_frota,
                 x="mes_label",
                 y="percentual_qtd_x_frota",
-                title="% TOTAL DA FROTA EM MANUTENÇÃO",
+                title=" RESUMO ANUAL - FROTA EM MANUTENÇÃO (%)",
                 text="percentual_qtd_x_frota",
                 markers=True,
                 category_orders={"mes_label": ordem_meses},
@@ -262,9 +263,9 @@ def render_dashboard_charts(
             )
             fig_percentual.update_traces(
                 mode="lines+markers+text",
-                line={"color": PALETA["destaque_tecnico"], "width": 3},
+                line={"color": PALETA["vermelho_tacom"], "width": 3},
                 marker={
-                    "color": PALETA["destaque_tecnico"],
+                    "color": PALETA["vermelho_tacom"],
                     "size": 8,
                     "symbol": "circle",
                 },
