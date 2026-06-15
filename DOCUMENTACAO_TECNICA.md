@@ -196,7 +196,7 @@ Etapas:
 5. normaliza percentual removendo `%` e trocando vírgula por ponto;
 6. converte `frota` e `qtd` para inteiro;
 7. faz `strip` em campos textuais;
-8. grava cada chunk com `to_sql(..., if_exists="append")`.
+8. no modo de acrescentar, compara cada chunk com as linhas já existentes no banco e grava somente as linhas ausentes com `to_sql(..., if_exists="append")`.
 
 **Observação importante:** o caminho de arquivo CSV está hardcoded para Windows (`d:\Code\...`). Para uso em outros ambientes, substitua por caminho relativo/variável de ambiente.
 
@@ -229,8 +229,8 @@ QTD_SERVICO
 Use o Oracle para carregar os períodos/serviços disponíveis nessa origem. Depois use o CSV antigo para complementar períodos ou serviços que não existam no Oracle.
 
 Na tela **Dados da Manutenção - Oracle**, o campo **Modo de carga no banco** oferece três comportamentos:
-- `Substituir periodos do CSV`: remove apenas os períodos presentes no CSV gerado e insere esses períodos novamente. É o modo recomendado para recarregar sem duplicar.
-- `Apenas adicionar (append)`: só insere registros. Use apenas para dados novos, porque recarregar o mesmo arquivo pode duplicar informações.
+- `Acrescentar somente ausentes`: compara o CSV com o banco e insere apenas registros que ainda não existem. É o modo recomendado para complementar meses novos, por exemplo adicionar Maio quando o banco já tem dados até Abril.
+- `Substituir periodos do CSV`: remove apenas os períodos presentes no CSV gerado e insere esses períodos novamente. Use quando quiser recarregar/corrigir meses específicos.
 - `Substituir toda a tabela servicos_executados`: limpa toda a tabela antes da carga. Use apenas quando a intenção for reconstruir a tabela inteira.
 
 Na mesma tela, a seção **Importar CSV externo** facilita a carga de dados que vêm de fora do Oracle. Ela permite:
@@ -242,22 +242,30 @@ O botão **Carregar CSV externo no banco** usa o mesmo **Modo de carga no banco*
 A seção **Teste: importar Basehistorica.csv** permite carregar dados de teste para a tabela `base_historica_manutencao`. Ela também aceita upload pelo navegador ou usa o arquivo padrão `Importacoes/Basehistorica.csv`.
 
 Essa carga tem modo próprio:
+- `Acrescentar somente ausentes da Basehistorica`: compara o CSV com o banco e insere apenas registros que ainda não existem;
 - `Substituir periodos da Basehistorica`: remove apenas os períodos presentes no CSV e insere esses períodos novamente;
-- `Apenas adicionar Basehistorica (append)`: só insere registros e pode duplicar se o mesmo arquivo for carregado novamente;
 - `Substituir toda a tabela base_historica_manutencao`: limpa toda a tabela histórica antes da carga.
 
-Para importar o CSV antigo sem apagar toda a tabela:
+Para importar o CSV antigo acrescentando somente o que ainda não existe no banco:
 
 ```powershell
 python Importacoes\importa_servicos_executados.py
 ```
 
-Esse modo remove apenas os períodos presentes no próprio CSV e insere novamente esses períodos. Os demais períodos, inclusive os carregados pelo Oracle, são preservados.
+Esse modo compara o CSV com a tabela e insere somente as linhas ausentes. Os demais períodos, inclusive os carregados pelo Oracle, são preservados.
 
-Para apenas adicionar registros, sem remover períodos existentes:
+Para deixar essa intenção explícita, use o parâmetro em português:
 
 ```powershell
-python Importacoes\importa_servicos_executados.py --append
+python Importacoes\importa_servicos_executados.py --adicionar-dados
+```
+
+O parâmetro antigo `--append` continua funcionando como apelido.
+
+Para substituir somente os meses presentes no CSV:
+
+```powershell
+python Importacoes\importa_servicos_executados.py --replace-periods
 ```
 
 Para limpar toda a tabela e recarregar somente pelo CSV antigo:
@@ -267,6 +275,26 @@ python Importacoes\importa_servicos_executados.py --replace-table
 ```
 
 Use `--replace-table` apenas quando a intenção for substituir completamente a tabela `servicos_executados`.
+
+Para sincronizar do Postgres local para o Neon sem apagar dados já existentes no Neon:
+
+```powershell
+python scripts\append_missing_local_to_neon.py --adicionar-dados
+```
+
+Esse script compara as tabelas entre os bancos e insere somente as linhas ausentes no Neon.
+
+Para substituir completamente as tabelas do Neon pelos dados locais:
+
+```powershell
+python scripts\migrate_local_to_neon.py --executar --substituir-tabelas-neon
+```
+
+Para substituir completamente o banco local pelo Neon:
+
+```powershell
+python scripts\neon_to_local.py --executar --substituir-tabelas-local
+```
 
 ---
 
