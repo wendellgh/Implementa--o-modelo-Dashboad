@@ -110,7 +110,8 @@ def migrate_table(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Migra os dados do Neon para o Postgres local do dashboard."
+            "Substitui os dados locais pelos dados do Neon. "
+            "Use quando quiser espelhar o banco remoto no Postgres local."
         )
     )
     parser.add_argument(
@@ -130,12 +131,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--db-password", default=os.getenv("DB_PASSWORD"))
     parser.add_argument("--db-sslmode", default=os.getenv("DB_SSLMODE", "require"))
     parser.add_argument(
+        "--substituir-tabelas-local",
+        "--substituir_tabelas_local",
         "--replace-local-tables",
+        dest="replace_local_tables",
         action="store_true",
-        help="Trunca as tabelas locais antes de copiar os dados do Neon.",
+        help=(
+            "Trunca as tabelas locais antes de copiar os dados do Neon. "
+            "Use quando quiser recarregar tudo no local."
+        ),
     )
     parser.add_argument(
+        "--executar",
         "--yes",
+        dest="yes",
         action="store_true",
         help="Executa a migracao. Sem isto, o script apenas mostra contagens.",
     )
@@ -178,12 +187,16 @@ def main() -> int:
 
     if not args.yes:
         print("")
-        print("Dry run: nada foi alterado. Para migrar, use --yes --replace-local-tables.")
+        print(
+            "Dry run: nada foi alterado. Para substituir tudo no local, use "
+            "--executar --substituir-tabelas-local."
+        )
         return 0
 
     if not args.replace_local_tables:
         print(
-            "Erro: para evitar duplicidade, a migracao real exige --replace-local-tables.",
+            "Erro: para evitar duplicidade, a migracao real exige "
+            "--substituir-tabelas-local.",
             file=sys.stderr,
         )
         return 2

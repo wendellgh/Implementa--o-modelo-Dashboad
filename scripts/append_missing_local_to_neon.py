@@ -129,7 +129,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Adiciona no Neon as linhas que existem no Postgres local, "
-            "sem apagar ou substituir dados existentes."
+            "mas ainda nao existem no Neon. Nao apaga nem substitui dados."
         )
     )
     parser.add_argument(
@@ -143,9 +143,16 @@ def parse_args() -> argparse.Namespace:
         help="Connection string direta do Neon. Tambem aceita NEON_DATABASE_URL.",
     )
     parser.add_argument(
+        "--adicionar-dados",
+        "--adicionar_dados",
+        "--executar",
         "--yes",
+        dest="yes",
         action="store_true",
-        help="Executa os inserts. Sem isto, apenas mostra o que seria inserido.",
+        help=(
+            "Executa a adicao dos dados ausentes no Neon, sem apagar o restante "
+            "das tabelas. Sem isto, apenas mostra o que seria inserido."
+        ),
     )
     parser.add_argument("--chunksize", type=int, default=5000)
     return parser.parse_args()
@@ -173,7 +180,11 @@ def main() -> int:
 
     planned: list[tuple[str, pd.DataFrame]] = []
 
-    print("Linhas que serao adicionadas sem apagar dados:")
+    print(
+        "Modo acrescentar somente ausentes: compara local x Neon e insere "
+        "apenas o que ainda nao existe no destino."
+    )
+    print("Linhas planejadas para adicionar sem apagar dados:")
     for table in TABLES:
         columns = COMPARE_COLUMNS[table]
         local_df = read_table(local_engine, table, columns)
@@ -187,7 +198,10 @@ def main() -> int:
 
     if not args.yes:
         print("")
-        print("Dry run: nada foi alterado. Para inserir, use --yes.")
+        print(
+            "Dry run: nada foi alterado. Para inserir somente ausentes sem "
+            "apagar dados, use --adicionar-dados."
+        )
         return 0
 
     print("")

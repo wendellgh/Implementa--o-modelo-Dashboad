@@ -2,21 +2,23 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections import Counter
+from collections.abc import Hashable
 from pathlib import Path
 
 import pandas as pd
 from sqlalchemy import bindparam, text
+from sqlalchemy.engine import Engine
+
+PYTHON_DIR = Path(__file__).resolve().parents[1]
+if str(PYTHON_DIR) not in sys.path:
+    sys.path.insert(0, str(PYTHON_DIR))
 
 from dashboard.servicos_executados_schema import (
     COLUNAS_SERVICOS_EXECUTADOS,
     competencia_mensal_date,
     normalizar_servicos_executados,
 )
-
-
-PYTHON_DIR = Path(__file__).resolve().parents[1]
-if str(PYTHON_DIR) not in sys.path:
-    sys.path.insert(0, str(PYTHON_DIR))
 
 
 ORACLE_DIR = Path(__file__).resolve().parent
@@ -309,6 +311,46 @@ def transformar_destboad_csv(
     return caminho, len(df_servicos)
 
 
+def quote_ident(identifier: str) -> str:
+    return '"' + identifier.replace('"', '""') + '"'
+
+
+def normalizar_valor_chave(valor: object) -> Hashable | None:
+    if pd.isna(valor):
+        return None
+    if hasattr(valor, "isoformat"):
+        return valor.isoformat()
+    return valor  # type: ignore[return-value]
+
+
+def chave_linha(row: pd.Series, colunas: list[str]) -> tuple[Hashable | None, ...]:
+    return tuple(normalizar_valor_chave(row[coluna]) for coluna in colunas)
+
+
+def ler_contagem_linhas_existentes(engine: Engine) -> Counter[tuple[Hashable | None, ...]]:
+    colunas_sql = ", ".join(quote_ident(coluna) for coluna in COLUNAS_DESTINO)
+    query = f"SELECT {colunas_sql} FROM public.{quote_ident(TABELA_DESTINO)}"
+    existentes = pd.read_sql_query(query, engine)
+    return Counter(chave_linha(row, COLUNAS_DESTINO) for _, row in existentes.iterrows())
+
+
+def manter_apenas_linhas_ausentes(
+    chunk: pd.DataFrame,
+    contagem_existente: Counter[tuple[Hashable | None, ...]],
+) -> pd.DataFrame:
+    indices_para_inserir: list[int] = []
+
+    for index, row in chunk.iterrows():
+        chave = chave_linha(row, COLUNAS_DESTINO)
+        if contagem_existente.get(chave, 0) > 0:
+            contagem_existente[chave] -= 1
+            continue
+
+        indices_para_inserir.append(index)
+
+    return chunk.loc[indices_para_inserir].copy()
+
+
 def carregar_servicos_executados_csv(
     caminho_csv: str | Path = CSV_SERVICOS_EXECUTADOS,
     substituir_tabela: bool = False,
@@ -339,6 +381,7 @@ def carregar_servicos_executados_csv(
         with engine.begin() as conn:
             conn.execute(text(f"TRUNCATE TABLE public.{TABELA_DESTINO};"))
             print(f"Tabela public.{TABELA_DESTINO} limpa com sucesso.")
+        contagem_existente = Counter()
     elif substituir_periodos_csv:
         datas_csv = pd.read_csv(
             caminho,
@@ -367,8 +410,16 @@ def carregar_servicos_executados_csv(
                 "Periodos substituidos na tabela: "
                 f"{len(datas_para_substituir)} data(s)."
             )
+        contagem_existente = Counter()
+    else:
+        print(
+            "Modo acrescentar somente ausentes: o CSV sera comparado com o banco "
+            "e apenas linhas que ainda nao existem serao inseridas."
+        )
+        contagem_existente = ler_contagem_linhas_existentes(engine)
 
     total_linhas = 0
+    total_linhas_ja_existentes = 0
     for chunk in pd.read_csv(
         caminho,
         sep=";",
@@ -383,6 +434,18 @@ def carregar_servicos_executados_csv(
             chunk[coluna] = chunk[coluna].fillna("").astype(str).str.strip()
         chunk["DATA_COMPETENCIA"] = competencia_mensal_date(chunk["DATA_COMPETENCIA"])
 
+        if not substituir_tabela and not substituir_periodos_csv:
+            linhas_antes_filtro = len(chunk)
+            chunk = manter_apenas_linhas_ausentes(chunk, contagem_existente)
+            total_linhas_ja_existentes += linhas_antes_filtro - len(chunk)
+
+            if chunk.empty:
+                print(
+                    f"{linhas_antes_filtro} linhas ja existentes ignoradas; "
+                    "nada novo neste bloco"
+                )
+                continue
+
         chunk.to_sql(
             TABELA_DESTINO,
             engine,
@@ -395,6 +458,7 @@ def carregar_servicos_executados_csv(
         total_linhas += len(chunk)
         print(f"{len(chunk)} linhas enviadas para o banco")
 
+    print(f"Total de linhas ja existentes ignoradas: {total_linhas_ja_existentes}")
     return total_linhas
 
 
@@ -430,17 +494,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--load-db",
         action="store_true",
-        help="Carrega o CSV final na tabela servicos_executados.",
+        help=(
+            "Carrega o CSV final na tabela servicos_executados, inserindo por "
+            "padrao apenas linhas ausentes."
+        ),
     )
-    parser.add_argument(
+    modo_carga = parser.add_mutually_exclusive_group()
+    modo_carga.add_argument(
+        "--adicionar-dados",
+        "--adicionar_dados",
+        "--append",
+        dest="append",
+        action="store_true",
+        help=(
+            "Acrescenta dados sem apagar o restante da tabela. Compara o CSV "
+            "com o banco e insere somente registros ausentes. Este ja e o "
+            "padrao quando --load-db e usado sem modo de substituicao."
+        ),
+    )
+    modo_carga.add_argument(
         "--replace-table",
         action="store_true",
         help="Trunca public.servicos_executados antes da carga.",
     )
-    parser.add_argument(
+    modo_carga.add_argument(
         "--replace-periods",
         action="store_true",
-        help="Remove da tabela apenas as datas presentes no CSV antes da carga.",
+        help=(
+            "Substitui somente os meses presentes no CSV: apaga esses periodos "
+            "no banco e insere novamente."
+        ),
     )
     parser.add_argument("--chunksize", type=int, default=CHUNKSIZE)
     return parser.parse_args()

@@ -114,8 +114,7 @@ def _carregar_importador_base_historica() -> Callable[..., int]:
 
 def _parametros_modo_carga_servicos(modo_carga: str) -> tuple[bool, bool]:
     substituir_tabela = modo_carga.startswith("Substituir toda")
-    append = modo_carga.startswith("Apenas adicionar")
-    substituir_periodos_csv = not substituir_tabela and not append
+    substituir_periodos_csv = modo_carga.startswith("Substituir periodos")
     return substituir_tabela, substituir_periodos_csv
 
 
@@ -137,23 +136,18 @@ def render_consulta_destboad_oracle() -> None:
     modo_carga = st.radio(
         "Modo de carga no banco",
         [
+            "Acrescentar somente ausentes",
             "Substituir periodos do CSV",
-            "Apenas adicionar (append)",
             "Substituir toda a tabela servicos_executados",
         ],
         help=(
-            "Use append apenas para dados novos. Para recarregar um periodo sem "
-            "duplicar, use a substituicao de periodos."
+            "Acrescentar somente ausentes compara o CSV com o banco e insere "
+            "apenas registros que ainda nao existem."
         ),
     )
     substituir_tabela, substituir_periodos_csv = _parametros_modo_carga_servicos(
         modo_carga
     )
-    if modo_carga.startswith("Apenas adicionar"):
-        st.warning(
-            "Append nao remove registros existentes. Use apenas quando tiver certeza "
-            "de que os dados ainda nao foram carregados."
-        )
 
     if st.button("Consultar Oracle", type="primary"):
         try:
@@ -297,23 +291,17 @@ def render_consulta_destboad_oracle() -> None:
     modo_carga_base = st.radio(
         "Modo de carga da Basehistorica",
         [
+            "Acrescentar somente ausentes da Basehistorica",
             "Substituir periodos da Basehistorica",
-            "Apenas adicionar Basehistorica (append)",
             "Substituir toda a tabela base_historica_manutencao",
         ],
         help=(
-            "Para testes recorrentes, prefira substituir períodos. Append pode "
-            "duplicar se o mesmo arquivo for carregado novamente."
+            "Acrescentar somente ausentes compara o CSV com o banco e insere "
+            "apenas registros que ainda nao existem."
         ),
     )
     substituir_tabela_base = modo_carga_base.startswith("Substituir toda")
-    append_base = modo_carga_base.startswith("Apenas adicionar")
-    substituir_periodos_base = not substituir_tabela_base and not append_base
-    if append_base:
-        st.warning(
-            "Append nao remove registros existentes. Use apenas para dados realmente "
-            "novos."
-        )
+    substituir_periodos_base = modo_carga_base.startswith("Substituir periodos")
 
     csv_base_historica_padrao = _resolver_csv_base_historica_padrao()
     csv_base_historica = st.file_uploader(

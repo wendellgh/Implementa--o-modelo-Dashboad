@@ -221,7 +221,10 @@ def migrate_table(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Migra as tabelas do dashboard do Postgres local para o Neon."
+        description=(
+            "Substitui as tabelas do Neon pelos dados do Postgres local. "
+            "Para apenas acrescentar o que falta, use append_missing_local_to_neon.py."
+        )
     )
     parser.add_argument(
         "--local-url",
@@ -234,12 +237,20 @@ def parse_args() -> argparse.Namespace:
         help="Connection string direta do Neon. Tambem aceita NEON_DATABASE_URL.",
     )
     parser.add_argument(
+        "--substituir-tabelas-neon",
+        "--substituir_tabelas_neon",
         "--replace-neon-tables",
+        dest="replace_neon_tables",
         action="store_true",
-        help="Trunca as tabelas alvo no Neon antes de copiar os dados locais.",
+        help=(
+            "Trunca as tabelas alvo no Neon antes de copiar os dados locais. "
+            "Use quando quiser recarregar tudo, nao para acrescentar meses novos."
+        ),
     )
     parser.add_argument(
+        "--executar",
         "--yes",
+        dest="yes",
         action="store_true",
         help="Executa a migracao. Sem isto, o script apenas mostra contagens.",
     )
@@ -271,12 +282,17 @@ def main() -> int:
 
     if not args.yes:
         print("")
-        print("Dry run: nada foi alterado. Para migrar, use --yes --replace-neon-tables.")
+        print(
+            "Dry run: nada foi alterado. Para substituir tudo no Neon, use "
+            "--executar --substituir-tabelas-neon. Para acrescentar somente ausentes, "
+            "rode scripts\\append_missing_local_to_neon.py --adicionar-dados."
+        )
         return 0
 
     if not args.replace_neon_tables:
         print(
-            "Erro: para evitar duplicidade, a migracao real exige --replace-neon-tables.",
+            "Erro: para evitar duplicidade, a migracao real exige "
+            "--substituir-tabelas-neon.",
             file=sys.stderr,
         )
         return 2

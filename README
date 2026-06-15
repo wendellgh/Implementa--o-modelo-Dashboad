@@ -161,32 +161,52 @@ A tabela `servicos_executados` pode ser alimentada tanto pelo Oracle quanto pelo
 
 Na tela **Dados da Manutenção - Oracle**, use **Modo de carga no banco**:
 
-- `Substituir periodos do CSV`: recarrega apenas os períodos do CSV gerado, sem duplicar.
-- `Apenas adicionar (append)`: só adiciona registros novos; pode duplicar se o mesmo arquivo for carregado de novo.
+- `Acrescentar somente ausentes`: compara o CSV com o banco e insere apenas registros que ainda não existem. Use para adicionar, por exemplo, Maio quando o banco já tem dados até Abril.
+- `Substituir periodos do CSV`: apaga apenas os períodos presentes no CSV gerado e insere esses períodos novamente.
 - `Substituir toda a tabela servicos_executados`: limpa tudo antes da carga.
 
 Na seção **Importar CSV externo**, use **Carregar CSV externo no banco** para enviar um CSV pelo navegador ou carregar o arquivo padrão `Importacoes/bsa_serv_exce.csv`. Esse botão usa o mesmo modo de carga selecionado acima.
 
-Na seção **Teste: importar Basehistorica.csv**, use **Carregar Basehistorica.csv de teste no banco** para enviar um arquivo pelo navegador ou carregar o padrão `Importacoes/Basehistorica.csv`. Essa carga possui modo próprio para substituir períodos, fazer append ou substituir toda a tabela `base_historica_manutencao`.
+Na seção **Teste: importar Basehistorica.csv**, use **Carregar Basehistorica.csv de teste no banco** para enviar um arquivo pelo navegador ou carregar o padrão `Importacoes/Basehistorica.csv`. Essa carga possui modo próprio para acrescentar somente ausentes, substituir períodos ou substituir toda a tabela `base_historica_manutencao`.
 
-Use o CSV antigo para complementar dados que não existam no Oracle:
+Use o CSV antigo para complementar dados que não existam no banco:
 
 ```powershell
 python Importacoes\importa_servicos_executados.py
 ```
 
-Esse comando preserva os períodos já carregados pelo Oracle e substitui apenas os períodos presentes no CSV.
+Esse comando compara o CSV com o banco e insere somente as linhas ausentes.
 
-Para apenas adicionar registros, sem remover períodos existentes:
+Para deixar essa intenção explícita, use o parâmetro em português:
 
 ```powershell
-python Importacoes\importa_servicos_executados.py --append
+python Importacoes\importa_servicos_executados.py --adicionar-dados
+```
+
+O parâmetro antigo `--append` continua funcionando como apelido.
+
+Para substituir somente os meses presentes no CSV:
+
+```powershell
+python Importacoes\importa_servicos_executados.py --replace-periods
 ```
 
 Para limpar toda a tabela e recarregar somente pelo CSV:
 
 ```powershell
 python Importacoes\importa_servicos_executados.py --replace-table
+```
+
+Para enviar do Postgres local para o Neon sem apagar o que já está no Neon:
+
+```powershell
+python scripts\append_missing_local_to_neon.py --adicionar-dados
+```
+
+Para substituir tudo no Neon pelos dados locais:
+
+```powershell
+python scripts\migrate_local_to_neon.py --executar --substituir-tabelas-neon
 ```
 
 ---
