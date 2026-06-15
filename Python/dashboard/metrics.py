@@ -72,7 +72,7 @@ def render_kpis(kpis: dict[str, float | int | str]) -> None:
 
     with c1:
         _render_card(
-            "Total Frota",
+            "Total de equipamentos alocados no período",
             _format_int(int(kpis["total_frota"])),
             "🚌",
         )
