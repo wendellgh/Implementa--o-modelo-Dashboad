@@ -26,6 +26,17 @@ FILTRO_MES_FIM_KEY = "filtro_mes_fim"
 FILTRO_CONTRATO_KEY = "filtro_contrato"
 FILTRO_OPERADORA_KEY = "filtro_operadora"
 FILTRO_EQUIPAMENTO_KEY = "filtro_equipamento"
+FILTRO_COORDENACAO_KEY = "filtro_coordenacao"
+FILTRO_PRACA_KEY = "filtro_praca"
+ULTIMO_FILTRO_ALTERADO_KEY = "ultimo_filtro_alterado"
+
+FILTROS_ENCADEADOS = (
+    (FILTRO_COORDENACAO_KEY, "coordenacao"),
+    (FILTRO_PRACA_KEY, "praca"),
+    (FILTRO_CONTRATO_KEY, "contrato"),
+    (FILTRO_OPERADORA_KEY, "operadora"),
+    (FILTRO_EQUIPAMENTO_KEY, "equipamento"),
+)
 
 MENU_ICONS = {
     "Dashboard": ":material/dashboard:",
@@ -281,6 +292,192 @@ def _normalizar_multiselect_sessao(chave: str, opcoes: list[object]) -> None:
         st.session_state[chave] = valores_validos
 
 
+def _registrar_filtro_alterado(chave: str) -> None:
+    st.session_state[ULTIMO_FILTRO_ALTERADO_KEY] = chave
+
+
+def _valores_multiselect_sessao(chave: str) -> list[object]:
+    valores = st.session_state.get(chave, [])
+    if not isinstance(valores, list):
+        return []
+    return valores
+
+
+def _opcoes_texto(df: pd.DataFrame, coluna: str) -> list[str]:
+    if coluna not in df.columns:
+        return []
+
+    return sorted(
+        [
+            valor
+            for valor in df[coluna].fillna("").astype(str).str.strip().unique().tolist()
+            if valor
+        ]
+    )
+
+
+def _rotulos_praca(df: pd.DataFrame) -> dict[str, str]:
+    if "praca" not in df.columns:
+        return {}
+
+    if "nome_praca" not in df.columns:
+        return {praca: praca for praca in _opcoes_texto(df, "praca")}
+
+    rotulos: dict[str, str] = {}
+    for _, linha in df[["praca", "nome_praca"]].drop_duplicates().iterrows():
+        praca = str(linha["praca"] or "").strip()
+        nome_praca = str(linha["nome_praca"] or "").strip()
+        if not praca:
+            continue
+        rotulos[praca] = (
+            f"{praca} - {nome_praca}"
+            if nome_praca and nome_praca != praca
+            else praca
+        )
+
+    return rotulos
+
+
+def _obter_dimensao_pracas() -> pd.DataFrame:
+    try:
+        from dashboard.data import carregar_dimensao_pracas_servicos
+
+        return carregar_dimensao_pracas_servicos()
+    except Exception as erro:
+        st.warning(f"Erro ao carregar filtros de praça: {erro}")
+        return pd.DataFrame(columns=["praca", "nome_praca", "coordenacao"])
+
+
+def _montar_fonte_pracas(df_filtros: pd.DataFrame) -> pd.DataFrame:
+    fontes: list[pd.DataFrame] = []
+
+    colunas_praca = [
+        coluna
+        for coluna in ["praca", "nome_praca", "coordenacao"]
+        if coluna in df_filtros.columns
+    ]
+    if colunas_praca:
+        fonte_atual = df_filtros[colunas_praca].copy()
+        for coluna in ["praca", "nome_praca", "coordenacao"]:
+            if coluna not in fonte_atual.columns:
+                fonte_atual[coluna] = ""
+        fontes.append(fonte_atual[["praca", "nome_praca", "coordenacao"]])
+
+    dimensao_pracas = _obter_dimensao_pracas()
+    if not dimensao_pracas.empty:
+        fontes.append(dimensao_pracas[["praca", "nome_praca", "coordenacao"]])
+
+    if not fontes:
+        return pd.DataFrame(columns=["praca", "nome_praca", "coordenacao"])
+
+    fonte = pd.concat(fontes, ignore_index=True)
+    for coluna in ["praca", "nome_praca", "coordenacao"]:
+        fonte[coluna] = fonte[coluna].fillna("").astype(str).str.strip()
+
+    return fonte.drop_duplicates().reset_index(drop=True)
+
+
+def _preparar_base_opcoes(df_filtros: pd.DataFrame) -> pd.DataFrame:
+    colunas = ["coordenacao", "praca", "nome_praca", "contrato", "operadora", "equipamento"]
+    df_opcoes = df_filtros.copy()
+
+    if "praca" not in df_opcoes.columns and "coordenacao" not in df_opcoes.columns:
+        dimensao_pracas = _montar_fonte_pracas(df_filtros)
+        if not dimensao_pracas.empty:
+            df_opcoes = dimensao_pracas.copy()
+
+    for coluna in colunas:
+        if coluna not in df_opcoes.columns:
+            df_opcoes[coluna] = ""
+        df_opcoes[coluna] = df_opcoes[coluna].fillna("").astype(str).str.strip()
+
+    return df_opcoes
+
+
+def _filtrar_base_opcoes_por_periodo(
+    df_opcoes: pd.DataFrame,
+    periodo: tuple[pd.Timestamp, pd.Timestamp],
+) -> pd.DataFrame:
+    coluna_periodo = _obter_coluna_periodo(df_opcoes)
+    if coluna_periodo not in df_opcoes.columns:
+        return df_opcoes
+
+    inicio, fim = periodo
+    datas = pd.to_datetime(df_opcoes[coluna_periodo], errors="coerce")
+    return df_opcoes[datas.between(inicio, fim)].copy()
+
+
+def _selecoes_multiselect_sessao() -> dict[str, list[object]]:
+    return {
+        chave: _valores_multiselect_sessao(chave)
+        for chave, _ in FILTROS_ENCADEADOS
+    }
+
+
+def _aplicar_selecoes_opcoes(
+    df_opcoes: pd.DataFrame,
+    selecoes: dict[str, list[object]],
+    *,
+    ignorar_chave: str | None = None,
+) -> pd.DataFrame:
+    filtrado = df_opcoes
+    for chave, coluna in FILTROS_ENCADEADOS:
+        if chave == ignorar_chave or coluna not in filtrado.columns:
+            continue
+
+        valores = selecoes.get(chave, [])
+        if valores:
+            filtrado = filtrado[filtrado[coluna].isin(valores)]
+
+    return filtrado
+
+
+def _opcoes_encadeadas(
+    df_opcoes: pd.DataFrame,
+    selecoes: dict[str, list[object]],
+    chave_opcoes: str,
+) -> list[str]:
+    coluna = dict(FILTROS_ENCADEADOS)[chave_opcoes]
+    filtrado = _aplicar_selecoes_opcoes(
+        df_opcoes,
+        selecoes,
+        ignorar_chave=chave_opcoes,
+    )
+    return _opcoes_texto(filtrado, coluna)
+
+
+def _normalizar_selecoes_encadeadas(
+    df_opcoes: pd.DataFrame,
+    selecoes: dict[str, list[object]],
+) -> dict[str, list[object]]:
+    chaves = [chave for chave, _ in FILTROS_ENCADEADOS]
+    chave_prioritaria = st.session_state.get(ULTIMO_FILTRO_ALTERADO_KEY)
+    ordem = [chave for chave in chaves if chave != chave_prioritaria]
+    if chave_prioritaria in chaves:
+        ordem.append(chave_prioritaria)
+
+    for chave in ordem:
+        opcoes = _opcoes_encadeadas(df_opcoes, selecoes, chave)
+        opcoes_set = set(opcoes)
+        valores = selecoes.get(chave, [])
+        valores_validos = [valor for valor in valores if valor in opcoes_set]
+        if valores_validos != valores:
+            st.session_state[chave] = valores_validos
+            selecoes[chave] = valores_validos
+
+    return selecoes
+
+
+def _montar_opcoes_encadeadas(
+    df_opcoes: pd.DataFrame,
+    selecoes: dict[str, list[object]],
+) -> dict[str, list[str]]:
+    return {
+        chave: _opcoes_encadeadas(df_opcoes, selecoes, chave)
+        for chave, _ in FILTROS_ENCADEADOS
+    }
+
+
 def render_sidebar(df_base: pd.DataFrame) -> str:
     with st.sidebar:
         _render_sidebar_logo()
@@ -313,9 +510,7 @@ def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
             '<div class="filters-title">Filtros aplicados</div>',
             unsafe_allow_html=True,
         )
-        col_inicio, col_fim, col_contrato, col_operadora, col_equipamento = st.columns(
-            [0.9, 0.9, 1.35, 1.35, 1.35],
-        )
+        col_inicio, col_fim, _ = st.columns([0.95, 0.95, 3.6])
         with col_inicio:
             inicio_sessao = _normalizar_mes_sessao(
                 FILTRO_MES_INICIO_KEY,
@@ -323,7 +518,7 @@ def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
                 periodo_padrao[0],
             )
             mes_inicio = st.selectbox(
-                "Mes inicial",
+                "Inicio",
                 options=meses_disponiveis,
                 index=_indice_mes(meses_disponiveis, inicio_sessao),
                 format_func=_formatar_mes,
@@ -342,7 +537,7 @@ def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
                 fim_padrao,
             )
             mes_fim = st.selectbox(
-                "Mes final",
+                "Fim",
                 options=meses_finais,
                 index=_indice_mes(meses_finais, fim_sessao),
                 format_func=_formatar_mes,
@@ -353,40 +548,75 @@ def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
         fim_mes = pd.Timestamp(mes_fim) + pd.offsets.MonthEnd(0)
         periodo = (inicio_mes, fim_mes)
 
-        contratos = sorted(
-            [x for x in df_filtros["contrato"].dropna().unique().tolist() if x]
-        )
-        operadoras = sorted(
-            [x for x in df_filtros["operadora"].dropna().unique().tolist() if x]
-        )
-        equipamentos = sorted(
-            [x for x in df_filtros["equipamento"].dropna().unique().tolist() if x]
-        )
+        df_opcoes = _preparar_base_opcoes(df_filtros)
+        df_opcoes = _filtrar_base_opcoes_por_periodo(df_opcoes, periodo)
+        selecoes = _selecoes_multiselect_sessao()
+        selecoes = _normalizar_selecoes_encadeadas(df_opcoes, selecoes)
+        opcoes = _montar_opcoes_encadeadas(df_opcoes, selecoes)
 
-        _normalizar_multiselect_sessao(FILTRO_CONTRATO_KEY, contratos)
-        _normalizar_multiselect_sessao(FILTRO_OPERADORA_KEY, operadoras)
-        _normalizar_multiselect_sessao(FILTRO_EQUIPAMENTO_KEY, equipamentos)
+        st.write("")
+        (
+            col_coordenacao,
+            col_praca,
+            col_contrato,
+            col_operadora,
+            col_equipamento,
+        ) = st.columns([1.05, 1.2, 1.35, 1.35, 1.35])
+
+        with col_coordenacao:
+            filtro_coordenacao = st.multiselect(
+                "Coord.",
+                opcoes[FILTRO_COORDENACAO_KEY],
+                placeholder="Todas",
+                key=FILTRO_COORDENACAO_KEY,
+                on_change=_registrar_filtro_alterado,
+                args=(FILTRO_COORDENACAO_KEY,),
+            )
+
+        df_rotulos_praca = _aplicar_selecoes_opcoes(
+            df_opcoes,
+            selecoes,
+            ignorar_chave=FILTRO_PRACA_KEY,
+        )
+        rotulos_praca = _rotulos_praca(df_rotulos_praca)
+
+        with col_praca:
+            filtro_praca = st.multiselect(
+                "Praca",
+                opcoes[FILTRO_PRACA_KEY],
+                format_func=lambda praca: rotulos_praca.get(str(praca), str(praca)),
+                placeholder="Todas",
+                key=FILTRO_PRACA_KEY,
+                on_change=_registrar_filtro_alterado,
+                args=(FILTRO_PRACA_KEY,),
+            )
 
         with col_contrato:
             filtro_contrato = st.multiselect(
                 "Contrato",
-                contratos,
-                placeholder="Selecione os contratos",
+                opcoes[FILTRO_CONTRATO_KEY],
+                placeholder="Todos",
                 key=FILTRO_CONTRATO_KEY,
+                on_change=_registrar_filtro_alterado,
+                args=(FILTRO_CONTRATO_KEY,),
             )
         with col_operadora:
             filtro_operadora = st.multiselect(
                 "Operadora",
-                operadoras,
-                placeholder="Selecione as operadoras",
+                opcoes[FILTRO_OPERADORA_KEY],
+                placeholder="Todas",
                 key=FILTRO_OPERADORA_KEY,
+                on_change=_registrar_filtro_alterado,
+                args=(FILTRO_OPERADORA_KEY,),
             )
         with col_equipamento:
             filtro_equipamento = st.multiselect(
-                "Equipamento",
-                equipamentos,
-                placeholder="Selecione os equipamentos",
+                "Equip.",
+                opcoes[FILTRO_EQUIPAMENTO_KEY],
+                placeholder="Todos",
                 key=FILTRO_EQUIPAMENTO_KEY,
+                on_change=_registrar_filtro_alterado,
+                args=(FILTRO_EQUIPAMENTO_KEY,),
             )
 
     return {
@@ -395,6 +625,8 @@ def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
         "filtro_contrato": filtro_contrato,
         "filtro_operadora": filtro_operadora,
         "filtro_equipamento": filtro_equipamento,
+        "filtro_coordenacao": filtro_coordenacao,
+        "filtro_praca": filtro_praca,
     }
 
 
@@ -425,5 +657,13 @@ def aplicar_filtros(df_base: pd.DataFrame, filtros: dict[str, object]) -> pd.Dat
     filtro_equipamento = filtros.get("filtro_equipamento", [])
     if filtro_equipamento:
         df_filtrado = df_filtrado[df_filtrado["equipamento"].isin(filtro_equipamento)]
+
+    filtro_coordenacao = filtros.get("filtro_coordenacao", [])
+    if filtro_coordenacao and "coordenacao" in df_filtrado.columns:
+        df_filtrado = df_filtrado[df_filtrado["coordenacao"].isin(filtro_coordenacao)]
+
+    filtro_praca = filtros.get("filtro_praca", [])
+    if filtro_praca and "praca" in df_filtrado.columns:
+        df_filtrado = df_filtrado[df_filtrado["praca"].isin(filtro_praca)]
 
     return df_filtrado

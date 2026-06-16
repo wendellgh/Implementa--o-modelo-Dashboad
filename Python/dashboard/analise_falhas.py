@@ -900,6 +900,12 @@ def _aplicar_estilos_analise_falhas() -> None:
                 text-align: center;
             }
 
+            .falhas-os-table-header > .falhas-header-defeitos-encontrados,
+            .falhas-cell-title.falhas-title-defeitos-encontrados {
+                justify-content: flex-end;
+                text-align: right;
+            }
+
             .falhas-os-row-details {
                 width: 1340px;
                 min-width: 1340px;
@@ -2067,7 +2073,8 @@ def render_tabela_analise_falhas(df_os: pd.DataFrame) -> None:
                 '<span class="falhas-status-rail"></span>'
                 "</span>"
                 '<span class="falhas-os-cell">'
-                '<span class="falhas-cell-title">Defeitos encontrados</span>'
+                '<span class="falhas-cell-title falhas-title-defeitos-encontrados">'
+                "Defeitos encontrados</span>"
                 f'<span class="falhas-chip-row">{_render_chips(encontrados, "falhas-chip-encontrado")}</span>'
                 "</span>"
                 '<span class="falhas-action-cell">'
@@ -2101,7 +2108,7 @@ def render_tabela_analise_falhas(df_os: pd.DataFrame) -> None:
             "<span>OS / Equipamento</span>"
             "<span>Defeitos reclamados</span>"
             "<span>Status</span>"
-            "<span>Defeitos encontrados</span>"
+            '<span class="falhas-header-defeitos-encontrados">Defeitos encontrados</span>'
             "<span>Ações</span>"
             "</div>"
             f'{"".join(linhas_html)}</div>',

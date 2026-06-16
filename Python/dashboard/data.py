@@ -1,10 +1,35 @@
 import pandas as pd
 import streamlit as st
+from sqlalchemy import text
 
 from dashboard.config import BASE_QUERY, BASE_QUERY_2
 from dashboard.database import get_engine
+from dashboard.pracas import enriquecer_dataframe_contratos, enriquecer_dataframe_pracas
 
 ANO_MINIMO_COMPETENCIA = 1900
+GARANTIR_COLUNAS_SERVICOS_EXECUTADOS_SQL = """
+ALTER TABLE public.servicos_executados
+    ADD COLUMN IF NOT EXISTS "DATA_COMPETENCIA" date;
+
+ALTER TABLE public.servicos_executados
+    ADD COLUMN IF NOT EXISTS "PRACA" text;
+
+ALTER TABLE public.servicos_executados
+    ADD COLUMN IF NOT EXISTS "NOME_PRACA" text;
+
+ALTER TABLE public.servicos_executados
+    ADD COLUMN IF NOT EXISTS "COORDENACAO" text;
+"""
+
+DIMENSAO_PRACAS_SERVICOS_QUERY = """
+select distinct
+    "PRACA" as praca,
+    "NOME_PRACA" as nome_praca,
+    "COORDENACAO" as coordenacao
+from servicos_executados
+where coalesce(trim("PRACA"), '') <> ''
+   or coalesce(trim("COORDENACAO"), '') <> ''
+"""
 
 
 def _converter_data_servicos(valores: pd.Series) -> pd.Series:
@@ -96,6 +121,11 @@ def _obter_serie_competencia(df: pd.DataFrame) -> pd.Series:
     return datas.dt.to_period("M").dt.to_timestamp()
 
 
+def _garantir_colunas_servicos_executados() -> None:
+    with get_engine().begin() as conn:
+        conn.execute(text(GARANTIR_COLUNAS_SERVICOS_EXECUTADOS_SQL))
+
+
 @st.cache_data
 def carregar_base() -> pd.DataFrame:
 
@@ -115,11 +145,19 @@ def carregar_base() -> pd.DataFrame:
 
     df = _aplicar_nomes_canonicos_por_id(df, "id_contrato", "contrato")
     df = _aplicar_nomes_canonicos_por_id(df, "id_operadora", "operadora")
+    df = enriquecer_dataframe_contratos(
+        df,
+        coluna_contrato="contrato",
+        coluna_praca="praca",
+        coluna_nome_praca="nome_praca",
+        coluna_coordenacao="coordenacao",
+    )
 
     return df
 
 @st.cache_data
 def carregar_base_outra_tabela() -> pd.DataFrame:
+    _garantir_colunas_servicos_executados()
     dados_servicos = pd.read_sql(BASE_QUERY_2, get_engine())
 
     if dados_servicos.empty: 
@@ -142,8 +180,42 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
         dados_servicos["qtd_servico"],
         errors="coerce"
     ).fillna(0)
+
+    for coluna in ["praca", "nome_praca", "coordenacao"]:
+        if coluna in dados_servicos.columns:
+            dados_servicos[coluna] = (
+                dados_servicos[coluna].fillna("").astype(str).str.strip()
+            )
+
+    dados_servicos = enriquecer_dataframe_pracas(
+        dados_servicos,
+        coluna_praca="praca",
+        coluna_nome_praca="nome_praca",
+        coluna_coordenacao="coordenacao",
+    )
     
     return dados_servicos
+
+
+@st.cache_data
+def carregar_dimensao_pracas_servicos() -> pd.DataFrame:
+    _garantir_colunas_servicos_executados()
+    dimensao = pd.read_sql(DIMENSAO_PRACAS_SERVICOS_QUERY, get_engine())
+
+    if dimensao.empty:
+        return dimensao
+
+    for coluna in ["praca", "nome_praca", "coordenacao"]:
+        dimensao[coluna] = dimensao[coluna].fillna("").astype(str).str.strip()
+
+    dimensao = enriquecer_dataframe_pracas(
+        dimensao,
+        coluna_praca="praca",
+        coluna_nome_praca="nome_praca",
+        coluna_coordenacao="coordenacao",
+    )
+
+    return dimensao.drop_duplicates().reset_index(drop=True)
 
 
 def montar_servicos_executados_por_tipo(df_filtrado: pd.DataFrame) -> pd.DataFrame:

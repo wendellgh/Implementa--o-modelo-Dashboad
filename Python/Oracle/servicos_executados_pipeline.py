@@ -19,6 +19,7 @@ from dashboard.servicos_executados_schema import (
     competencia_mensal_date,
     normalizar_servicos_executados,
 )
+from dashboard.pracas import enriquecer_dataframe_pracas
 
 
 ORACLE_DIR = Path(__file__).resolve().parent
@@ -34,6 +35,15 @@ COLUNAS_DESTINO = COLUNAS_SERVICOS_EXECUTADOS
 GARANTIR_COLUNAS_AUXILIARES_SQL = f"""
 ALTER TABLE public.{TABELA_DESTINO}
     ADD COLUMN IF NOT EXISTS "DATA_COMPETENCIA" date;
+
+ALTER TABLE public.{TABELA_DESTINO}
+    ADD COLUMN IF NOT EXISTS "PRACA" text;
+
+ALTER TABLE public.{TABELA_DESTINO}
+    ADD COLUMN IF NOT EXISTS "NOME_PRACA" text;
+
+ALTER TABLE public.{TABELA_DESTINO}
+    ADD COLUMN IF NOT EXISTS "COORDENACAO" text;
 
 UPDATE public.{TABELA_DESTINO}
 SET "DATA_COMPETENCIA" = date_trunc(
@@ -69,6 +79,12 @@ COLUNAS_ORACLE_MINIMAS = [
     "PRODUTO",
     "SERVICO_EXEC",
     "ABA_QUANT",
+]
+
+COLUNAS_CHAVE_DEDUPLICACAO = [
+    coluna
+    for coluna in COLUNAS_DESTINO
+    if coluna not in {"PRACA", "NOME_PRACA", "COORDENACAO"}
 ]
 
 
@@ -265,7 +281,15 @@ def transformar_destboad_em_servicos_executados(
                 ["ABA_DESCSE", "ABA_DESCRI", "AAG_DESCRI"],
             ),
             "QTD_SERVICO": quantidade,
+            "PRACA": _texto(df_oracle, "A1_PRACA"),
         }
+    )
+
+    df_servicos = enriquecer_dataframe_pracas(
+        df_servicos,
+        coluna_praca="PRACA",
+        coluna_nome_praca="NOME_PRACA",
+        coluna_coordenacao="COORDENACAO",
     )
 
     df_servicos = df_servicos[
@@ -328,10 +352,13 @@ def chave_linha(row: pd.Series, colunas: list[str]) -> tuple[Hashable | None, ..
 
 
 def ler_contagem_linhas_existentes(engine: Engine) -> Counter[tuple[Hashable | None, ...]]:
-    colunas_sql = ", ".join(quote_ident(coluna) for coluna in COLUNAS_DESTINO)
+    colunas_sql = ", ".join(quote_ident(coluna) for coluna in COLUNAS_CHAVE_DEDUPLICACAO)
     query = f"SELECT {colunas_sql} FROM public.{quote_ident(TABELA_DESTINO)}"
     existentes = pd.read_sql_query(query, engine)
-    return Counter(chave_linha(row, COLUNAS_DESTINO) for _, row in existentes.iterrows())
+    return Counter(
+        chave_linha(row, COLUNAS_CHAVE_DEDUPLICACAO)
+        for _, row in existentes.iterrows()
+    )
 
 
 def manter_apenas_linhas_ausentes(
@@ -341,7 +368,7 @@ def manter_apenas_linhas_ausentes(
     indices_para_inserir: list[int] = []
 
     for index, row in chunk.iterrows():
-        chave = chave_linha(row, COLUNAS_DESTINO)
+        chave = chave_linha(row, COLUNAS_CHAVE_DEDUPLICACAO)
         if contagem_existente.get(chave, 0) > 0:
             contagem_existente[chave] -= 1
             continue

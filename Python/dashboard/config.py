@@ -73,6 +73,9 @@ select
     "OPERADORA" as operadora,
     "ID_SERVICO_EXECUTADO" as id_servico_executado,
     "SERVIC_EXECUTADO" as servico_executado,
-    "QTD_SERVICO" as qtd_servico
+    "QTD_SERVICO" as qtd_servico,
+    "PRACA" as praca,
+    "NOME_PRACA" as nome_praca,
+    "COORDENACAO" as coordenacao
 from servicos_executados
 """

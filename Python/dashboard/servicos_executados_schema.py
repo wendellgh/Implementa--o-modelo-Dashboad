@@ -6,6 +6,8 @@ import unicodedata
 
 import pandas as pd
 
+from dashboard.pracas import enriquecer_dataframe_pracas
+
 ANO_DATA_MINIMO = 1900
 ANO_DATA_MAXIMO = 2100
 
@@ -21,10 +23,22 @@ COLUNAS_SERVICOS_EXECUTADOS = [
     "ID_SERVICO_EXECUTADO",
     "SERVIC_EXECUTADO",
     "QTD_SERVICO",
+    "PRACA",
+    "NOME_PRACA",
+    "COORDENACAO",
+]
+
+COLUNAS_SERVICOS_OPCIONAIS = [
+    "DATA_COMPETENCIA",
+    "PRACA",
+    "NOME_PRACA",
+    "COORDENACAO",
 ]
 
 COLUNAS_SERVICOS_OBRIGATORIAS = [
-    coluna for coluna in COLUNAS_SERVICOS_EXECUTADOS if coluna != "DATA_COMPETENCIA"
+    coluna
+    for coluna in COLUNAS_SERVICOS_EXECUTADOS
+    if coluna not in COLUNAS_SERVICOS_OPCIONAIS
 ]
 
 ALIASES_SERVICOS_EXECUTADOS = {
@@ -52,6 +66,9 @@ ALIASES_SERVICOS_EXECUTADOS = {
         "AAG_DESCRI",
     ],
     "QTD_SERVICO": ["QTD_SERVICO", "QTD SERVICO", "QTD SERVIÇO", "ABA_QUANT"],
+    "PRACA": ["PRACA", "PRAÇA", "A1_PRACA", "A1 PRAÇA", "A1 PRACA"],
+    "NOME_PRACA": ["NOME_PRACA", "NOME PRAÇA", "NOME PRACA"],
+    "COORDENACAO": ["COORDENACAO", "COORDENAÇÃO", "COORDENACAO_RESPONSAVEL"],
 }
 
 
@@ -189,6 +206,13 @@ def normalizar_servicos_executados(
         if coluna in {"DATA", "DATA_COMPETENCIA", "QTD_SERVICO"}:
             continue
         normalizado[coluna] = normalizado[coluna].fillna("").astype(str).str.strip()
+
+    normalizado = enriquecer_dataframe_pracas(
+        normalizado,
+        coluna_praca="PRACA",
+        coluna_nome_praca="NOME_PRACA",
+        coluna_coordenacao="COORDENACAO",
+    )
 
     normalizado["QTD_SERVICO"] = (
         pd.to_numeric(
