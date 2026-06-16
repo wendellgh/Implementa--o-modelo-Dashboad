@@ -121,19 +121,44 @@ def _render_navegacao() -> str:
     return str(st.session_state[PAGINA_ATUAL_KEY])
 
 
+def _detectar_mime_imagem(conteudo: bytes) -> str:
+    if conteudo.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if conteudo.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if conteudo.startswith(b"RIFF") and conteudo[8:12] == b"WEBP":
+        return "image/webp"
+    return "application/octet-stream"
+
+
+def _preparar_logo_data_uri(caminho: Path) -> tuple[str, str]:
+    conteudo = caminho.read_bytes()
+
+    try:
+        texto = conteudo.decode("utf-8")
+    except UnicodeDecodeError:
+        mime = _detectar_mime_imagem(conteudo)
+        return mime, base64.b64encode(conteudo).decode("ascii")
+
+    if "<svg" in texto[:500].lower():
+        if tema_claro_ativo():
+            texto = texto.replace("#FFFFFF", "#1f2937")
+        conteudo = texto.encode("utf-8")
+        return "image/svg+xml", base64.b64encode(conteudo).decode("ascii")
+
+    mime = _detectar_mime_imagem(conteudo)
+    return mime, base64.b64encode(conteudo).decode("ascii")
+
+
 def _render_sidebar_logo() -> None:
     if not SIDEBAR_LOGO_PATH.exists():
         return
 
-    svg_texto = SIDEBAR_LOGO_PATH.read_text(encoding="utf-8")
-    if tema_claro_ativo():
-        svg_texto = svg_texto.replace("#FFFFFF", "#1f2937")
-
-    svg_base64 = base64.b64encode(svg_texto.encode("utf-8")).decode("utf-8")
+    mime, logo_base64 = _preparar_logo_data_uri(SIDEBAR_LOGO_PATH)
     st.markdown(
         (
             '<div class="sidebar-logo">'
-            f'<img src="data:image/svg+xml;base64,{svg_base64}" '
+            f'<img src="data:{mime};base64,{logo_base64}" '
             'alt="Tacom" />'
             "</div>"
         ),
