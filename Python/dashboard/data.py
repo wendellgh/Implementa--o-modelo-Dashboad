@@ -112,6 +112,37 @@ def _aplicar_nomes_canonicos_por_id(
     return df
 
 
+def _preencher_pracas_por_contrato(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or "contrato" not in df.columns:
+        return df
+
+    enriquecido_por_contrato = enriquecer_dataframe_contratos(
+        df[["contrato"]].copy(),
+        coluna_contrato="contrato",
+        coluna_praca="praca",
+        coluna_nome_praca="nome_praca",
+        coluna_coordenacao="coordenacao",
+    )
+
+    resultado = df.copy()
+    for coluna in ["praca", "nome_praca", "coordenacao"]:
+        if coluna not in resultado.columns:
+            resultado[coluna] = ""
+
+        atual = resultado[coluna].fillna("").astype(str).str.strip()
+        por_contrato = (
+            enriquecido_por_contrato[coluna].fillna("").astype(str).str.strip()
+        )
+        resultado[coluna] = atual.where(atual.ne(""), por_contrato)
+
+    return enriquecer_dataframe_pracas(
+        resultado,
+        coluna_praca="praca",
+        coluna_nome_praca="nome_praca",
+        coluna_coordenacao="coordenacao",
+    )
+
+
 def _obter_serie_competencia(df: pd.DataFrame) -> pd.Series:
     if "data_competencia" in df.columns:
         datas = _remover_datas_fora_do_intervalo(df["data_competencia"])
@@ -181,19 +212,47 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
         errors="coerce"
     ).fillna(0)
 
-    for coluna in ["praca", "nome_praca", "coordenacao"]:
+    for coluna in [
+        "id_contrato",
+        "contrato",
+        "id_operadora",
+        "operadora",
+        "id_equipamento",
+        "equipamento",
+        "id_servico_executado",
+        "servico_executado",
+        "praca",
+        "nome_praca",
+        "coordenacao",
+    ]:
         if coluna in dados_servicos.columns:
             dados_servicos[coluna] = (
                 dados_servicos[coluna].fillna("").astype(str).str.strip()
             )
 
+    dados_servicos = _aplicar_nomes_canonicos_por_id(
+        dados_servicos,
+        "id_contrato",
+        "contrato",
+    )
+    dados_servicos = _aplicar_nomes_canonicos_por_id(
+        dados_servicos,
+        "id_operadora",
+        "operadora",
+    )
+    dados_servicos = _aplicar_nomes_canonicos_por_id(
+        dados_servicos,
+        "id_equipamento",
+        "equipamento",
+    )
     dados_servicos = enriquecer_dataframe_pracas(
         dados_servicos,
         coluna_praca="praca",
         coluna_nome_praca="nome_praca",
         coluna_coordenacao="coordenacao",
     )
-    
+    dados_servicos = _preencher_pracas_por_contrato(dados_servicos)
+
     return dados_servicos
 
 

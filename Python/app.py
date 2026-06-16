@@ -1,5 +1,7 @@
 import importlib.util
+import re
 import tempfile
+import unicodedata
 from collections.abc import Callable
 from pathlib import Path
 
@@ -84,6 +86,45 @@ def _resolver_csv_base_historica_padrao() -> Path | None:
         if caminho.exists():
             return caminho
     return None
+
+
+def _normalizar_texto_busca(valor: object) -> str:
+    texto = unicodedata.normalize("NFKD", str(valor or "").strip().upper())
+    texto = "".join(
+        caractere for caractere in texto if not unicodedata.combining(caractere)
+    )
+    texto = re.sub(r"[^A-Z0-9]+", " ", texto)
+    return " ".join(texto.split())
+
+
+def _compactar_texto_busca(valor: object) -> str:
+    return re.sub(r"[^A-Z0-9]+", "", _normalizar_texto_busca(valor))
+
+
+def _equipamento_corresponde(valor: object, selecionados: list[object]) -> bool:
+    equipamento = _normalizar_texto_busca(valor)
+    equipamento_compacto = _compactar_texto_busca(valor)
+    if not equipamento:
+        return False
+
+    tokens_equipamento = set(equipamento.split())
+    for selecionado in selecionados:
+        filtro = _normalizar_texto_busca(selecionado)
+        filtro_compacto = _compactar_texto_busca(selecionado)
+        tokens_filtro = filtro.split()
+        if not filtro:
+            continue
+        if filtro in equipamento or (
+            filtro_compacto and filtro_compacto in equipamento_compacto
+        ):
+            return True
+        if tokens_filtro and all(
+            token in tokens_equipamento or token in equipamento_compacto
+            for token in tokens_filtro
+        ):
+            return True
+
+    return False
 
 
 def _carregar_importador_base_historica() -> Callable[..., int]:
@@ -374,13 +415,47 @@ def montar_servicos_executados_dashboard(filtros: dict[str, object]):
     if df_servicos.empty:
         return None
 
-    servicos_filtrados = aplicar_filtros(df_servicos, filtros)
+    servicos_filtrados = _aplicar_filtros_servicos_dashboard(df_servicos, filtros)
     if servicos_filtrados.empty and filtros.get("periodo"):
         filtros_sem_periodo = dict(filtros)
         filtros_sem_periodo["periodo"] = None
-        servicos_filtrados = aplicar_filtros(df_servicos, filtros_sem_periodo)
+        servicos_filtrados = _aplicar_filtros_servicos_dashboard(
+            df_servicos,
+            filtros_sem_periodo,
+        )
 
     return montar_servicos_executados_por_tipo(servicos_filtrados)
+
+
+def _aplicar_filtros_servicos_dashboard(df_servicos, filtros: dict[str, object]):
+    servicos_filtrados = aplicar_filtros(df_servicos, filtros)
+    filtro_equipamento = filtros.get("filtro_equipamento", [])
+
+    if not servicos_filtrados.empty or not filtro_equipamento:
+        return servicos_filtrados
+
+    filtros_sem_equipamento = dict(filtros)
+    filtros_sem_equipamento["filtro_equipamento"] = []
+    candidatos = aplicar_filtros(df_servicos, filtros_sem_equipamento)
+    if candidatos.empty or "equipamento" not in candidatos.columns:
+        return servicos_filtrados
+
+    equipamentos_selecionados = (
+        list(filtro_equipamento)
+        if isinstance(filtro_equipamento, (list, tuple, set))
+        else [filtro_equipamento]
+    )
+    mascara = candidatos["equipamento"].apply(
+        lambda equipamento: _equipamento_corresponde(
+            equipamento,
+            equipamentos_selecionados,
+        )
+    )
+    servicos_por_equipamento = candidatos[mascara]
+    if servicos_por_equipamento.empty:
+        return servicos_filtrados
+
+    return servicos_por_equipamento
 
 
 def main() -> None:
