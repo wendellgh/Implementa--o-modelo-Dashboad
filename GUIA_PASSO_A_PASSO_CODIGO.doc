@@ -1,6 +1,17 @@
-# Guia passo a passo do código — Dashboard de Manutenção e Serviços Executados
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Guia passo a passo do código</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.35; }
+pre { white-space: pre-wrap; word-wrap: break-word; font-family: Consolas, monospace; font-size: 9.5pt; }
+</style>
+</head>
+<body>
+<pre># Guia passo a passo do código — Dashboard de Manutenção e Serviços Executados
 
-> Documento revisado a partir da leitura dos arquivos atuais do repositório. Ele serve como material de onboarding para entender o projeto, executar localmente, localizar cada responsabilidade no código e saber onde alterar cada parte.
+&gt; Documento revisado a partir da leitura dos arquivos atuais do repositório. Ele serve como material de onboarding para entender o projeto, executar localmente, localizar cada responsabilidade no código e saber onde alterar cada parte.
 
 ---
 
@@ -64,18 +75,18 @@ O banco é provisionado localmente pelo Docker Compose com PostgreSQL 16 e pgAdm
 
 ```mermaid
 flowchart TD
-    U[Usuário no navegador] --> S[Streamlit - Python/app.py]
-    S --> CFG[dashboard/config.py]
-    S --> DB[dashboard/database.py]
-    DB --> PG[(PostgreSQL)]
-    PG --> TB1[base_historica_manutencao]
-    PG --> TB2[servicos_executados]
-    S --> DATA[dashboard/data.py]
-    DATA --> FILTER[dashboard/filters.py]
-    DATA --> METRICS[dashboard/metrics.py]
-    DATA --> CHARTS[dashboard/visualizations.py]
-    DATA --> TABLES[dashboard/tables.py]
-    S --> STYLES[dashboard/styles.py]
+    U[Usuário no navegador] --&gt; S[Streamlit - Python/app.py]
+    S --&gt; CFG[dashboard/config.py]
+    S --&gt; DB[dashboard/database.py]
+    DB --&gt; PG[(PostgreSQL)]
+    PG --&gt; TB1[base_historica_manutencao]
+    PG --&gt; TB2[servicos_executados]
+    S --&gt; DATA[dashboard/data.py]
+    DATA --&gt; FILTER[dashboard/filters.py]
+    DATA --&gt; METRICS[dashboard/metrics.py]
+    DATA --&gt; CHARTS[dashboard/visualizations.py]
+    DATA --&gt; TABLES[dashboard/tables.py]
+    S --&gt; STYLES[dashboard/styles.py]
 ```
 
 ### Leitura do diagrama
@@ -94,25 +105,25 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[main] --> B[Configura página]
-    B --> C[Aplica CSS global]
-    C --> D[carregar_base]
-    D --> E{Erro ao carregar?}
-    E -- Sim --> F[Mostra erro, destino DB e diagnóstico]
-    F --> G[st.stop]
-    E -- Não --> H{Base vazia?}
-    H -- Sim --> I[Warning sem dados]
-    I --> G
-    H -- Não --> J[render_sidebar]
-    J --> K[aplicar_filtros]
-    K --> L[Monta agregações]
-    L --> M[Renderiza título]
-    M --> N{Menu selecionado}
-    N -- Dashboard --> O[KPIs + gráficos principais]
-    N -- Resumo --> P[Gráfico resumo + tabela resumo]
-    N -- Wendells --> Q[Frota CCIT por operadora]
-    N -- Serviços Executados - Teste --> R[Carrega servicos_executados + gráfico + tabela]
-    N -- Tabela/outros --> T[Tabela evolução + base filtrada]
+    A[main] --&gt; B[Configura página]
+    B --&gt; C[Aplica CSS global]
+    C --&gt; D[carregar_base]
+    D --&gt; E{Erro ao carregar?}
+    E -- Sim --&gt; F[Mostra erro, destino DB e diagnóstico]
+    F --&gt; G[st.stop]
+    E -- Não --&gt; H{Base vazia?}
+    H -- Sim --&gt; I[Warning sem dados]
+    I --&gt; G
+    H -- Não --&gt; J[render_sidebar]
+    J --&gt; K[aplicar_filtros]
+    K --&gt; L[Monta agregações]
+    L --&gt; M[Renderiza título]
+    M --&gt; N{Menu selecionado}
+    N -- Dashboard --&gt; O[KPIs + gráficos principais]
+    N -- Resumo --&gt; P[Gráfico resumo + tabela resumo]
+    N -- Wendells --&gt; Q[Frota CCIT por operadora]
+    N -- Serviços Executados - Teste --&gt; R[Carrega servicos_executados + gráfico + tabela]
+    N -- Tabela/outros --&gt; T[Tabela evolução + base filtrada]
 ```
 
 ### Passo a passo do `main()`
@@ -169,7 +180,7 @@ porta: 5432
 banco: app_db
 ```
 
-> Atenção: esses valores são fallback. Em ambiente cloud ou produção, prefira variáveis de ambiente ou secrets.
+&gt; Atenção: esses valores são fallback. Em ambiente cloud ou produção, prefira variáveis de ambiente ou secrets.
 
 ### 5.4 Queries principais
 
@@ -521,7 +532,7 @@ Fluxo:
 8. Normaliza textos.
 9. Converte `QTD_SERVICO` para inteiro.
 10. Converte data Excel serial para `dd/mm/YYYY` em texto.
-11. Insere no banco com `to_sql(..., method="multi")`.
+11. Insere no banco com `to_sql(..., method=&quot;multi&quot;)`.
 
 ### Ponto de atenção
 
@@ -608,7 +619,7 @@ Altere `APP_TITLE` em `Python/dashboard/config.py`.
 
 1. Adicione o texto em `MENU_ITEMS`.
 2. Importe/crie a função de renderização necessária.
-3. Adicione um novo `elif menu == "Minha Página"` em `Python/app.py`.
+3. Adicione um novo `elif menu == &quot;Minha Página&quot;` em `Python/app.py`.
 
 ### Quero adicionar um filtro
 
@@ -709,3 +720,6 @@ mindmap
 O projeto está organizado em módulos claros e é relativamente simples de manter: `app.py` coordena tudo, `data.py` concentra regras de transformação, `filters.py` define o recorte dos dados, `metrics.py` calcula indicadores e `visualizations.py`/`tables.py` cuidam da apresentação.
 
 Os principais riscos atuais não estão na lógica central, mas na infraestrutura/documentação: Dockerfile com instalação comentada, documentos antigos com trechos desatualizados, scripts de importação com caminhos absolutos e títulos temporários em alguns gráficos.
+</pre>
+</body>
+</html>
