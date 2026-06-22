@@ -14,9 +14,11 @@ from dashboard.data import (
     carregar_base,
     carregar_base_outra_tabela,
     montar_equipamentos_por_contrato,
+    montar_equipamentos_por_operadora,
     montar_evolucao_mensal,
     montar_frota_contrato_por_mes,
     montar_manutencao_por_contrato,
+    montar_manutencao_por_operadora,
     montar_resumo_equipamento,
     montar_servicos_executados_por_tipo,
     montar_tabela_evolucao,
@@ -38,6 +40,7 @@ from dashboard.tables import (
     render_tabela_resumo,
 )
 from dashboard.visualizations import (
+    render_analise_operadora_charts,
     render_dashboard_charts,
     render_frota_contrato_chart,
     render_resumo_chart,
@@ -528,6 +531,8 @@ def main() -> None:
     evolucao_tabela = montar_tabela_evolucao(df_filtrado)
     frota_contrato = montar_frota_contrato_por_mes(df_filtrado)
     manutencao_contrato = montar_manutencao_por_contrato(df_filtrado)
+    manutencao_operadora = montar_manutencao_por_operadora(df_filtrado)
+    equipamentos_operadora = montar_equipamentos_por_operadora(df_filtrado)
 
     if menu == "Dashboard":
         kpis = calcular_kpis(resumo, evolucao_mensal_12_meses)
@@ -541,10 +546,16 @@ def main() -> None:
             manutencao_contrato,
             equipamentos_contrato,
             servicos_resumo_dashboard,
+            manutencao_operadora,
         )
     elif menu == "Resumo":
         render_resumo_chart(resumo)
         render_tabela_resumo(resumo)
+    elif menu == "Análise por Operadora":
+        render_analise_operadora_charts(
+            manutencao_operadora,
+            equipamentos_operadora,
+        )
     elif menu in {"Contando Frota - Teste", "Contando Frota - Teste."}:
         render_frota_contrato_chart(frota_contrato)
     elif menu =="Serviços Executados - Teste":

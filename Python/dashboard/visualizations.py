@@ -1,3 +1,5 @@
+import textwrap
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -34,6 +36,8 @@ CORES_CATEGORICAS = [
     PALETA["terciaria"],
     PALETA["destaque_tecnico"],
 ]
+FONTE_ROTULOS_DADOS = 16
+FONTE_ROTULOS_DADOS_COMPACTO = 14
 
 
 def _tema_claro() -> bool:
@@ -82,8 +86,8 @@ def _estilizar_figura(fig):
 def _mostrar_rotulos_barras(
     fig,
     template: str = "%{text}",
-    font_size: int = 12,
-    uniform_min_size: int = 10,
+    font_size: int = FONTE_ROTULOS_DADOS,
+    uniform_min_size: int = 12,
 ) -> None:
     fig.update_traces(
         texttemplate=template,
@@ -148,18 +152,260 @@ def _calcular_tendencia_linear(valores: pd.Series) -> pd.Series:
     return (intercepto + inclinacao * x).clip(lower=0).round(2)
 
 
+def _quebrar_rotulo_eixo(
+    valor: object,
+    largura: int = 16,
+    max_linhas: int = 3,
+) -> str:
+    texto = str(valor or "").strip()
+    if len(texto) <= largura:
+        return texto
+
+    linhas = textwrap.wrap(
+        texto,
+        width=largura,
+        break_long_words=True,
+        break_on_hyphens=False,
+    )
+    if len(linhas) > max_linhas:
+        linhas = linhas[:max_linhas]
+        linhas[-1] = f"{linhas[-1][: max(0, largura - 3)].rstrip()}..."
+
+    return "<br>".join(linhas)
+
+
+def _render_manutencao_por_categoria_chart(
+    df_manutencao: pd.DataFrame | None,
+    coluna_categoria: str,
+    rotulo_categoria: str,
+    titulo: str,
+    mensagem_vazia: str,
+) -> None:
+    if df_manutencao is None or df_manutencao.empty:
+        st.info(mensagem_vazia)
+        return
+
+    manutencao_categoria = df_manutencao.sort_values(
+        "quantidade_manutencao",
+        ascending=False,
+    )
+    ordem_categorias = manutencao_categoria[coluna_categoria].tolist()
+    fig_manutencao = px.bar(
+        manutencao_categoria,
+        x=coluna_categoria,
+        y="quantidade_manutencao",
+        color=coluna_categoria,
+        color_discrete_sequence=CORES_CATEGORICAS,
+        category_orders={coluna_categoria: ordem_categorias},
+        title=titulo,
+        text="quantidade_manutencao",
+        labels={
+            coluna_categoria: rotulo_categoria,
+            "quantidade_manutencao": "Quantidade em manutenção",
+        },
+    )
+    fig_manutencao.update_xaxes(
+        categoryorder="array",
+        categoryarray=ordem_categorias,
+        tickmode="array",
+        tickvals=ordem_categorias,
+        ticktext=[_quebrar_rotulo_eixo(categoria) for categoria in ordem_categorias],
+        tickangle=0,
+        automargin=True,
+    )
+    _mostrar_rotulos_barras(fig_manutencao, "%{text:.0f}")
+    fig_manutencao.update_layout(showlegend=False)
+    fig_manutencao = _estilizar_figura(fig_manutencao)
+    fig_manutencao.update_layout(margin={"b": 85})
+    st.plotly_chart(
+        fig_manutencao,
+        use_container_width=True,
+    )
+
+
+def _render_manutencao_operadora_chart(
+    df_manutencao_operadora: pd.DataFrame | None,
+) -> None:
+    if df_manutencao_operadora is None or df_manutencao_operadora.empty:
+        st.info("Sem dados de manutenção por operadora para os filtros selecionados.")
+        return
+
+    manutencao_operadora = df_manutencao_operadora.sort_values(
+        "percentual_manutencao_frota",
+        ascending=False,
+    ).copy()
+    ordem_operadoras = manutencao_operadora["operadora"].tolist()
+    manutencao_operadora["rotulo_manutencao"] = manutencao_operadora.apply(
+        lambda row: (
+            f"{row['quantidade_manutencao']:.0f} "
+            f"({row['percentual_manutencao_frota']:.2f}%)"
+        ),
+        axis=1,
+    )
+
+    fig_operadora = px.bar(
+        manutencao_operadora,
+        x="operadora",
+        y="percentual_manutencao_frota",
+        color="percentual_manutencao_frota",
+        color_continuous_scale=ESCALA_ALERTA,
+        category_orders={"operadora": ordem_operadoras},
+        title="MANUTENÇÃO X FROTA POR OPERADORA",
+        text="rotulo_manutencao",
+        custom_data=["quantidade_manutencao", "total_frota"],
+        labels={
+            "operadora": "Operadora",
+            "percentual_manutencao_frota": "% da frota em manutenção",
+        },
+    )
+    fig_operadora.update_xaxes(
+        categoryorder="array",
+        categoryarray=ordem_operadoras,
+        tickmode="array",
+        tickvals=ordem_operadoras,
+        ticktext=[_quebrar_rotulo_eixo(operadora) for operadora in ordem_operadoras],
+        tickangle=0,
+        automargin=True,
+    )
+    fig_operadora.update_yaxes(ticksuffix="%", rangemode="tozero")
+    fig_operadora.update_traces(
+        texttemplate="%{text}",
+        textposition="outside",
+        cliponaxis=False,
+        textfont={"color": _cor_texto_tema(), "size": FONTE_ROTULOS_DADOS},
+        hovertemplate=(
+            "Operadora=%{x}<br>"
+            "Qtd manutenção=%{customdata[0]:.0f}<br>"
+            "Frota total=%{customdata[1]:.0f}<br>"
+            "% manutenção/frota=%{y:.2f}%<extra></extra>"
+        ),
+    )
+
+    limite_y = max(5, manutencao_operadora["percentual_manutencao_frota"].max() * 1.25)
+    fig_operadora.update_yaxes(range=[0, limite_y])
+    fig_operadora.update_coloraxes(showscale=False)
+    fig_operadora = _estilizar_figura(fig_operadora)
+    fig_operadora.update_layout(margin={"b": 95}, showlegend=False)
+    st.plotly_chart(fig_operadora, use_container_width=True)
+
+
+def _render_equipamentos_operadora_chart(
+    df_equipamentos_operadora: pd.DataFrame | None,
+) -> None:
+    if df_equipamentos_operadora is None or df_equipamentos_operadora.empty:
+        st.info("Sem dados de manutenção por equipamento para os filtros selecionados.")
+        return
+
+    equipamentos_operadora = df_equipamentos_operadora.copy()
+    ordem_operadoras = (
+        equipamentos_operadora[["operadora", "total_operadora"]]
+        .drop_duplicates()
+        .sort_values("total_operadora", ascending=True)["operadora"]
+        .tolist()
+    )
+    ordem_equipamentos = (
+        equipamentos_operadora.groupby("equipamento")["quantidade_manutencao"]
+        .sum()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
+
+    fig_equipamentos = px.bar(
+        equipamentos_operadora,
+        x="quantidade_manutencao",
+        y="operadora",
+        color="equipamento",
+        orientation="h",
+        title="MANUTENÇÃO POR EQUIPAMENTO E OPERADORA",
+        text="quantidade_manutencao",
+        color_discrete_sequence=CORES_CATEGORICAS,
+        category_orders={
+            "operadora": ordem_operadoras,
+            "equipamento": ordem_equipamentos,
+        },
+        custom_data=["equipamento", "total_operadora"],
+        labels={
+            "operadora": "Operadora",
+            "equipamento": "Equipamento",
+            "quantidade_manutencao": "Quantidade em manutenção",
+        },
+    )
+    fig_equipamentos.update_yaxes(
+        categoryorder="array",
+        categoryarray=ordem_operadoras,
+        tickmode="array",
+        tickvals=ordem_operadoras,
+        ticktext=[
+            _quebrar_rotulo_eixo(operadora, largura=28, max_linhas=2)
+            for operadora in ordem_operadoras
+        ],
+        automargin=True,
+    )
+    fig_equipamentos.update_traces(
+        texttemplate="%{text:.0f}",
+        textposition="inside",
+        insidetextanchor="middle",
+        cliponaxis=False,
+        textfont={"color": "#FFFFFF", "size": FONTE_ROTULOS_DADOS_COMPACTO},
+        insidetextfont={"color": "#FFFFFF", "size": FONTE_ROTULOS_DADOS_COMPACTO},
+        hovertemplate=(
+            "Operadora=%{y}<br>"
+            "Equipamento=%{customdata[0]}<br>"
+            "Qtd manutenção=%{x:.0f}<br>"
+            "Total manutenção operadora=%{customdata[1]:.0f}<extra></extra>"
+        ),
+    )
+    altura = max(430, len(ordem_operadoras) * 58 + 180)
+    fig_equipamentos = _estilizar_figura(fig_equipamentos)
+    fig_equipamentos.update_layout(
+        barmode="stack",
+        height=altura,
+        margin={"l": 190, "b": 105},
+        legend={
+            "font": {"color": _cor_texto_tema()},
+            "orientation": "h",
+            "yanchor": "top",
+            "y": -0.16,
+            "xanchor": "center",
+            "x": 0.5,
+            "title": {"text": ""},
+        },
+    )
+    fig_equipamentos.update_xaxes(rangemode="tozero")
+    st.plotly_chart(fig_equipamentos, use_container_width=True)
+
+
+def render_analise_operadora_charts(
+    df_manutencao_operadora: pd.DataFrame,
+    df_equipamentos_operadora: pd.DataFrame,
+) -> None:
+    st.markdown(
+        '<div class="section-title">Análise por Operadora</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.container(border=True):
+        _render_manutencao_operadora_chart(df_manutencao_operadora)
+
+    st.write("")
+
+    with st.container(border=True):
+        _render_equipamentos_operadora_chart(df_equipamentos_operadora)
+
+
 def render_dashboard_charts(
     df_resumo: pd.DataFrame,
     df_evolucao_mensal: pd.DataFrame,
     df_manutencao_contrato: pd.DataFrame,
     df_equipamentos_contrato: pd.DataFrame,
     df_servicos_resumo: pd.DataFrame | None = None,
+    df_manutencao_operadora: pd.DataFrame | None = None,
 ) -> None:
     if df_evolucao_mensal.empty:
         st.info("Sem dados para os filtros selecionados.")
         return
 
-    col_top_1, col_top_2, col_top_3 = st.columns(3)
+    col_top_1, col_top_2 = st.columns(2)
 
     with col_top_1:
         with st.container(border=True):
@@ -192,41 +438,21 @@ def render_dashboard_charts(
                     usar_container=False,
                 )
 
-    with col_top_3:
+    col_manutencao_1, col_manutencao_2 = st.columns(2)
+
+    with col_manutencao_1:
         with st.container(border=True):
-            if df_manutencao_contrato.empty:
-                st.info(
-                    "Sem dados de manutenção por contrato para os filtros selecionados."
-                )
-            else:
-                manutencao_contrato = df_manutencao_contrato.sort_values(
-                    "quantidade_manutencao",
-                    ascending=False,
-                )
-                ordem_contratos = manutencao_contrato["contrato"].tolist()
-                fig_manutencao_contrato = px.bar(
-                    manutencao_contrato,
-                    x="contrato",
-                    y="quantidade_manutencao",
-                    color="contrato",
-                    color_discrete_sequence=CORES_CATEGORICAS,
-                    category_orders={"contrato": ordem_contratos},
-                    title="EQUIPAMENTOS EM MANUTENÇÃO POR CONTRATO",
-                    text="quantidade_manutencao",
-                    labels={
-                        "contrato": "Contrato",
-                        "quantidade_manutencao": "Quantidade em manutenção",
-                    },
-                )
-                fig_manutencao_contrato.update_xaxes(
-                    categoryorder="array",
-                    categoryarray=ordem_contratos,
-                )
-                _mostrar_rotulos_barras(fig_manutencao_contrato, "%{text:.0f}")
-                st.plotly_chart(
-                    _estilizar_figura(fig_manutencao_contrato),
-                    use_container_width=True,
-                )
+            _render_manutencao_por_categoria_chart(
+                df_manutencao_contrato,
+                "contrato",
+                "Contrato",
+                "EQUIPAMENTOS EM MANUTENÇÃO POR CONTRATO",
+                "Sem dados de manutenção por contrato para os filtros selecionados.",
+            )
+
+    with col_manutencao_2:
+        with st.container(border=True):
+            _render_manutencao_operadora_chart(df_manutencao_operadora)
 
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown(
@@ -271,6 +497,7 @@ def render_dashboard_charts(
                 },
                 texttemplate="%{text:.2f}%",
                 textposition="top center",
+                textfont={"color": _cor_texto_tema(), "size": FONTE_ROTULOS_DADOS},
                 cliponaxis=False,
                 hovertemplate=(
                     "Mes=%{x}<br>% Equipamentos=%{y:.2f}%<extra></extra>"

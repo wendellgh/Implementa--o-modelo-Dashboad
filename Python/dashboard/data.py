@@ -376,6 +376,105 @@ def montar_manutencao_por_contrato(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     return manutencao_contrato
 
 
+def montar_manutencao_por_operadora(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    colunas = [
+        "operadora",
+        "quantidade_manutencao",
+        "total_frota",
+        "percentual_manutencao_frota",
+    ]
+    if df_filtrado.empty:
+        return pd.DataFrame(columns=colunas)
+
+    df_aux = df_filtrado[df_filtrado["operadora"].ne("")].copy()
+    if df_aux.empty:
+        return pd.DataFrame(columns=colunas)
+
+    df_aux["qtd"] = pd.to_numeric(df_aux["qtd"], errors="coerce").fillna(0)
+    df_aux["frota"] = pd.to_numeric(df_aux["frota"], errors="coerce").fillna(0)
+
+    manutencao_operadora = (
+        df_aux.groupby("operadora", as_index=False)
+        .agg(
+            quantidade_manutencao=("qtd", "sum"),
+            total_frota=("frota", "sum"),
+        )
+        .sort_values("quantidade_manutencao", ascending=False)
+        .head(5)
+    )
+
+    manutencao_operadora["percentual_manutencao_frota"] = manutencao_operadora.apply(
+        lambda row: (
+            row["quantidade_manutencao"] / row["total_frota"] * 100
+            if row["total_frota"]
+            else 0.0
+        ),
+        axis=1,
+    )
+
+    manutencao_operadora["quantidade_manutencao"] = manutencao_operadora[
+        "quantidade_manutencao"
+    ].astype(int)
+    manutencao_operadora["total_frota"] = manutencao_operadora["total_frota"].astype(
+        int
+    )
+    manutencao_operadora["percentual_manutencao_frota"] = manutencao_operadora[
+        "percentual_manutencao_frota"
+    ].round(2)
+
+    return manutencao_operadora
+
+
+def montar_equipamentos_por_operadora(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    colunas = [
+        "operadora",
+        "equipamento",
+        "quantidade_manutencao",
+        "total_operadora",
+    ]
+    if df_filtrado.empty:
+        return pd.DataFrame(columns=colunas)
+
+    df_aux = df_filtrado[
+        df_filtrado["operadora"].ne("") & df_filtrado["equipamento"].ne("")
+    ].copy()
+    if df_aux.empty:
+        return pd.DataFrame(columns=colunas)
+
+    df_aux["qtd"] = pd.to_numeric(df_aux["qtd"], errors="coerce").fillna(0)
+    df_aux = df_aux[df_aux["qtd"].gt(0)]
+    if df_aux.empty:
+        return pd.DataFrame(columns=colunas)
+
+    equipamentos_operadora = (
+        df_aux.groupby(["operadora", "equipamento"], as_index=False)
+        .agg(quantidade_manutencao=("qtd", "sum"))
+    )
+    totais_operadora = (
+        equipamentos_operadora.groupby("operadora", as_index=False)
+        .agg(total_operadora=("quantidade_manutencao", "sum"))
+        .sort_values("total_operadora", ascending=False)
+        .head(10)
+    )
+    equipamentos_operadora = equipamentos_operadora.merge(
+        totais_operadora,
+        on="operadora",
+        how="inner",
+    ).sort_values(
+        ["total_operadora", "operadora", "quantidade_manutencao"],
+        ascending=[False, True, False],
+    )
+
+    equipamentos_operadora["quantidade_manutencao"] = equipamentos_operadora[
+        "quantidade_manutencao"
+    ].astype(int)
+    equipamentos_operadora["total_operadora"] = equipamentos_operadora[
+        "total_operadora"
+    ].astype(int)
+
+    return equipamentos_operadora[colunas]
+
+
 def montar_frota_contrato_por_mes(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     colunas = ["mes", "mes_label", "contrato", "quantidade_frota"]
     if df_filtrado.empty:

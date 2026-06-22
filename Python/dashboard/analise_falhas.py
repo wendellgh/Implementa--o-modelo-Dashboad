@@ -13,6 +13,7 @@ import plotly.express as px
 import streamlit as st
 
 from dashboard.auth import usuario_eh_admin
+from dashboard.pracas import enriquecer_dataframe_contratos, enriquecer_dataframe_pracas
 from dashboard.styles import tema_claro_ativo
 
 STATUS_COMPATIVEL = "Compatível"
@@ -59,6 +60,7 @@ ANO_DATA_MAXIMO = 2100
 
 FALHAS_MES_INICIO_KEY = "falhas_mes_inicio"
 FALHAS_MES_FIM_KEY = "falhas_mes_fim"
+FALHAS_COORDENACAO_KEY = "falhas_coordenacao"
 FALHAS_CONTRATO_KEY = "falhas_contrato"
 FALHAS_OPERADORA_KEY = "falhas_operadora"
 FALHAS_EQUIPAMENTO_KEY = "falhas_equipamento"
@@ -517,6 +519,7 @@ def montar_analise_falhas_por_os(
         "qtd_encontrados",
         "status_comparacao",
         "data",
+        "coordenacao",
         "contrato",
         "operadora",
         "contrato_operadora",
@@ -532,6 +535,35 @@ def montar_analise_falhas_por_os(
     datas_os = _converter_datas_destboad(df)
     contratos = _primeira_coluna_preenchida(df, ["NOME", "CONTRATO"])
     operadoras = _primeira_coluna_preenchida(df, ["OPERADORA", "NOME"])
+    pracas = _primeira_coluna_preenchida(df, ["A1_PRACA", "PRACA"])
+    coordenacoes = _primeira_coluna_preenchida(df, ["COORDENACAO", "COORDENAÇÃO"])
+
+    contexto_pracas = pd.DataFrame(
+        {
+            "praca": pracas,
+            "nome_praca": "",
+            "coordenacao": coordenacoes,
+        },
+        index=df.index,
+    )
+    contexto_pracas = enriquecer_dataframe_pracas(
+        contexto_pracas,
+        coluna_praca="praca",
+        coluna_nome_praca="nome_praca",
+        coluna_coordenacao="coordenacao",
+    )
+    contexto_contratos = enriquecer_dataframe_contratos(
+        pd.DataFrame({"contrato": contratos}, index=df.index),
+        coluna_contrato="contrato",
+        coluna_praca="praca",
+        coluna_nome_praca="nome_praca",
+        coluna_coordenacao="coordenacao",
+    )
+    coordenacoes = _serie_texto(contexto_pracas, "coordenacao").where(
+        _serie_texto(contexto_pracas, "coordenacao").ne(""),
+        _serie_texto(contexto_contratos, "coordenacao"),
+    )
+
     equipamentos = _primeira_coluna_preenchida(
         df,
         ["DESCRICAO", "SERIE_PRODUTO", "EQUIPAMENTO", "PRODUTO"],
@@ -547,6 +579,7 @@ def montar_analise_falhas_por_os(
         data_os,
         contrato,
         operadora,
+        coordenacao,
         equipamento,
         codigo_reclamado,
         motivo,
@@ -557,6 +590,7 @@ def montar_analise_falhas_por_os(
         datas_os,
         contratos,
         operadoras,
+        coordenacoes,
         equipamentos,
         codigos_reclamados,
         motivos,
@@ -571,6 +605,7 @@ def montar_analise_falhas_por_os(
             {
                 "contrato": "",
                 "operadora": "",
+                "coordenacao": "",
                 "equipamento": "",
                 "data": pd.NaT,
                 "reclamados": [],
@@ -582,6 +617,8 @@ def montar_analise_falhas_por_os(
             grupo["contrato"] = contrato
         if not grupo["operadora"] and operadora:
             grupo["operadora"] = operadora
+        if not grupo["coordenacao"] and coordenacao:
+            grupo["coordenacao"] = coordenacao
         if not grupo["equipamento"] and equipamento:
             grupo["equipamento"] = equipamento
 
@@ -605,6 +642,7 @@ def montar_analise_falhas_por_os(
         encontrados = _deduplicar_defeitos(grupo["encontrados"])
         contrato = _texto(grupo["contrato"])
         operadora = _texto(grupo["operadora"])
+        coordenacao = _texto(grupo["coordenacao"])
         linhas.append(
             {
                 "os": os_chave,
@@ -624,6 +662,7 @@ def montar_analise_falhas_por_os(
                     encontrados,
                 ),
                 "data": grupo["data"],
+                "coordenacao": coordenacao,
                 "contrato": contrato,
                 "operadora": operadora,
                 "contrato_operadora": (
@@ -1506,6 +1545,7 @@ def _limpar_filtros_analise_falhas() -> None:
     for chave in [
         FALHAS_MES_INICIO_KEY,
         FALHAS_MES_FIM_KEY,
+        FALHAS_COORDENACAO_KEY,
         FALHAS_CONTRATO_KEY,
         FALHAS_OPERADORA_KEY,
         FALHAS_EQUIPAMENTO_KEY,
@@ -1542,7 +1582,9 @@ def render_filtros_analise_falhas(df_os: pd.DataFrame) -> dict[str, object]:
         col_inicio, col_fim, col_os, col_equipamento = st.columns(
             [0.85, 0.85, 0.75, 1.4],
         )
-        col_contrato, col_status, col_busca = st.columns([1.25, 1.15, 1.55])
+        col_coordenacao, col_contrato, col_status, col_busca = st.columns(
+            [1.15, 1.25, 1.05, 1.45]
+        )
 
         with col_inicio:
             inicio_sessao = _normalizar_mes_sessao(
@@ -1580,10 +1622,14 @@ def render_filtros_analise_falhas(df_os: pd.DataFrame) -> dict[str, object]:
         contratos = sorted(
             [x for x in df_os["contrato"].dropna().unique().tolist() if x]
         )
+        coordenacoes = sorted(
+            [x for x in df_os["coordenacao"].dropna().unique().tolist() if x]
+        )
         equipamentos = sorted(
             [x for x in df_os["equipamento"].dropna().unique().tolist() if x]
         )
 
+        _normalizar_multiselect_sessao(FALHAS_COORDENACAO_KEY, coordenacoes)
         _normalizar_multiselect_sessao(FALHAS_CONTRATO_KEY, contratos)
         _normalizar_multiselect_sessao(FALHAS_EQUIPAMENTO_KEY, equipamentos)
         _normalizar_multiselect_sessao(FALHAS_STATUS_KEY, STATUS_ORDEM)
@@ -1600,6 +1646,13 @@ def render_filtros_analise_falhas(df_os: pd.DataFrame) -> dict[str, object]:
                 equipamentos,
                 placeholder="Selecione os equipamentos",
                 key=FALHAS_EQUIPAMENTO_KEY,
+            )
+        with col_coordenacao:
+            filtro_coordenacao = st.multiselect(
+                "Coordenação",
+                coordenacoes,
+                placeholder="Selecione as coordenações",
+                key=FALHAS_COORDENACAO_KEY,
             )
         with col_contrato:
             filtro_contrato = st.multiselect(
@@ -1627,6 +1680,7 @@ def render_filtros_analise_falhas(df_os: pd.DataFrame) -> dict[str, object]:
 
     return {
         "periodo": (inicio_mes, fim_mes),
+        "filtro_coordenacao": filtro_coordenacao,
         "filtro_contrato": filtro_contrato,
         "filtro_equipamento": filtro_equipamento,
         "filtro_status": filtro_status,
@@ -1647,6 +1701,10 @@ def aplicar_filtros_analise_falhas(
         fim = pd.to_datetime(periodo[1])
         datas = pd.to_datetime(filtrado["data"], errors="coerce")
         filtrado = filtrado[datas.between(inicio, fim, inclusive="both")]
+
+    filtro_coordenacao = filtros.get("filtro_coordenacao", [])
+    if filtro_coordenacao:
+        filtrado = filtrado[filtrado["coordenacao"].isin(filtro_coordenacao)]
 
     filtro_contrato = filtros.get("filtro_contrato", [])
     if filtro_contrato:
@@ -2125,6 +2183,7 @@ def _carregar_mock_analise_falhas() -> pd.DataFrame:
             "defeitos_encontrados_lista": ["Fonte queimada"],
             "status_comparacao": STATUS_PARCIAL,
             "data": "2026-01-25",
+            "coordenacao": "COORDENAÇÃO DEMO",
             "contrato": "Contrato Demo",
             "operadora": "Operadora Demo",
         },
@@ -2135,6 +2194,7 @@ def _carregar_mock_analise_falhas() -> pd.DataFrame:
             "defeitos_encontrados_lista": ["Display danificado"],
             "status_comparacao": STATUS_COMPATIVEL,
             "data": "2026-01-26",
+            "coordenacao": "COORDENAÇÃO DEMO",
             "contrato": "Contrato Demo",
             "operadora": "Operadora Demo",
         },
@@ -2145,6 +2205,7 @@ def _carregar_mock_analise_falhas() -> pd.DataFrame:
             "defeitos_encontrados_lista": ["Antena rompida", "Conector solto"],
             "status_comparacao": STATUS_PARCIAL,
             "data": "2026-01-29",
+            "coordenacao": "COORDENAÇÃO DEMO",
             "contrato": "Contrato Demo",
             "operadora": "Operadora Demo",
         },
@@ -2155,6 +2216,7 @@ def _carregar_mock_analise_falhas() -> pd.DataFrame:
             "defeitos_encontrados_lista": ["Placa leitora queimada"],
             "status_comparacao": STATUS_DIVERGENTE,
             "data": "2026-02-03",
+            "coordenacao": "COORDENAÇÃO DEMO",
             "contrato": "Contrato Demo",
             "operadora": "Operadora Demo",
         },

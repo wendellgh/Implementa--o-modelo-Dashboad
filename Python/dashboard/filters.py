@@ -41,6 +41,7 @@ FILTROS_ENCADEADOS = (
 MENU_ICONS = {
     "Dashboard": ":material/dashboard:",
     "Resumo": ":material/analytics:",
+    "Análise por Operadora": ":material/bar_chart:",
     "Tabela": ":material/table:",
     "Contando Frota - Teste": ":material/query_stats:",
     "Contando Frota.": ":material/query_stats:",
@@ -66,6 +67,7 @@ NAVIGATION_GROUPS = (
         (
             ("Resumo", "Dashboard"),
             ("Análise por equipamento", "Resumo"),
+            ("Análise por operadora", "Análise por Operadora"),
             ("Tabela", "Tabela"),
             ("Contando Frota", "Contando Frota - Teste"),
             ("Serviços executados", "Serviços Executados - Teste"),
@@ -85,6 +87,10 @@ def _obter_paginas_navegacao() -> list[str]:
     return list(dict.fromkeys(paginas))
 
 
+def _selecionar_pagina(pagina: str) -> None:
+    st.session_state[PAGINA_ATUAL_KEY] = pagina
+
+
 def _render_navegacao() -> str:
     paginas = _obter_paginas_navegacao()
     pagina_padrao = "Dashboard" if "Dashboard" in paginas else paginas[0]
@@ -95,7 +101,8 @@ def _render_navegacao() -> str:
     if pagina_atual == ORACLE_DESTBOAD_MENU_ITEM and not usuario_eh_admin():
         pagina_atual = "Dashboard" if "Dashboard" in paginas else paginas[0]
 
-    pagina_selecionada = pagina_atual
+    st.session_state[PAGINA_ATUAL_KEY] = pagina_atual
+
     for indice_grupo, (grupo, itens) in enumerate(NAVIGATION_GROUPS):
         paginas_grupo = [pagina for _, pagina in itens]
         with st.expander(grupo, expanded=pagina_atual in paginas_grupo):
@@ -103,20 +110,18 @@ def _render_navegacao() -> str:
                 oracle_bloqueado = (
                     pagina == ORACLE_DESTBOAD_MENU_ITEM and not usuario_eh_admin()
                 )
-                clicou = st.button(
+                st.button(
                     rotulo,
                     key=f"botao_pagina_{indice_grupo}_{indice_item}",
                     type="primary" if pagina == pagina_atual else "secondary",
                     icon=MENU_ICONS.get(pagina),
                     width="stretch",
                     disabled=oracle_bloqueado,
+                    on_click=_selecionar_pagina,
+                    args=(pagina,),
                 )
                 if oracle_bloqueado:
                     st.caption("Disponivel apenas para administradores.")
-                if clicou:
-                    pagina_selecionada = pagina
-
-    st.session_state[PAGINA_ATUAL_KEY] = pagina_selecionada
 
     return str(st.session_state[PAGINA_ATUAL_KEY])
 
@@ -234,9 +239,12 @@ def _render_usuario_logado() -> None:
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Sair", icon=":material/logout:", width="stretch"):
-        encerrar_sessao()
-        st.rerun()
+    st.button(
+        "Sair",
+        icon=":material/logout:",
+        width="stretch",
+        on_click=encerrar_sessao,
+    )
 
 
 def _formatar_mes(data_mes: pd.Timestamp) -> str:
