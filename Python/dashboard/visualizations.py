@@ -36,6 +36,11 @@ CORES_CATEGORICAS = [
     PALETA["terciaria"],
     PALETA["destaque_tecnico"],
 ]
+CORES_EQUIPAMENTOS = (
+    px.colors.qualitative.Dark24
+    + px.colors.qualitative.Light24
+    + px.colors.qualitative.Alphabet
+)
 FONTE_ROTULOS_DADOS = 16
 FONTE_ROTULOS_DADOS_COMPACTO = 14
 
@@ -119,6 +124,17 @@ def _formatar_mes_curto(data_mes: pd.Timestamp) -> str:
     }
     data_mes = pd.Timestamp(data_mes)
     return f"{meses_pt[data_mes.month]}/{data_mes:%y}"
+
+
+def _formatar_periodo_grafico(inicio: object, fim: object) -> str:
+    inicio = pd.to_datetime(inicio, errors="coerce")
+    fim = pd.to_datetime(fim, errors="coerce")
+
+    if pd.isna(inicio) or pd.isna(fim):
+        return "periodo nao identificado"
+    if inicio.to_period("M") == fim.to_period("M"):
+        return _formatar_mes_curto(inicio)
+    return f"{_formatar_mes_curto(inicio)} a {_formatar_mes_curto(fim)}"
 
 
 def _cor_percentual_frota(valor: float) -> str:
@@ -309,6 +325,17 @@ def _render_equipamentos_operadora_chart(
         .sort_values(ascending=False)
         .index.tolist()
     )
+    periodo_grafico = _formatar_periodo_grafico(
+        equipamentos_operadora["competencia_inicio"].min(),
+        equipamentos_operadora["competencia_fim"].max(),
+    )
+    equipamentos_operadora["periodo_segmento"] = equipamentos_operadora.apply(
+        lambda row: _formatar_periodo_grafico(
+            row["competencia_inicio"],
+            row["competencia_fim"],
+        ),
+        axis=1,
+    )
 
     fig_equipamentos = px.bar(
         equipamentos_operadora,
@@ -316,14 +343,17 @@ def _render_equipamentos_operadora_chart(
         y="operadora",
         color="equipamento",
         orientation="h",
-        title="MANUTENÇÃO POR EQUIPAMENTO E OPERADORA",
+        title=(
+            "MANUTENÇÃO POR EQUIPAMENTO E OPERADORA"
+            f" - {periodo_grafico} | base_historica_manutencao"
+        ),
         text="quantidade_manutencao",
-        color_discrete_sequence=CORES_CATEGORICAS,
+        color_discrete_sequence=CORES_EQUIPAMENTOS,
         category_orders={
             "operadora": ordem_operadoras,
             "equipamento": ordem_equipamentos,
         },
-        custom_data=["equipamento", "total_operadora"],
+        custom_data=["equipamento", "total_operadora", "periodo_segmento"],
         labels={
             "operadora": "Operadora",
             "equipamento": "Equipamento",
@@ -352,7 +382,9 @@ def _render_equipamentos_operadora_chart(
             "Operadora=%{y}<br>"
             "Equipamento=%{customdata[0]}<br>"
             "Qtd manutenção=%{x:.0f}<br>"
-            "Total manutenção operadora=%{customdata[1]:.0f}<extra></extra>"
+            "Total manutenção operadora=%{customdata[1]:.0f}<br>"
+            "Período=%{customdata[2]}<br>"
+            "Origem=base_historica_manutencao<extra></extra>"
         ),
     )
     altura = max(430, len(ordem_operadoras) * 58 + 180)
@@ -396,6 +428,7 @@ def render_analise_operadora_charts(
 def render_dashboard_charts(
     df_resumo: pd.DataFrame,
     df_evolucao_mensal: pd.DataFrame,
+    df_evolucao_mensal_periodo: pd.DataFrame,
     df_manutencao_contrato: pd.DataFrame,
     df_equipamentos_contrato: pd.DataFrame,
     df_servicos_resumo: pd.DataFrame | None = None,
@@ -453,6 +486,49 @@ def render_dashboard_charts(
     with col_manutencao_2:
         with st.container(border=True):
             _render_manutencao_operadora_chart(df_manutencao_operadora)
+
+    with st.container(border=True):
+        if df_evolucao_mensal_periodo.empty:
+            st.info("Sem dados mensais para o período selecionado.")
+        else:
+            manutencao_mensal = df_evolucao_mensal_periodo.sort_values("mes").copy()
+            manutencao_mensal["mes_label"] = manutencao_mensal["mes"].apply(
+                _formatar_mes_curto
+            )
+            ordem_meses_periodo = manutencao_mensal["mes_label"].tolist()
+            fig_mensal = px.bar(
+                manutencao_mensal,
+                x="mes_label",
+                y="total_qtd",
+                title="COMPORTAMENTO MENSAL DA MANUTENÇÃO NO PERÍODO FILTRADO",
+                text="total_qtd",
+                color="total_qtd",
+                color_continuous_scale=ESCALA_RANKING,
+                category_orders={"mes_label": ordem_meses_periodo},
+                labels={
+                    "mes_label": "Mês",
+                    "total_qtd": "Quantidade em manutenção",
+                    "total_frota": "Frota",
+                    "percentual_qtd_x_frota": "% da frota",
+                },
+                hover_data={
+                    "mes_label": False,
+                    "mes": "|%m/%Y",
+                    "total_qtd": ":.0f",
+                    "total_frota": ":.0f",
+                    "percentual_qtd_x_frota": ":.2f",
+                },
+            )
+            fig_mensal.update_xaxes(
+                type="category",
+                categoryorder="array",
+                categoryarray=ordem_meses_periodo,
+            )
+            _mostrar_rotulos_barras(fig_mensal, "%{text:.0f}")
+            fig_mensal.update_coloraxes(showscale=False)
+            limite_y_mensal = max(5, manutencao_mensal["total_qtd"].max() * 1.18)
+            fig_mensal.update_yaxes(range=[0, limite_y_mensal])
+            st.plotly_chart(_estilizar_figura(fig_mensal), use_container_width=True)
 
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown(

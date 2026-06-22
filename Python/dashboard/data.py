@@ -431,6 +431,8 @@ def montar_equipamentos_por_operadora(df_filtrado: pd.DataFrame) -> pd.DataFrame
         "equipamento",
         "quantidade_manutencao",
         "total_operadora",
+        "competencia_inicio",
+        "competencia_fim",
     ]
     if df_filtrado.empty:
         return pd.DataFrame(columns=colunas)
@@ -446,9 +448,18 @@ def montar_equipamentos_por_operadora(df_filtrado: pd.DataFrame) -> pd.DataFrame
     if df_aux.empty:
         return pd.DataFrame(columns=colunas)
 
+    df_aux["competencia"] = _obter_serie_competencia(df_aux)
+    df_aux = df_aux[df_aux["competencia"].notna()]
+    if df_aux.empty:
+        return pd.DataFrame(columns=colunas)
+
     equipamentos_operadora = (
         df_aux.groupby(["operadora", "equipamento"], as_index=False)
-        .agg(quantidade_manutencao=("qtd", "sum"))
+        .agg(
+            quantidade_manutencao=("qtd", "sum"),
+            competencia_inicio=("competencia", "min"),
+            competencia_fim=("competencia", "max"),
+        )
     )
     totais_operadora = (
         equipamentos_operadora.groupby("operadora", as_index=False)
@@ -526,29 +537,53 @@ def montar_frota_contrato_por_mes(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     return frota_contrato[colunas]
 
 
+def _evolucao_mensal_vazia(
+    meses_referencia: pd.DatetimeIndex | None = None,
+) -> pd.DataFrame:
+    colunas = ["mes", "total_qtd", "total_frota", "percentual_qtd_x_frota"]
+    if meses_referencia is None:
+        return pd.DataFrame(columns=colunas)
+
+    evolucao = pd.DataFrame({"mes": meses_referencia})
+    evolucao["total_qtd"] = 0
+    evolucao["total_frota"] = 0
+    evolucao["percentual_qtd_x_frota"] = 0.0
+    return evolucao[colunas]
+
+
 def montar_evolucao_mensal(
     df_filtrado: pd.DataFrame,
     limite_meses: int | None = None,
+    periodo: tuple[pd.Timestamp, pd.Timestamp] | None = None,
 ) -> pd.DataFrame:
+    meses_referencia = None
+    if isinstance(periodo, tuple) and len(periodo) == 2:
+        mes_inicial = pd.Timestamp(periodo[0]).to_period("M").to_timestamp()
+        mes_final = pd.Timestamp(periodo[1]).to_period("M").to_timestamp()
+        if mes_inicial <= mes_final:
+            meses_referencia = pd.date_range(mes_inicial, mes_final, freq="MS")
+
     if df_filtrado.empty:
-        return pd.DataFrame(
-            columns=["mes", "total_qtd", "total_frota", "percentual_qtd_x_frota"]
-        )
+        return _evolucao_mensal_vazia(meses_referencia)
 
     df_aux = df_filtrado.copy()
     df_aux["mes"] = _obter_serie_competencia(df_aux)
     df_aux = df_aux[df_aux["mes"].notna()]
     if df_aux.empty:
-        return pd.DataFrame(
-            columns=["mes", "total_qtd", "total_frota", "percentual_qtd_x_frota"]
-        )
+        return _evolucao_mensal_vazia(meses_referencia)
 
-    meses_referencia = None
-    if limite_meses is not None and limite_meses > 0:
+    if meses_referencia is not None:
+        df_aux = df_aux[
+            df_aux["mes"].between(meses_referencia.min(), meses_referencia.max())
+        ]
+    elif limite_meses is not None and limite_meses > 0:
         mes_final = df_aux["mes"].max()
         mes_inicial = mes_final - pd.DateOffset(months=limite_meses - 1)
         meses_referencia = pd.date_range(mes_inicial, mes_final, freq="MS")
         df_aux = df_aux[df_aux["mes"].between(mes_inicial, mes_final)]
+
+    if df_aux.empty:
+        return _evolucao_mensal_vazia(meses_referencia)
 
     evolucao = (
         df_aux.groupby("mes", as_index=False)

@@ -528,6 +528,10 @@ def main() -> None:
         df_filtrado_sem_periodo,
         limite_meses=12,
     )
+    evolucao_mensal_periodo = montar_evolucao_mensal(
+        df_filtrado,
+        periodo=filtros.get("periodo"),
+    )
     evolucao_tabela = montar_tabela_evolucao(df_filtrado)
     frota_contrato = montar_frota_contrato_por_mes(df_filtrado)
     manutencao_contrato = montar_manutencao_por_contrato(df_filtrado)
@@ -543,6 +547,7 @@ def main() -> None:
         render_dashboard_charts(
             resumo,
             evolucao_mensal_12_meses,
+            evolucao_mensal_periodo,
             manutencao_contrato,
             equipamentos_contrato,
             servicos_resumo_dashboard,
