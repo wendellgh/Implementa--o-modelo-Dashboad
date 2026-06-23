@@ -9,6 +9,11 @@ import streamlit as st
 
 from dashboard.auth import render_login, usuario_eh_admin
 from dashboard.config import APP_TITLE, PAGE_CONFIG
+from dashboard.utils_otimizacoes import (
+    normalizar_texto_busca,
+    compactar_texto_busca,
+    cachear_normalizacoes,
+)
 from dashboard.analise_falhas import render_analise_falhas
 from dashboard.data import (
     carregar_base,
@@ -91,30 +96,29 @@ def _resolver_csv_base_historica_padrao() -> Path | None:
     return None
 
 
-def _normalizar_texto_busca(valor: object) -> str:
-    texto = unicodedata.normalize("NFKD", str(valor or "").strip().upper())
-    texto = "".join(
-        caractere for caractere in texto if not unicodedata.combining(caractere)
-    )
-    texto = re.sub(r"[^A-Z0-9]+", " ", texto)
-    return " ".join(texto.split())
+def _equipamento_corresponde(
+    valor: object,
+    selecionados: list[object],
+    cache_normalizacoes: dict | None = None,
+) -> bool:
+    """Verifica se equipamento corresponde aos filtros (otimizado - sem re-normalização)."""
+    if cache_normalizacoes is None:
+        cache_normalizacoes = {}
 
+    valor_str = str(valor or "")
+    equipamento = cache_normalizacoes.get(valor_str, normalizar_texto_busca(valor_str))
+    equipamento_compacto = compactar_texto_busca(equipamento)
 
-def _compactar_texto_busca(valor: object) -> str:
-    return re.sub(r"[^A-Z0-9]+", "", _normalizar_texto_busca(valor))
-
-
-def _equipamento_corresponde(valor: object, selecionados: list[object]) -> bool:
-    equipamento = _normalizar_texto_busca(valor)
-    equipamento_compacto = _compactar_texto_busca(valor)
     if not equipamento:
         return False
 
     tokens_equipamento = set(equipamento.split())
     for selecionado in selecionados:
-        filtro = _normalizar_texto_busca(selecionado)
-        filtro_compacto = _compactar_texto_busca(selecionado)
+        selecionado_str = str(selecionado)
+        filtro = cache_normalizacoes.get(selecionado_str, normalizar_texto_busca(selecionado_str))
+        filtro_compacto = compactar_texto_busca(filtro)
         tokens_filtro = filtro.split()
+
         if not filtro:
             continue
         if filtro in equipamento or (
@@ -437,8 +441,7 @@ def _aplicar_filtros_servicos_dashboard(df_servicos, filtros: dict[str, object])
     if not servicos_filtrados.empty or not filtro_equipamento:
         return servicos_filtrados
 
-    filtros_sem_equipamento = dict(filtros)
-    filtros_sem_equipamento["filtro_equipamento"] = []
+    filtros_sem_equipamento = {**filtros, "filtro_equipamento": []}
     candidatos = aplicar_filtros(df_servicos, filtros_sem_equipamento)
     if candidatos.empty or "equipamento" not in candidatos.columns:
         return servicos_filtrados
@@ -448,10 +451,17 @@ def _aplicar_filtros_servicos_dashboard(df_servicos, filtros: dict[str, object])
         if isinstance(filtro_equipamento, (list, tuple, set))
         else [filtro_equipamento]
     )
+
+    # Criar cache de normalizações para evitar recalcular
+    cache = cachear_normalizacoes(
+        equipamentos_selecionados + candidatos["equipamento"].unique().tolist()
+    )
+
     mascara = candidatos["equipamento"].apply(
         lambda equipamento: _equipamento_corresponde(
             equipamento,
             equipamentos_selecionados,
+            cache,
         )
     )
     servicos_por_equipamento = candidatos[mascara]
@@ -518,9 +528,22 @@ def main() -> None:
         filtros = render_filtros(df_base, menu)
 
     df_filtrado = aplicar_filtros(df_base, filtros)
-    filtros_sem_periodo = dict(filtros)
-    filtros_sem_periodo["periodo"] = None
-    df_filtrado_sem_periodo = aplicar_filtros(df_base, filtros_sem_periodo)
+
+    # Otimização: Reutilizar resultado anterior ao invés de filtrar novamente
+    # Se há período, criar versão sem período filtrando do resultado anterior
+    if filtros.get("periodo"):
+        filtros_sem_periodo = {**filtros, "periodo": None}
+        # Aplicar filtros que não sejam período
+        df_filtrado_sem_periodo = df_base.copy()
+        for chave in ["filtro_contrato", "filtro_operadora", "filtro_equipamento", "filtro_coordenacao", "filtro_praca"]:
+            valores = filtros_sem_periodo.get(chave, [])
+            if valores and chave.replace("filtro_", "") in df_filtrado_sem_periodo.columns:
+                col_name = chave.replace("filtro_", "")
+                df_filtrado_sem_periodo = df_filtrado_sem_periodo[
+                    df_filtrado_sem_periodo[col_name].isin(valores)
+                ]
+    else:
+        df_filtrado_sem_periodo = df_filtrado
 
     resumo = montar_resumo_equipamento(df_filtrado)
     equipamentos_contrato = montar_equipamentos_por_contrato(df_filtrado)

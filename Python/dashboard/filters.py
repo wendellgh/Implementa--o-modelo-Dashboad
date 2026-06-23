@@ -13,6 +13,10 @@ from dashboard.styles import (
     TEMA_CLARO_ATIVO_KEY,
     tema_claro_ativo,
 )
+from dashboard.utils_otimizacoes import (
+    normalizar_coluna_texto,
+    formatar_mes,
+)
 
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
@@ -248,21 +252,8 @@ def _render_usuario_logado() -> None:
 
 
 def _formatar_mes(data_mes: pd.Timestamp) -> str:
-    meses_pt = {
-        1: "JANEIRO",
-        2: "FEVEREIRO",
-        3: "MARCO",
-        4: "ABRIL",
-        5: "MAIO",
-        6: "JUNHO",
-        7: "JULHO",
-        8: "AGOSTO",
-        9: "SETEMBRO",
-        10: "OUTUBRO",
-        11: "NOVEMBRO",
-        12: "DEZEMBRO",
-    }
-    return f"{meses_pt[data_mes.month]}/{data_mes:%y}"
+    """Formata mês em português (formato longo). Consolidado em utils_otimizacoes."""
+    return formatar_mes(data_mes, formato="longo")
 
 
 def _criar_opcoes_mensais(data_min: date, data_max: date) -> list[pd.Timestamp]:
@@ -350,16 +341,20 @@ def _opcoes_texto(df: pd.DataFrame, coluna: str) -> list[str]:
 
 
 def _rotulos_praca(df: pd.DataFrame) -> dict[str, str]:
+    """Cria dicionário de rótulos praça → nome_praca (otimizado - sem .iterrows)."""
     if "praca" not in df.columns:
         return {}
 
     if "nome_praca" not in df.columns:
         return {praca: praca for praca in _opcoes_texto(df, "praca")}
 
+    # Otimização: Vetorizado ao invés de .iterrows()
+    df_clean = df[["praca", "nome_praca"]].drop_duplicates().copy()
+    df_clean["praca"] = normalizar_coluna_texto(df_clean["praca"])
+    df_clean["nome_praca"] = normalizar_coluna_texto(df_clean["nome_praca"])
+
     rotulos: dict[str, str] = {}
-    for _, linha in df[["praca", "nome_praca"]].drop_duplicates().iterrows():
-        praca = str(linha["praca"] or "").strip()
-        nome_praca = str(linha["nome_praca"] or "").strip()
+    for praca, nome_praca in zip(df_clean["praca"], df_clean["nome_praca"]):
         if not praca:
             continue
         rotulos[praca] = (

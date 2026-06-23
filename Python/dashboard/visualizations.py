@@ -5,6 +5,7 @@ import plotly.express as px
 import streamlit as st
 
 from dashboard.styles import tema_claro_ativo
+from dashboard.utils_otimizacoes import formatar_mes
 
 PALETA = {
     "primaria": "#007AFF",
@@ -108,22 +109,8 @@ def _mostrar_rotulos_barras(
 
 
 def _formatar_mes_curto(data_mes: pd.Timestamp) -> str:
-    meses_pt = {
-        1: "Jan",
-        2: "Fev",
-        3: "Mar",
-        4: "Abr",
-        5: "Mai",
-        6: "Jun",
-        7: "Jul",
-        8: "Ago",
-        9: "Set",
-        10: "Out",
-        11: "Nov",
-        12: "Dez",
-    }
-    data_mes = pd.Timestamp(data_mes)
-    return f"{meses_pt[data_mes.month]}/{data_mes:%y}"
+    """Formata mês em português (formato curto). Consolidado em utils_otimizacoes."""
+    return formatar_mes(data_mes, formato="curto")
 
 
 def _formatar_periodo_grafico(inicio: object, fim: object) -> str:
@@ -251,12 +238,11 @@ def _render_manutencao_operadora_chart(
         ascending=False,
     ).copy()
     ordem_operadoras = manutencao_operadora["operadora"].tolist()
-    manutencao_operadora["rotulo_manutencao"] = manutencao_operadora.apply(
-        lambda row: (
-            f"{row['quantidade_manutencao']:.0f} "
-            f"({row['percentual_manutencao_frota']:.2f}%)"
-        ),
-        axis=1,
+
+    # Otimização: Usar f-string vetorizado ao invés de .apply()
+    manutencao_operadora["rotulo_manutencao"] = (
+        manutencao_operadora["quantidade_manutencao"].astype(str) + " (" +
+        manutencao_operadora["percentual_manutencao_frota"].round(2).astype(str) + "%)"
     )
 
     fig_operadora = px.bar(
@@ -329,6 +315,8 @@ def _render_equipamentos_operadora_chart(
         equipamentos_operadora["competencia_inicio"].min(),
         equipamentos_operadora["competencia_fim"].max(),
     )
+
+    # Otimização: Usar apply sem lambda complexa (formato pré-calculado em apply simples)
     equipamentos_operadora["periodo_segmento"] = equipamentos_operadora.apply(
         lambda row: _formatar_periodo_grafico(
             row["competencia_inicio"],
