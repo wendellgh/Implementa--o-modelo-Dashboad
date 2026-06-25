@@ -284,7 +284,8 @@ def main() -> int:
         print("")
         print(
             "Dry run: nada foi alterado. Para substituir tudo no Neon, use "
-            "--executar --substituir-tabelas-neon. Para acrescentar somente ausentes, "
+            "--executar --substituir-tabelas-neon."
+            " Para acrescentar somente ausentes, "
             "rode scripts\\append_missing_local_to_neon.py --adicionar-dados."
         )
         return 0

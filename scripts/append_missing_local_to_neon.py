@@ -12,6 +12,8 @@ from sqlalchemy.engine import Engine
 
 sys.path.append(str(Path(__file__).resolve().parent))
 
+NEON_DATABASE_URL = "postgresql://neondb_owner:npg_GfTjZ3CpS0Hy@ep-lively-water-acsdt1ns.sa-east-1.aws.neon.tech/neondb?sslmode=require"
+
 from migrate_local_to_neon import (  # noqa: E402
     DEFAULT_LOCAL_DATABASE_URL,
     TABLES,
