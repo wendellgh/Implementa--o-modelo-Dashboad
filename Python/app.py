@@ -3,6 +3,7 @@ import re
 import tempfile
 import unicodedata
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 
 import streamlit as st
@@ -166,6 +167,12 @@ def _parametros_modo_carga_servicos(modo_carga: str) -> tuple[bool, bool]:
     return substituir_tabela, substituir_periodos_csv
 
 
+def _formatar_data_br(data_valor: date | None) -> str:
+    if data_valor is None:
+        return "nao encontrada"
+    return data_valor.strftime("%d/%m/%Y")
+
+
 def render_consulta_destboad_oracle() -> None:
     st.subheader("Dados da Manutenção - Oracle")
 
@@ -178,6 +185,37 @@ def render_consulta_destboad_oracle() -> None:
     st.info(
         "Consultar Oracle salva os CSVs localmente. Para atualizar o dashboard, "
         "mantenha a carga no banco habilitada."
+    )
+
+    ultima_data_banco = None
+    try:
+        from Oracle.servicos_executados_pipeline import (
+            obter_ultima_data_servicos_executados,
+        )
+
+        ultima_data_banco = obter_ultima_data_servicos_executados()
+    except Exception as erro:
+        st.warning("Nao foi possivel conferir a ultima data do banco.")
+        st.caption(str(erro))
+
+    st.caption(
+        "Ultima data encontrada no banco: "
+        f"{_formatar_data_br(ultima_data_banco)}"
+    )
+
+    filtrar_por_abertura = st.checkbox(
+        "Filtrar consulta Oracle por ABERTURA_OS",
+        value=ultima_data_banco is not None,
+        help=(
+            "Quando ativo, a consulta busca no Oracle somente registros com "
+            "ABERTURA_OS maior ou igual a data informada."
+        ),
+    )
+    data_inicio_oracle = st.date_input(
+        "ABERTURA_OS a partir de",
+        value=ultima_data_banco or date.today(),
+        format="DD/MM/YYYY",
+        disabled=not filtrar_por_abertura,
     )
 
     carregar_apos_consulta = st.checkbox("Carregar no banco apos consultar", value=True)
@@ -208,7 +246,8 @@ def render_consulta_destboad_oracle() -> None:
                 transformar_destboad_em_servicos_executados,
             )
 
-            df_destboad = consultar_destboad_dataframe()
+            data_inicio = data_inicio_oracle if filtrar_por_abertura else None
+            df_destboad = consultar_destboad_dataframe(data_inicio=data_inicio)
 
             CSV_DESTBOAD_BRUTO.parent.mkdir(parents=True, exist_ok=True)
             df_destboad.to_csv(CSV_DESTBOAD_BRUTO, index=False, encoding="utf-8-sig")

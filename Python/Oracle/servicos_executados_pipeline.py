@@ -4,6 +4,7 @@ import argparse
 import sys
 from collections import Counter
 from collections.abc import Hashable
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -345,6 +346,78 @@ def normalizar_valor_chave(valor: object) -> Hashable | None:
     if hasattr(valor, "isoformat"):
         return valor.isoformat()
     return valor  # type: ignore[return-value]
+
+
+def _valor_para_date(valor: object) -> date | None:
+    if valor is None or pd.isna(valor):
+        return None
+    if isinstance(valor, datetime):
+        return valor.date()
+    if isinstance(valor, date):
+        return valor
+    convertido = pd.to_datetime(valor, errors="coerce")
+    if pd.isna(convertido):
+        return None
+    return convertido.date()
+
+
+def obter_ultima_data_servicos_executados() -> date | None:
+    from dashboard.database import get_engine
+
+    engine = get_engine()
+    tabela_sql = f"public.{quote_ident(TABELA_DESTINO)}"
+
+    with engine.connect() as conn:
+        tabela_existe = conn.execute(
+            text("SELECT to_regclass(:nome_tabela);"),
+            {"nome_tabela": f"public.{TABELA_DESTINO}"},
+        ).scalar()
+        if tabela_existe is None:
+            return None
+
+        colunas = set(
+            conn.execute(
+                text(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                      AND table_name = :tabela
+                    """
+                ),
+                {"tabela": TABELA_DESTINO},
+            ).scalars()
+        )
+
+        if "DATA" in colunas:
+            ultima_data = conn.execute(
+                text(
+                    f"""
+                    SELECT MAX(
+                        CASE
+                            WHEN "DATA" IS NULL THEN NULL
+                            WHEN trim("DATA"::text) ~ '^[0-9]{{2}}/[0-9]{{2}}/[0-9]{{4}}$'
+                                THEN to_date(trim("DATA"::text), 'DD/MM/YYYY')
+                            WHEN trim("DATA"::text) ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'
+                                THEN trim("DATA"::text)::date
+                            ELSE NULL
+                        END
+                    )
+                    FROM {tabela_sql}
+                    """
+                )
+            ).scalar()
+            ultima_data_convertida = _valor_para_date(ultima_data)
+            if ultima_data_convertida is not None:
+                return ultima_data_convertida
+
+        if "DATA_COMPETENCIA" in colunas:
+            ultima_data = conn.execute(
+                text(f'SELECT MAX("DATA_COMPETENCIA") FROM {tabela_sql}')
+            ).scalar()
+            return _valor_para_date(ultima_data)
+
+    return None
 
 
 def chave_linha(row: pd.Series, colunas: list[str]) -> tuple[Hashable | None, ...]:

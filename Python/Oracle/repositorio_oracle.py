@@ -1,10 +1,14 @@
 import json
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
 
 from Oracle.conexao_oracle import get_oracle_connection
-from Oracle.consultas_oracle import QUERY_DESTBOAD
+from Oracle.consultas_oracle import (
+    QUERY_DESTBOAD,
+    QUERY_DESTBOAD_COM_FILTRO_ABERTURA_OS,
+)
 
 ORACLE_DIR = Path(__file__).resolve().parent
 DEFAULT_DESTBOAD_CSV = ORACLE_DIR / "saida_oracle_destboad.csv"
@@ -56,13 +60,34 @@ def limpar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df_limpo
 
 
-def consultar_oracle_dataframe(sql: str) -> pd.DataFrame:
+def _normalizar_data_oracle(valor: date | datetime) -> str:
+    if isinstance(valor, datetime):
+        valor = valor.date()
+    return valor.strftime("%Y%m%d")
+
+
+def _montar_consulta_destboad(
+    data_inicio: date | datetime | None = None,
+) -> tuple[str, dict[str, object] | None]:
+    if data_inicio is None:
+        return QUERY_DESTBOAD, None
+
+    return (
+        QUERY_DESTBOAD_COM_FILTRO_ABERTURA_OS,
+        {"data_inicio": _normalizar_data_oracle(data_inicio)},
+    )
+
+
+def consultar_oracle_dataframe(
+    sql: str,
+    params: dict[str, object] | None = None,
+) -> pd.DataFrame:
     validar_select(sql)
 
     conexao = get_oracle_connection()
 
     try:
-        df = pd.read_sql(sql, conexao)
+        df = pd.read_sql(sql, conexao, params=params)
 
         if df.empty:
             return df
@@ -73,8 +98,11 @@ def consultar_oracle_dataframe(sql: str) -> pd.DataFrame:
         conexao.close()
 
 
-def consultar_oracle_json(sql: str) -> list[dict]:
-    df = consultar_oracle_dataframe(sql)
+def consultar_oracle_json(
+    sql: str,
+    params: dict[str, object] | None = None,
+) -> list[dict]:
+    df = consultar_oracle_dataframe(sql, params=params)
 
     if df.empty:
         return []
@@ -90,17 +118,26 @@ def consultar_oracle_json(sql: str) -> list[dict]:
     return [limpar_registro(item) for item in resultado]
 
 
-def consultar_destboad_json() -> list[dict]:
-    return consultar_oracle_json(QUERY_DESTBOAD)
+def consultar_destboad_json(
+    data_inicio: date | datetime | None = None,
+) -> list[dict]:
+    sql, params = _montar_consulta_destboad(data_inicio)
+    return consultar_oracle_json(sql, params=params)
 
 
-def consultar_destboad_dataframe() -> pd.DataFrame:
-    return consultar_oracle_dataframe(QUERY_DESTBOAD)
+def consultar_destboad_dataframe(
+    data_inicio: date | datetime | None = None,
+) -> pd.DataFrame:
+    sql, params = _montar_consulta_destboad(data_inicio)
+    return consultar_oracle_dataframe(sql, params=params)
 
 
-def gerar_destboad_csv(caminho_saida: str | Path | None = None) -> Path:
+def gerar_destboad_csv(
+    caminho_saida: str | Path | None = None,
+    data_inicio: date | datetime | None = None,
+) -> Path:
     caminho = Path(caminho_saida) if caminho_saida else DEFAULT_DESTBOAD_CSV
     caminho.parent.mkdir(parents=True, exist_ok=True)
-    df = consultar_destboad_dataframe()
+    df = consultar_destboad_dataframe(data_inicio=data_inicio)
     df.to_csv(caminho, index=False, encoding="utf-8-sig")
     return caminho
