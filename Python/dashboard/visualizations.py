@@ -44,6 +44,16 @@ CORES_EQUIPAMENTOS = (
 )
 FONTE_ROTULOS_DADOS = 16
 FONTE_ROTULOS_DADOS_COMPACTO = 14
+DRILL_COL_CONTRATO = "contrato"
+DRILL_COL_EQUIPAMENTO = "equipamento"
+DRILL_COL_SERVICO_EXECUTADO = "servico_executado"
+DRILL_COL_QTD_SERVICO_EXECUTADO = "qtd_servico"
+DRILL_NIVEL_KEY = "drill_down_nivel"
+DRILL_CONTRATO_KEY = "drill_down_contrato"
+DRILL_EQUIPAMENTO_KEY = "drill_down_equipamento"
+DRILL_NIVEL_CONTRATOS = 1
+DRILL_NIVEL_EQUIPAMENTOS = 2
+DRILL_NIVEL_SERVICOS = 3
 
 
 def _tema_claro() -> bool:
@@ -175,6 +185,335 @@ def _quebrar_rotulo_eixo(
         linhas[-1] = f"{linhas[-1][: max(0, largura - 3)].rstrip()}..."
 
     return "<br>".join(linhas)
+
+
+def _inicializar_estado_drill_down() -> None:
+    st.session_state.setdefault(DRILL_NIVEL_KEY, DRILL_NIVEL_CONTRATOS)
+    st.session_state.setdefault(DRILL_CONTRATO_KEY, None)
+    st.session_state.setdefault(DRILL_EQUIPAMENTO_KEY, None)
+
+
+def _reiniciar_drill_down() -> None:
+    st.session_state[DRILL_NIVEL_KEY] = DRILL_NIVEL_CONTRATOS
+    st.session_state[DRILL_CONTRATO_KEY] = None
+    st.session_state[DRILL_EQUIPAMENTO_KEY] = None
+
+
+def _voltar_drill_down() -> None:
+    nivel_atual = st.session_state.get(DRILL_NIVEL_KEY, DRILL_NIVEL_CONTRATOS)
+
+    if nivel_atual == DRILL_NIVEL_SERVICOS:
+        st.session_state[DRILL_NIVEL_KEY] = DRILL_NIVEL_EQUIPAMENTOS
+        st.session_state[DRILL_EQUIPAMENTO_KEY] = None
+    elif nivel_atual == DRILL_NIVEL_EQUIPAMENTOS:
+        _reiniciar_drill_down()
+
+
+def _validar_colunas_drill_down(df: pd.DataFrame) -> bool:
+    colunas_obrigatorias = [
+        DRILL_COL_CONTRATO,
+        DRILL_COL_EQUIPAMENTO,
+        DRILL_COL_SERVICO_EXECUTADO,
+        DRILL_COL_QTD_SERVICO_EXECUTADO,
+    ]
+    colunas_ausentes = [coluna for coluna in colunas_obrigatorias if coluna not in df.columns]
+
+    if colunas_ausentes:
+        st.warning(
+            "Não foi possível renderizar o drill down. "
+            f"Colunas ausentes: {', '.join(colunas_ausentes)}."
+        )
+        st.caption(
+            "Ajuste as constantes DRILL_COL_* em dashboard/visualizations.py "
+            "caso os nomes das colunas mudem."
+        )
+        return False
+
+    return True
+
+
+def _preparar_dataframe_drill_down(df: pd.DataFrame) -> pd.DataFrame:
+    df_drill = df.copy()
+
+    for coluna in [
+        DRILL_COL_CONTRATO,
+        DRILL_COL_EQUIPAMENTO,
+        DRILL_COL_SERVICO_EXECUTADO,
+    ]:
+        df_drill[coluna] = df_drill[coluna].fillna("").astype(str).str.strip()
+
+    df_drill[DRILL_COL_QTD_SERVICO_EXECUTADO] = pd.to_numeric(
+        df_drill[DRILL_COL_QTD_SERVICO_EXECUTADO],
+        errors="coerce",
+    ).fillna(0)
+
+    return df_drill
+
+
+def _sincronizar_estado_drill_down(df: pd.DataFrame) -> None:
+    contrato = st.session_state.get(DRILL_CONTRATO_KEY)
+    equipamento = st.session_state.get(DRILL_EQUIPAMENTO_KEY)
+
+    if contrato and contrato not in set(df[DRILL_COL_CONTRATO].dropna().astype(str)):
+        _reiniciar_drill_down()
+        return
+
+    if not contrato:
+        st.session_state[DRILL_NIVEL_KEY] = DRILL_NIVEL_CONTRATOS
+        st.session_state[DRILL_EQUIPAMENTO_KEY] = None
+        return
+
+    df_contrato = df[df[DRILL_COL_CONTRATO].eq(contrato)]
+    if equipamento and equipamento not in set(
+        df_contrato[DRILL_COL_EQUIPAMENTO].dropna().astype(str)
+    ):
+        st.session_state[DRILL_NIVEL_KEY] = DRILL_NIVEL_EQUIPAMENTOS
+        st.session_state[DRILL_EQUIPAMENTO_KEY] = None
+
+
+def _agrupar_drill_down(df: pd.DataFrame, coluna_grupo: str) -> pd.DataFrame:
+    resumo = (
+        df[df[coluna_grupo].fillna("").astype(str).str.strip().ne("")]
+        .groupby(coluna_grupo, as_index=False)
+        .agg(quantidade=(DRILL_COL_QTD_SERVICO_EXECUTADO, "sum"))
+        .sort_values("quantidade", ascending=False)
+    )
+    resumo["quantidade"] = resumo["quantidade"].round(0).astype(int)
+    return resumo
+
+
+def _obter_valor_selecionado(evento_plotly: object) -> str | None:
+    selecao = getattr(evento_plotly, "selection", None)
+    if not selecao and isinstance(evento_plotly, dict):
+        selecao = evento_plotly.get("selection")
+
+    pontos = getattr(selecao, "points", None)
+    if pontos is None and isinstance(selecao, dict):
+        pontos = selecao.get("points")
+    if not pontos:
+        return None
+
+    ponto = pontos[0]
+    customdata = (
+        ponto.get("customdata")
+        if isinstance(ponto, dict)
+        else getattr(ponto, "customdata", None)
+    )
+    if isinstance(customdata, (list, tuple)) and customdata:
+        return str(customdata[0])
+    if customdata is not None:
+        return str(customdata)
+
+    for chave in ["x", "y", "label"]:
+        valor = ponto.get(chave) if isinstance(ponto, dict) else getattr(ponto, chave, None)
+        if valor is not None:
+            return str(valor)
+
+    return None
+
+
+def _render_grafico_drill_down(
+    resumo: pd.DataFrame,
+    coluna_categoria: str,
+    titulo: str,
+    rotulo_categoria: str,
+    chave: str,
+    orientacao: str = "v",
+) -> object:
+    if resumo.empty:
+        st.info("Sem dados para os filtros selecionados neste nível.")
+        return None
+
+    if orientacao == "h":
+        dados = resumo.sort_values("quantidade", ascending=True)
+        fig = px.bar(
+            dados,
+            x="quantidade",
+            y=coluna_categoria,
+            orientation="h",
+            title=titulo,
+            text="quantidade",
+            color="quantidade",
+            color_continuous_scale=ESCALA_RANKING,
+            custom_data=[coluna_categoria],
+            labels={
+                coluna_categoria: rotulo_categoria,
+                "quantidade": "Quantidade",
+            },
+        )
+        fig.update_yaxes(
+            ticktext=[
+                _quebrar_rotulo_eixo(categoria, largura=34, max_linhas=2)
+                for categoria in dados[coluna_categoria].tolist()
+            ],
+            tickvals=dados[coluna_categoria].tolist(),
+            automargin=True,
+        )
+        fig.update_layout(height=max(430, len(dados) * 42 + 170), margin={"l": 180})
+    else:
+        dados = resumo
+        ordem_categorias = dados[coluna_categoria].tolist()
+        fig = px.bar(
+            dados,
+            x=coluna_categoria,
+            y="quantidade",
+            title=titulo,
+            text="quantidade",
+            color="quantidade",
+            color_continuous_scale=ESCALA_RANKING,
+            category_orders={coluna_categoria: ordem_categorias},
+            custom_data=[coluna_categoria],
+            labels={
+                coluna_categoria: rotulo_categoria,
+                "quantidade": "Quantidade",
+            },
+        )
+        fig.update_xaxes(
+            categoryorder="array",
+            categoryarray=ordem_categorias,
+            tickmode="array",
+            tickvals=ordem_categorias,
+            ticktext=[
+                _quebrar_rotulo_eixo(categoria, largura=18, max_linhas=3)
+                for categoria in ordem_categorias
+            ],
+            tickangle=0,
+            automargin=True,
+        )
+        fig.update_yaxes(rangemode="tozero")
+        fig.update_layout(height=max(430, min(760, len(dados) * 28 + 320)), margin={"b": 100})
+
+    _mostrar_rotulos_barras(fig, "%{text:.0f}", font_size=15, uniform_min_size=12)
+    fig.update_coloraxes(showscale=False)
+    fig = _estilizar_figura(fig)
+    quantidade_hover = "%{x:.0f}" if orientacao == "h" else "%{y:.0f}"
+    fig.update_traces(
+        hovertemplate=(
+            f"{rotulo_categoria}=%{{customdata[0]}}<br>"
+            f"Quantidade={quantidade_hover}<extra></extra>"
+        )
+    )
+
+    return st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key=chave,
+        on_select="rerun",
+        selection_mode="points",
+    )
+
+
+def _render_tabela_drill_down(df: pd.DataFrame) -> None:
+    df_view = df.copy()
+    for coluna in ["data_ref", "data_competencia"]:
+        if coluna in df_view.columns:
+            df_view[coluna] = pd.to_datetime(df_view[coluna], errors="coerce").dt.strftime(
+                "%Y-%m-%d"
+            )
+
+    if "data_ref" in df_view.columns:
+        df_view = df_view.sort_values("data_ref", ascending=False)
+
+    st.subheader("Dados filtrados")
+    st.dataframe(df_view, use_container_width=True, hide_index=True)
+
+
+def render_drill_down(df: pd.DataFrame) -> None:
+    _inicializar_estado_drill_down()
+
+    if df.empty:
+        st.info("Sem serviços executados para os filtros selecionados.")
+        return
+    if not _validar_colunas_drill_down(df):
+        return
+
+    df_drill = _preparar_dataframe_drill_down(df)
+    _sincronizar_estado_drill_down(df_drill)
+
+    nivel = st.session_state.get(DRILL_NIVEL_KEY, DRILL_NIVEL_CONTRATOS)
+    contrato = st.session_state.get(DRILL_CONTRATO_KEY)
+    equipamento = st.session_state.get(DRILL_EQUIPAMENTO_KEY)
+
+    with st.container(border=True):
+        col_titulo, col_voltar, col_reiniciar = st.columns([5, 1, 1.4])
+        with col_titulo:
+            st.subheader("Drill Down de Serviços Executados")
+            caminho = ["Contratos"]
+            if contrato:
+                caminho.append(str(contrato))
+            if equipamento:
+                caminho.append(str(equipamento))
+            st.caption(" > ".join(caminho))
+        with col_voltar:
+            st.button(
+                "⬅ Voltar",
+                disabled=nivel == DRILL_NIVEL_CONTRATOS,
+                on_click=_voltar_drill_down,
+                use_container_width=True,
+            )
+        with col_reiniciar:
+            st.button(
+                "🔄 Reiniciar Drill Down",
+                on_click=_reiniciar_drill_down,
+                use_container_width=True,
+            )
+
+        if nivel == DRILL_NIVEL_CONTRATOS:
+            resumo = _agrupar_drill_down(df_drill, DRILL_COL_CONTRATO)
+            evento = _render_grafico_drill_down(
+                resumo,
+                DRILL_COL_CONTRATO,
+                "Nível 1: Contrato / Filial",
+                "Contrato",
+                "drill_down_contratos_chart",
+            )
+            contrato_selecionado = _obter_valor_selecionado(evento)
+            if contrato_selecionado:
+                st.session_state[DRILL_CONTRATO_KEY] = contrato_selecionado
+                st.session_state[DRILL_EQUIPAMENTO_KEY] = None
+                st.session_state[DRILL_NIVEL_KEY] = DRILL_NIVEL_EQUIPAMENTOS
+                st.rerun()
+            return
+
+        if nivel == DRILL_NIVEL_EQUIPAMENTOS:
+            if not contrato:
+                _reiniciar_drill_down()
+                st.rerun()
+
+            df_contrato = df_drill[df_drill[DRILL_COL_CONTRATO].eq(contrato)]
+            resumo = _agrupar_drill_down(df_contrato, DRILL_COL_EQUIPAMENTO)
+            evento = _render_grafico_drill_down(
+                resumo,
+                DRILL_COL_EQUIPAMENTO,
+                f"Nível 2: Equipamentos - {contrato}",
+                "Equipamento",
+                "drill_down_equipamentos_chart",
+            )
+            equipamento_selecionado = _obter_valor_selecionado(evento)
+            if equipamento_selecionado:
+                st.session_state[DRILL_EQUIPAMENTO_KEY] = equipamento_selecionado
+                st.session_state[DRILL_NIVEL_KEY] = DRILL_NIVEL_SERVICOS
+                st.rerun()
+            return
+
+        if not contrato or not equipamento:
+            _reiniciar_drill_down()
+            st.rerun()
+
+        df_servicos = df_drill[
+            df_drill[DRILL_COL_CONTRATO].eq(contrato)
+            & df_drill[DRILL_COL_EQUIPAMENTO].eq(equipamento)
+        ]
+        resumo = _agrupar_drill_down(df_servicos, DRILL_COL_SERVICO_EXECUTADO)
+        _render_grafico_drill_down(
+            resumo,
+            DRILL_COL_SERVICO_EXECUTADO,
+            f"Nível 3: Serviços Executados - {equipamento}",
+            "Serviço Executado",
+            "drill_down_servicos_chart",
+            orientacao="h",
+        )
+        _render_tabela_drill_down(df_servicos)
 
 
 def _render_manutencao_por_categoria_chart(

@@ -40,7 +40,6 @@ from dashboard.metrics import (
 )
 from dashboard.styles import aplicar_estilos_globais, render_titulo_principal
 from dashboard.tables import (
-    render_servicos_executados,
     render_tabela_detalhe,
     render_tabela_evolucao,
     render_tabela_resumo,
@@ -48,9 +47,9 @@ from dashboard.tables import (
 from dashboard.visualizations import (
     render_analise_operadora_charts,
     render_dashboard_charts,
+    render_drill_down,
     render_frota_contrato_chart,
     render_resumo_chart,
-    render_servicos_executados_chart,
 )
 
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
@@ -632,13 +631,11 @@ def main() -> None:
             st.stop()
 
         servicos_filtrados = aplicar_filtros(df_servicos, filtros)
-        servicos_resumo = montar_servicos_executados_por_tipo(servicos_filtrados)
         total_servicos = int(servicos_filtrados["qtd_servico"].sum())
         with total_servicos_area:
             render_total_servicos_executados(total_servicos)
         st.write("")
-        render_servicos_executados_chart(servicos_resumo)
-        render_servicos_executados(servicos_filtrados)
+        render_drill_down(servicos_filtrados)
     else:
         render_tabela_evolucao(evolucao_tabela)
         render_tabela_detalhe(df_filtrado)
