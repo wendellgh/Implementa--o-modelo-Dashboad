@@ -262,12 +262,14 @@ def _criar_opcoes_mensais(data_min: date, data_max: date) -> list[pd.Timestamp]:
     return list(pd.date_range(mes_min, mes_max, freq="MS"))
 
 
-def _obter_periodo_padrao(meses: list[pd.Timestamp]) -> tuple[pd.Timestamp, pd.Timestamp]:
-    mes_anterior = (
-        pd.Timestamp(date.today()).to_period("M").to_timestamp()
-        - pd.DateOffset(months=1)
-    )
-    mes_padrao = next((mes for mes in reversed(meses) if mes <= mes_anterior), None)
+def _obter_periodo_padrao(
+    meses: list[pd.Timestamp],
+    *,
+    usar_mes_atual: bool = False,
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    mes_atual = pd.Timestamp(date.today()).to_period("M").to_timestamp()
+    mes_limite = mes_atual if usar_mes_atual else mes_atual - pd.DateOffset(months=1)
+    mes_padrao = next((mes for mes in reversed(meses) if mes <= mes_limite), None)
     if mes_padrao is None:
         mes_padrao = meses[0]
 
@@ -531,7 +533,10 @@ def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
         data_max = data_valida.max().date()
 
     meses_disponiveis = _criar_opcoes_mensais(data_min, data_max)
-    periodo_padrao = _obter_periodo_padrao(meses_disponiveis)
+    periodo_padrao = _obter_periodo_padrao(
+        meses_disponiveis,
+        usar_mes_atual=_eh_pagina_servicos_executados(menu),
+    )
 
     with st.container(border=True):
         st.markdown(

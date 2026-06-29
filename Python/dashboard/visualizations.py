@@ -324,6 +324,12 @@ def _render_grafico_drill_down(
         st.info("Sem dados para os filtros selecionados neste nível.")
         return None
 
+    categorias = resumo[coluna_categoria].fillna("").astype(str)
+    if orientacao == "v" and (
+        len(resumo) > 18 or categorias.map(len).max() > 22
+    ):
+        orientacao = "h"
+
     if orientacao == "h":
         dados = resumo.sort_values("quantidade", ascending=True)
         fig = px.bar(
@@ -343,13 +349,17 @@ def _render_grafico_drill_down(
         )
         fig.update_yaxes(
             ticktext=[
-                _quebrar_rotulo_eixo(categoria, largura=34, max_linhas=2)
+                _quebrar_rotulo_eixo(categoria, largura=38, max_linhas=2)
                 for categoria in dados[coluna_categoria].tolist()
             ],
             tickvals=dados[coluna_categoria].tolist(),
             automargin=True,
         )
-        fig.update_layout(height=max(430, len(dados) * 42 + 170), margin={"l": 180})
+        fig.update_xaxes(rangemode="tozero")
+        fig.update_layout(
+            height=max(520, min(1500, len(dados) * 30 + 220)),
+            margin={"l": 230, "r": 30, "t": 70, "b": 60},
+        )
     else:
         dados = resumo
         ordem_categorias = dados[coluna_categoria].tolist()
