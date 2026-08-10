@@ -8,6 +8,7 @@ from sqlalchemy import text
 from dashboard.database import get_engine
 
 TABELA_MANUTENCAO_FILIAL_TESTE = "base_historica_manutencao_filial_teste"
+TABELA_SERVICOS_EXECUTADOS = "servicos_executados"
 ORACLE_DIR = Path(__file__).resolve().parents[1] / "Oracle"
 LISTA_DEFEITOS_RECLAMADOS_PATH = ORACLE_DIR / "LISTA DRs.csv"
 LISTA_DEFEITOS_ENCONTRADOS_PATH = ORACLE_DIR / "LISTA_DEs.csv"
@@ -61,6 +62,71 @@ CHECKBOX_INPUT_KEYS = [
     CAMPO_CADASTRAR_NOVO_EQUIPAMENTO,
 ]
 
+COLUNAS_COMPARACAO = [
+    "competencia",
+    "contrato",
+    "operadora",
+    "qtd_manutencoes",
+    "qtd_servicos",
+    "diferenca",
+    "status",
+]
+
+COMPARACAO_MANUTENCAO_SERVICOS_SQL = text("""
+    with manutencao as (
+        select
+            date_trunc(
+                'month',
+                coalesce(data_competencia, data_ref)
+            )::date as competencia,
+            lower(trim(contrato)) as chave_contrato,
+            lower(trim(operadora)) as chave_operadora,
+            max(trim(contrato)) as contrato,
+            max(trim(operadora)) as operadora,
+            count(*) as registros_manutencao,
+            sum(coalesce(qtd, 0)) as qtd_manutencoes
+        from public.base_historica_manutencao_filial_teste
+        where coalesce(data_competencia, data_ref) is not null
+          and coalesce(trim(contrato), '') <> ''
+          and coalesce(trim(operadora), '') <> ''
+        group by 1, 2, 3
+    ),
+    servicos as (
+        select
+            "DATA_COMPETENCIA" as competencia,
+            lower(trim("CONTRATO")) as chave_contrato,
+            lower(trim("OPERADORA")) as chave_operadora,
+            count(*) as registros_servicos,
+            sum(
+                case
+                    when replace(trim(coalesce("QTD_SERVICO", '')), ',', '.')
+                         ~ '^[+-]?[0-9]+([.][0-9]+)?$'
+                    then replace(trim("QTD_SERVICO"), ',', '.')::numeric
+                    else 0
+                end
+            ) as qtd_servicos
+        from public.servicos_executados
+        where "DATA_COMPETENCIA" is not null
+          and coalesce(trim("CONTRATO"), '') <> ''
+          and coalesce(trim("OPERADORA"), '') <> ''
+        group by 1, 2, 3
+    )
+    select
+        manutencao.competencia,
+        manutencao.contrato,
+        manutencao.operadora,
+        manutencao.registros_manutencao,
+        manutencao.qtd_manutencoes,
+        coalesce(servicos.registros_servicos, 0) as registros_servicos,
+        coalesce(servicos.qtd_servicos, 0) as qtd_servicos
+    from manutencao
+    left join servicos
+      on servicos.competencia = manutencao.competencia
+     and servicos.chave_contrato = manutencao.chave_contrato
+     and servicos.chave_operadora = manutencao.chave_operadora
+    order by manutencao.competencia desc, manutencao.contrato, manutencao.operadora
+    """)
+
 
 def _opcoes_unicas(df: pd.DataFrame, coluna: str) -> list[str]:
     if coluna not in df.columns or df.empty:
@@ -97,6 +163,147 @@ def _serie_texto(df: pd.DataFrame, coluna: str) -> pd.Series:
         return pd.Series("", index=df.index, dtype="object")
 
     return df[coluna].fillna("").astype(str).str.strip()
+
+
+def _comparacao_vazia() -> pd.DataFrame:
+    return pd.DataFrame(columns=COLUNAS_COMPARACAO)
+
+
+def _preparar_comparacao_manutencao_servicos(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return _comparacao_vazia()
+
+    comparacao = df.copy()
+    comparacao["competencia"] = pd.to_datetime(
+        comparacao["competencia"],
+        errors="coerce",
+    )
+    for coluna in [
+        "registros_manutencao",
+        "qtd_manutencoes",
+        "registros_servicos",
+        "qtd_servicos",
+    ]:
+        comparacao[coluna] = (
+            pd.to_numeric(comparacao[coluna], errors="coerce")
+            .fillna(0)
+            .round()
+            .astype("Int64")
+        )
+
+    comparacao["diferenca"] = (
+        comparacao["qtd_servicos"] - comparacao["qtd_manutencoes"]
+    )
+    possui_correspondencia = comparacao["registros_servicos"].gt(0)
+    quantidades_iguais = comparacao["qtd_servicos"].eq(
+        comparacao["qtd_manutencoes"]
+    )
+
+    comparacao["status"] = "Sem correspondência"
+    comparacao.loc[
+        possui_correspondencia & quantidades_iguais,
+        "status",
+    ] = "Quantidades iguais"
+    comparacao.loc[
+        possui_correspondencia & ~quantidades_iguais,
+        "status",
+    ] = "Quantidades diferentes"
+
+    return comparacao[COLUNAS_COMPARACAO].reset_index(drop=True)
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def carregar_comparacao_manutencao_servicos() -> pd.DataFrame:
+    tabelas_necessarias = {
+        TABELA_MANUTENCAO_FILIAL_TESTE,
+        TABELA_SERVICOS_EXECUTADOS,
+    }
+
+    with get_engine().connect() as conn:
+        tabelas_existentes = set(
+            conn.execute(
+                text("""
+                    select table_name
+                    from information_schema.tables
+                    where table_schema = 'public'
+                      and table_name in (
+                          :tabela_manutencao,
+                          :tabela_servicos
+                      )
+                    """),
+                {
+                    "tabela_manutencao": TABELA_MANUTENCAO_FILIAL_TESTE,
+                    "tabela_servicos": TABELA_SERVICOS_EXECUTADOS,
+                },
+            ).scalars()
+        )
+        if not tabelas_necessarias.issubset(tabelas_existentes):
+            return _comparacao_vazia()
+
+        comparacao = pd.read_sql(COMPARACAO_MANUTENCAO_SERVICOS_SQL, conn)
+
+    return _preparar_comparacao_manutencao_servicos(comparacao)
+
+
+def _render_comparacao_manutencao_servicos() -> None:
+    with st.expander("Comparação com serviços executados", expanded=True):
+        st.caption(
+            "Comparação mensal por contrato e operadora. O equipamento não entra "
+            "na chave porque as duas tabelas usam cadastros de equipamento diferentes."
+        )
+
+        try:
+            comparacao = carregar_comparacao_manutencao_servicos()
+        except Exception as error:
+            st.warning("Não foi possível carregar a comparação entre as tabelas.")
+            st.caption(str(error))
+            return
+
+        if comparacao.empty:
+            st.info(
+                "Ainda não há lançamentos na base de manutenção filial para comparar."
+            )
+            return
+
+        quantidade_manutencoes = int(comparacao["qtd_manutencoes"].sum())
+        quantidade_servicos = int(comparacao["qtd_servicos"].sum())
+        grupos_encontrados = int(comparacao["status"].ne("Sem correspondência").sum())
+
+        col_manutencoes, col_servicos, col_encontrados = st.columns(3)
+        col_manutencoes.metric("Manutenções na filial", quantidade_manutencoes)
+        col_servicos.metric("Serviços correspondentes", quantidade_servicos)
+        col_encontrados.metric(
+            "Grupos com correspondência",
+            f"{grupos_encontrados}/{len(comparacao)}",
+        )
+
+        st.dataframe(
+            comparacao.rename(
+                columns={
+                    "competencia": "Competência",
+                    "contrato": "Contrato",
+                    "operadora": "Operadora",
+                    "qtd_manutencoes": "Qtd. manutenções",
+                    "qtd_servicos": "Qtd. serviços",
+                    "diferenca": "Diferença",
+                    "status": "Status",
+                }
+            ),
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "Competência": st.column_config.DateColumn(
+                    "Competência",
+                    format="MM/YYYY",
+                ),
+                "Qtd. manutenções": st.column_config.NumberColumn(format="%d"),
+                "Qtd. serviços": st.column_config.NumberColumn(format="%d"),
+                "Diferença": st.column_config.NumberColumn(
+                    help="Quantidade de serviços menos quantidade de manutenções.",
+                    format="%d",
+                ),
+            },
+        )
 
 
 @st.cache_data
@@ -482,6 +689,8 @@ def salvar_lancamento_manutencao_filial_teste(dados: dict[str, object]) -> None:
                 """))
         conn.execute(insert_sql, dados)
 
+    carregar_comparacao_manutencao_servicos.clear()
+
 
 def render_manutencao_filial_teste(df_base: pd.DataFrame) -> None:
     st.subheader("Manutencao Filial - Teste")
@@ -489,6 +698,7 @@ def render_manutencao_filial_teste(df_base: pd.DataFrame) -> None:
         "Esta tela usa codigo e tabela de teste separados: "
         f"`{TABELA_MANUTENCAO_FILIAL_TESTE}`."
     )
+    _render_comparacao_manutencao_servicos()
     _preparar_campos()
 
     if st.session_state.pop(FLAG_LANCAMENTO_SALVO, False):
