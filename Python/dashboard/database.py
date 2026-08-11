@@ -2,19 +2,21 @@ import os
 
 import streamlit as st
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine, URL, make_url
+from sqlalchemy.engine import URL, Engine, make_url
+from sqlalchemy.exc import ArgumentError
+from streamlit.errors import StreamlitSecretNotFoundError
 
 from dashboard.config import DB_SETTINGS
 
 
 def _get_secret_value(path: str) -> str | None:
     parts = path.split(".")
-    current = st.secrets
     try:
+        current = st.secrets
         for part in parts:
             current = current[part]
         return str(current)
-    except Exception:
+    except (KeyError, TypeError, StreamlitSecretNotFoundError):
         return None
 
 
@@ -118,7 +120,7 @@ def get_db_target_label() -> str:
             port = f":{parsed.port}" if parsed.port else ""
             database = parsed.database or "db-indefinido"
             return f"{host}{port}/{database}"
-        except Exception:
+        except ArgumentError:
             return "url-invalida"
 
     return f"{cfg.get('host')}:{cfg.get('porta')}/{cfg.get('banco')}"
@@ -131,7 +133,7 @@ def get_db_target_kind() -> str:
     if cfg.get("database_url"):
         try:
             host = str(make_url(str(cfg["database_url"])).host or "")
-        except Exception:
+        except ArgumentError:
             return "unknown"
     else:
         host = str(cfg.get("host") or "")

@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 
 try:
     import streamlit as st
-except Exception:
+    from streamlit.errors import StreamlitSecretNotFoundError
+except ImportError:
     st = None
 
 
@@ -18,13 +19,12 @@ def _get_secret_value(path: str) -> str | None:
         return None
 
     parts = path.split(".")
-    current = st.secrets
-
     try:
+        current = st.secrets
         for part in parts:
             current = current[part]
         return str(current)
-    except Exception:
+    except (KeyError, TypeError, StreamlitSecretNotFoundError):
         return None
 
 

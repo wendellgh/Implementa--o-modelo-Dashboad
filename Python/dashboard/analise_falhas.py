@@ -2294,7 +2294,8 @@ def render_analise_falhas() -> None:
                     total = _consultar_oracle_e_salvar_csv()
                     st.success(f"Oracle atualizado. Registros carregados: {total}")
                     st.rerun()
-                except Exception as erro:
+                # Fronteira da UI para o pipeline completo de consulta Oracle.
+                except Exception as erro:  # noqa: BLE001
                     st.error("Erro ao consultar Oracle para Análise de Falhas.")
                     st.exception(erro)
         else:
@@ -2310,7 +2311,8 @@ def render_analise_falhas() -> None:
                 str(lista_drs_csv) if lista_drs_csv is not None else None,
                 _obter_mtime_csv(lista_drs_csv) if lista_drs_csv is not None else 0.0,
             )
-        except Exception as erro:
+        # Fronteira da UI para leitura, transformacao e exibicao da analise.
+        except Exception as erro:  # noqa: BLE001
             st.error("Erro ao carregar Análise de Falhas.")
             st.exception(erro)
             return

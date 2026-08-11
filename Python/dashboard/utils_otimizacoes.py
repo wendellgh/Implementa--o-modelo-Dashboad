@@ -4,10 +4,10 @@ Módulo com funções reutilizáveis para reduzir redundâncias
 e melhorar performance do Dashboard.
 """
 
-import pandas as pd
 import re
-from typing import Callable, Dict, List, Tuple, Optional
+from collections.abc import Callable
 
+import pandas as pd
 
 # ============================================================================
 # NORMALIZAÇÃO DE TEXTO
@@ -25,7 +25,7 @@ def normalizar_coluna_texto(series: pd.Series) -> pd.Series:
 
 def normalizar_multiplas_colunas(
     df: pd.DataFrame,
-    colunas: List[str]
+    colunas: list[str]
 ) -> pd.DataFrame:
     """Normaliza múltiplas colunas de texto em uma passagem."""
     df = df.copy()
@@ -105,7 +105,7 @@ def calcular_percentual_seguro(
 
 def converter_colunas_inteiras(
     df: pd.DataFrame,
-    colunas: List[str]
+    colunas: list[str]
 ) -> pd.DataFrame:
     """
     Converte múltiplas colunas para int em uma passagem.
@@ -126,8 +126,8 @@ def criar_mapeamento_id_nome(
     df: pd.DataFrame,
     id_col: str,
     nome_col: str,
-    scoring_func: Callable = None
-) -> Dict[str, str]:
+    scoring_func: Callable[[str], object] | None = None
+) -> dict[str, str]:
     """
     Cria dicionário de mapeamento id → nome mais representativo.
     Mais eficiente que _aplicar_nomes_canonicos_por_id.
@@ -163,7 +163,7 @@ def criar_mapeamento_id_nome(
 
 def garantir_colunas_existem(
     df: pd.DataFrame,
-    colunas_requeridas: List[str],
+    colunas_requeridas: list[str],
     dtype_padrao: str = "object"
 ) -> pd.DataFrame:
     """
@@ -179,8 +179,8 @@ def garantir_colunas_existem(
 
 def aplicar_filtros_multiplos(
     df: pd.DataFrame,
-    filtros: Dict[str, List],
-    coluna_mapping: Dict[str, str] = None
+    filtros: dict[str, list],
+    coluna_mapping: dict[str, str] | None = None
 ) -> pd.DataFrame:
     """
     Aplica múltiplos filtros isin() em uma passagem.
@@ -251,7 +251,7 @@ def compactar_texto_busca(valor: object) -> str:
 # CACHING E MEMOIZAÇÃO
 # ============================================================================
 
-def cachear_normalizacoes(textos: List[str]) -> Dict[str, str]:
+def cachear_normalizacoes(textos: list[str]) -> dict[str, str]:
     """
     Cacheia normalizações para evitar recalcular múltiplas vezes.
     Substitui normalização 4x em _equipamento_corresponde.
@@ -263,7 +263,7 @@ def cachear_normalizacoes(textos: List[str]) -> Dict[str, str]:
 # VETORIZAÇÃO DE OPERAÇÕES
 # ============================================================================
 
-def criar_labels_praca_vetorizado(df: pd.DataFrame) -> Dict[str, str]:
+def criar_labels_praca_vetorizado(df: pd.DataFrame) -> dict[str, str]:
     """
     Cria labels de praça sem .iterrows().
     Performance: 100-200x mais rápido para 10k+ linhas.

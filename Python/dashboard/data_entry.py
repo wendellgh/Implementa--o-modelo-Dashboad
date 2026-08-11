@@ -576,7 +576,8 @@ def render_entrada_dados(df_base: pd.DataFrame) -> None:
 
     try:
         salvar_lancamento_manutencao(dados)
-    except Exception as error:
+    # Fronteira da UI para falhas de configuracao, conexao, transacao e SQL.
+    except Exception as error:  # noqa: BLE001
         st.error(f"Erro ao salvar lancamento: {error}")
         return
 

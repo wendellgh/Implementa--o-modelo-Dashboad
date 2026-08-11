@@ -214,7 +214,8 @@ def main() -> None:
         print("Resultado em JSON:")
         print(json.dumps(dados, indent=4, ensure_ascii=False))
 
-    except Exception as erro:
+    # Fronteira do script diagnostico: relata qualquer falha do teste Oracle.
+    except Exception as erro:  # noqa: BLE001
         print()
         print("ERRO NO TESTE ORACLE")
         print("-" * 80)

@@ -19,7 +19,7 @@ def _calcular_entrada_media_mensal_anual(
         errors="coerce",
     ).fillna(0).sum()
 
-    return int(round(float(total_12_meses) / MESES_MEDIA_MENSAL_ANUAL))
+    return round(float(total_12_meses) / MESES_MEDIA_MENSAL_ANUAL)
 
 
 def calcular_kpis(
@@ -40,7 +40,7 @@ def calcular_kpis(
     total_qtd = int(df_resumo["total_qtd"].sum())
     total_frota = int(df_resumo["total_frota"].sum())
     percentual_geral = round((total_qtd / total_frota) * 100, 2) if total_frota else 0.0
-    mtbf_horas = round((total_frota * 24 * 30 / total_qtd)) if total_qtd else "N/D"
+    mtbf_horas = round(total_frota * 24 * 30 / total_qtd) if total_qtd else "N/D"
 
     return {
         "entrada_media_mensal": entrada_media_mensal,

@@ -1,7 +1,8 @@
 import base64
 import html
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
@@ -14,14 +15,15 @@ from dashboard.styles import (
     tema_claro_ativo,
 )
 from dashboard.utils_otimizacoes import (
-    normalizar_coluna_texto,
     formatar_mes,
+    normalizar_coluna_texto,
 )
 
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
+FUSO_HORARIO_APLICACAO = ZoneInfo("America/Sao_Paulo")
 SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
-MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial - Serviços Executados"
+MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial"
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 PAGINA_ATUAL_KEY = "pagina_atual"
@@ -62,7 +64,7 @@ NAVIGATION_GROUPS = (
         "Entrada de Dados",
         (
             ("Inserir dados da manutenção", ENTRADA_DADOS_MENU_ITEM),
-            ("Manutenção Filial - Serviços Executados", MANUTENCAO_FILIAL_MENU_ITEM),
+            ("Manutenção Filial", MANUTENCAO_FILIAL_MENU_ITEM),
             ("Dados da Manutenção - Oracle", ORACLE_DESTBOAD_MENU_ITEM),
         ),
     ),
@@ -209,7 +211,8 @@ def _obter_base_para_filtros(menu: str, df_base: pd.DataFrame) -> pd.DataFrame:
         from dashboard.data import carregar_base_outra_tabela
 
         df_servicos = carregar_base_outra_tabela()
-    except Exception as erro:
+    # Mantem os filtros principais disponiveis se a fonte secundaria falhar.
+    except Exception as erro:  # noqa: BLE001
         st.warning(f"Erro ao carregar filtros de servicos_executados: {erro}")
         return df_base
 
@@ -267,7 +270,8 @@ def _obter_periodo_padrao(
     *,
     usar_mes_atual: bool = False,
 ) -> tuple[pd.Timestamp, pd.Timestamp]:
-    mes_atual = pd.Timestamp(date.today()).to_period("M").to_timestamp()
+    data_atual = datetime.now(FUSO_HORARIO_APLICACAO).date()
+    mes_atual = pd.Timestamp(data_atual).to_period("M").to_timestamp()
     mes_limite = mes_atual if usar_mes_atual else mes_atual - pd.DateOffset(months=1)
     mes_padrao = next((mes for mes in reversed(meses) if mes <= mes_limite), None)
     if mes_padrao is None:
@@ -373,7 +377,8 @@ def _obter_dimensao_pracas() -> pd.DataFrame:
         from dashboard.data import carregar_dimensao_pracas_servicos
 
         return carregar_dimensao_pracas_servicos()
-    except Exception as erro:
+    # Mantem os filtros disponiveis se a dimensao de pracas falhar.
+    except Exception as erro:  # noqa: BLE001
         st.warning(f"Erro ao carregar filtros de praça: {erro}")
         return pd.DataFrame(columns=["praca", "nome_praca", "coordenacao"])
 
@@ -526,8 +531,8 @@ def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
 
     data_valida = pd.to_datetime(df_filtros[coluna_periodo], errors="coerce").dropna()
     if data_valida.empty:
-        data_min = date.today()
-        data_max = date.today()
+        data_min = datetime.now(FUSO_HORARIO_APLICACAO).date()
+        data_max = data_min
     else:
         data_min = data_valida.min().date()
         data_max = data_valida.max().date()
@@ -559,11 +564,7 @@ def render_filtros(df_base: pd.DataFrame, menu: str) -> dict[str, object]:
             )
         with col_fim:
             meses_finais = [mes for mes in meses_disponiveis if mes >= mes_inicio]
-            fim_padrao = (
-                periodo_padrao[1]
-                if periodo_padrao[1] >= mes_inicio
-                else mes_inicio
-            )
+            fim_padrao = max(periodo_padrao[1], mes_inicio)
             fim_sessao = _normalizar_mes_sessao(
                 FILTRO_MES_FIM_KEY,
                 meses_finais,

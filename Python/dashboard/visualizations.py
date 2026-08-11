@@ -777,52 +777,48 @@ def render_dashboard_charts(
 
     col_top_1, col_top_2 = st.columns(2)
 
-    with col_top_1:
-        with st.container(border=True):
-            ranking = df_resumo.sort_values("total_qtd", ascending=True).tail(8)
-            fig_ranking = px.bar(
-                ranking,
-                x="total_qtd",
-                y="equipamento",
-                orientation="h",
-                title="EQUIPAMENTOS COM MAIOR NÚMERO DE MANUTENÇÕES",
-                text="total_qtd",
-                color="total_qtd",
-                color_continuous_scale=ESCALA_RANKING,
-                labels={
-                    "total_qtd": "Quantidade em manutenção",
-                    "equipamento": "Equipamento",
-                },
-            )
-            _mostrar_rotulos_barras(fig_ranking, "%{text:.0f}")
-            fig_ranking.update_coloraxes(showscale=False)
-            st.plotly_chart(_estilizar_figura(fig_ranking), use_container_width=True)
+    with col_top_1, st.container(border=True):
+        ranking = df_resumo.sort_values("total_qtd", ascending=True).tail(8)
+        fig_ranking = px.bar(
+            ranking,
+            x="total_qtd",
+            y="equipamento",
+            orientation="h",
+            title="EQUIPAMENTOS COM MAIOR NÚMERO DE MANUTENÇÕES",
+            text="total_qtd",
+            color="total_qtd",
+            color_continuous_scale=ESCALA_RANKING,
+            labels={
+                "total_qtd": "Quantidade em manutenção",
+                "equipamento": "Equipamento",
+            },
+        )
+        _mostrar_rotulos_barras(fig_ranking, "%{text:.0f}")
+        fig_ranking.update_coloraxes(showscale=False)
+        st.plotly_chart(_estilizar_figura(fig_ranking), use_container_width=True)
 
-    with col_top_2:
-        with st.container(border=True):
-            if df_servicos_resumo is None:
-                st.info("Sem dados de serviços executados por tipo.")
-            else:
-                render_servicos_executados_chart(
-                    df_servicos_resumo,
-                    usar_container=False,
-                )
+    with col_top_2, st.container(border=True):
+        if df_servicos_resumo is None:
+            st.info("Sem dados de serviços executados por tipo.")
+        else:
+            render_servicos_executados_chart(
+                df_servicos_resumo,
+                usar_container=False,
+            )
 
     col_manutencao_1, col_manutencao_2 = st.columns(2)
 
-    with col_manutencao_1:
-        with st.container(border=True):
-            _render_manutencao_por_categoria_chart(
-                df_manutencao_contrato,
-                "contrato",
-                "Contrato",
-                "EQUIPAMENTOS EM MANUTENÇÃO POR CONTRATO",
-                "Sem dados de manutenção por contrato para os filtros selecionados.",
-            )
+    with col_manutencao_1, st.container(border=True):
+        _render_manutencao_por_categoria_chart(
+            df_manutencao_contrato,
+            "contrato",
+            "Contrato",
+            "EQUIPAMENTOS EM MANUTENÇÃO POR CONTRATO",
+            "Sem dados de manutenção por contrato para os filtros selecionados.",
+        )
 
-    with col_manutencao_2:
-        with st.container(border=True):
-            _render_manutencao_operadora_chart(df_manutencao_operadora)
+    with col_manutencao_2, st.container(border=True):
+        _render_manutencao_operadora_chart(df_manutencao_operadora)
 
     with st.container(border=True):
         if df_evolucao_mensal_periodo.empty:
@@ -875,84 +871,82 @@ def render_dashboard_charts(
 
     col_anual_1, col_anual_2 = st.columns(2)
 
-    with col_anual_1:
-        with st.container(border=True):
-            percentual_frota = df_evolucao_mensal.sort_values("mes").copy()
-            percentual_frota["mes_label"] = percentual_frota["mes"].apply(
-                _formatar_mes_curto
-            )
-            ordem_meses = percentual_frota["mes_label"].tolist()
-            fig_percentual = px.line(
-                percentual_frota,
-                x="mes_label",
-                y="percentual_qtd_x_frota",
-                title=" RESUMO ANUAL - FROTA EM MANUTENÇÃO (%)",
-                text="percentual_qtd_x_frota",
-                markers=True,
-                category_orders={"mes_label": ordem_meses},
-                labels={
-                    "mes_label": "Mês",
-                    "percentual_qtd_x_frota": "% Equipamentos",
-                },
-                hover_data={
-                    "mes_label": False,
-                    "mes": "|%m/%Y",
-                    "percentual_qtd_x_frota": ":.2f",
-                },
-            )
-            fig_percentual.update_traces(
-                mode="lines+markers+text",
-                line={"color": PALETA["vermelho_tacom"], "width": 3},
-                marker={
-                    "color": PALETA["vermelho_tacom"],
-                    "size": 8,
-                    "symbol": "circle",
-                },
-                texttemplate="%{text:.2f}%",
-                textposition="top center",
-                textfont={"color": _cor_texto_tema(), "size": FONTE_ROTULOS_DADOS},
-                cliponaxis=False,
-                hovertemplate=(
-                    "Mes=%{x}<br>% Equipamentos=%{y:.2f}%<extra></extra>"
-                ),
-            )
-            fig_percentual.update_xaxes(
-                type="category",
-                categoryorder="array",
-                categoryarray=ordem_meses,
-            )
-            limite_y = max(
-                6,
-                percentual_frota["percentual_qtd_x_frota"].max() * 1.15,
-            )
-            fig_percentual.update_yaxes(range=[0, limite_y], dtick=2)
-            st.plotly_chart(_estilizar_figura(fig_percentual), use_container_width=True)
+    with col_anual_1, st.container(border=True):
+        percentual_frota = df_evolucao_mensal.sort_values("mes").copy()
+        percentual_frota["mes_label"] = percentual_frota["mes"].apply(
+            _formatar_mes_curto
+        )
+        ordem_meses = percentual_frota["mes_label"].tolist()
+        fig_percentual = px.line(
+            percentual_frota,
+            x="mes_label",
+            y="percentual_qtd_x_frota",
+            title=" RESUMO ANUAL - FROTA EM MANUTENÇÃO (%)",
+            text="percentual_qtd_x_frota",
+            markers=True,
+            category_orders={"mes_label": ordem_meses},
+            labels={
+                "mes_label": "Mês",
+                "percentual_qtd_x_frota": "% Equipamentos",
+            },
+            hover_data={
+                "mes_label": False,
+                "mes": "|%m/%Y",
+                "percentual_qtd_x_frota": ":.2f",
+            },
+        )
+        fig_percentual.update_traces(
+            mode="lines+markers+text",
+            line={"color": PALETA["vermelho_tacom"], "width": 3},
+            marker={
+                "color": PALETA["vermelho_tacom"],
+                "size": 8,
+                "symbol": "circle",
+            },
+            texttemplate="%{text:.2f}%",
+            textposition="top center",
+            textfont={"color": _cor_texto_tema(), "size": FONTE_ROTULOS_DADOS},
+            cliponaxis=False,
+            hovertemplate=(
+                "Mes=%{x}<br>% Equipamentos=%{y:.2f}%<extra></extra>"
+            ),
+        )
+        fig_percentual.update_xaxes(
+            type="category",
+            categoryorder="array",
+            categoryarray=ordem_meses,
+        )
+        limite_y = max(
+            6,
+            percentual_frota["percentual_qtd_x_frota"].max() * 1.15,
+        )
+        fig_percentual.update_yaxes(range=[0, limite_y], dtick=2)
+        st.plotly_chart(_estilizar_figura(fig_percentual), use_container_width=True)
 
-    with col_anual_2:
-        with st.container(border=True):
-            if df_equipamentos_contrato.empty:
-                st.info("Sem dados de contrato para os filtros selecionados.")
-            else:
-                fig_contrato = px.bar(
-                    df_equipamentos_contrato,
-                    x="contrato",
-                    y="quantidade_equipamentos",
-                    title="EQUIPAMENTOS ALOCADOS POR CONTRATO",
-                    text="quantidade_equipamentos",
-                    color="quantidade_equipamentos",
-                    hover_data={"mes": "|%Y-%m", "quantidade_equipamentos": ":.0f"},
-                    color_continuous_scale=ESCALA_OPERACIONAL,
-                    labels={
-                        "contrato": "Contrato",
-                        "quantidade_equipamentos": "Equipamentos por Contrato",
-                    },
-                )
-                _mostrar_rotulos_barras(fig_contrato, "%{text:.0f}")
-                fig_contrato.update_coloraxes(showscale=False)
-                st.plotly_chart(
-                    _estilizar_figura(fig_contrato),
-                    use_container_width=True,
-                )
+    with col_anual_2, st.container(border=True):
+        if df_equipamentos_contrato.empty:
+            st.info("Sem dados de contrato para os filtros selecionados.")
+        else:
+            fig_contrato = px.bar(
+                df_equipamentos_contrato,
+                x="contrato",
+                y="quantidade_equipamentos",
+                title="EQUIPAMENTOS ALOCADOS POR CONTRATO",
+                text="quantidade_equipamentos",
+                color="quantidade_equipamentos",
+                hover_data={"mes": "|%Y-%m", "quantidade_equipamentos": ":.0f"},
+                color_continuous_scale=ESCALA_OPERACIONAL,
+                labels={
+                    "contrato": "Contrato",
+                    "quantidade_equipamentos": "Equipamentos por Contrato",
+                },
+            )
+            _mostrar_rotulos_barras(fig_contrato, "%{text:.0f}")
+            fig_contrato.update_coloraxes(showscale=False)
+            st.plotly_chart(
+                _estilizar_figura(fig_contrato),
+                use_container_width=True,
+            )
 
 
 def render_resumo_chart(df_resumo: pd.DataFrame) -> None:

@@ -1,8 +1,9 @@
 import importlib.util
 import tempfile
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import streamlit as st
 from dashboard.analise_falhas import render_analise_falhas
@@ -49,12 +50,13 @@ from dashboard.visualizations import (
     render_resumo_chart,
 )
 
-ENTRADA_DADOS_MENU_ITEM = "Entrada de equipamentos - Manutenção"
-MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial - Serviços Executados"
-ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção Central CTG - Oracle"
+ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
+MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial"
+ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 CSV_SERVICOS_EXTERNO_RELATIVO = Path("Importacoes") / "bsa_serv_exce.csv"
 CSV_BASE_HISTORICA_RELATIVO = Path("Importacoes") / "Basehistorica.csv"
+FUSO_HORARIO_APLICACAO = ZoneInfo("America/Sao_Paulo")
 IMPORTADOR_BASE_HISTORICA_RELATIVO = (
     Path("Importacoes") / "importacao_historico_manutencao.py"
 )
@@ -190,6 +192,7 @@ def render_consulta_destboad_oracle() -> None:
         )
 
         ultima_data_banco = obter_ultima_data_servicos_executados()
+    # Fronteira da UI: a origem pode falhar por importacao, conexao ou consulta.
     except Exception as erro:  # noqa: BLE001
         st.warning("Nao foi possivel conferir a ultima data do banco.")
         st.caption(str(erro))
@@ -209,7 +212,7 @@ def render_consulta_destboad_oracle() -> None:
     )
     data_inicio_oracle = st.date_input(
         "ABERTURA_OS a partir de",
-        value=ultima_data_banco or date.today(),  # noqa: DTZ011
+        value=ultima_data_banco or datetime.now(FUSO_HORARIO_APLICACAO).date(),
         format="DD/MM/YYYY",
         disabled=not filtrar_por_abertura,
     )
@@ -286,7 +289,8 @@ def render_consulta_destboad_oracle() -> None:
                 mime="text/csv",
             )
 
-        except Exception as erro:
+        # Fronteira da UI para erros combinados de Oracle, CSV e banco.
+        except Exception as erro:  # noqa: BLE001
             st.error("Erro ao consultar Oracle.")
             st.exception(erro)
 
@@ -304,7 +308,8 @@ def render_consulta_destboad_oracle() -> None:
             )
             carregar_base_outra_tabela.clear()
             st.success(f"Carga concluida. Linhas carregadas: {total_carregado}")
-        except Exception as erro:
+        # Fronteira da UI para importacao opcional e carga do CSV.
+        except Exception as erro:  # noqa: BLE001
             st.error("Erro ao carregar CSV local.")
             st.exception(erro)
 
@@ -362,7 +367,8 @@ def render_consulta_destboad_oracle() -> None:
 
             carregar_base_outra_tabela.clear()
             st.success(f"CSV externo carregado. Linhas carregadas: {total_carregado}")
-        except Exception as erro:
+        # Fronteira da UI para leitura, validacao e persistencia do CSV.
+        except Exception as erro:  # noqa: BLE001
             st.error("Erro ao carregar CSV externo.")
             st.exception(erro)
 
@@ -442,7 +448,8 @@ def render_consulta_destboad_oracle() -> None:
                 "Basehistorica.csv carregado para teste. "
                 f"Linhas carregadas: {total_carregado}"
             )
-        except Exception as erro:
+        # Fronteira da UI para importacao dinamica e carga da base historica.
+        except Exception as erro:  # noqa: BLE001
             st.error("Erro ao carregar Basehistorica.csv.")
             st.exception(erro)
 
@@ -450,7 +457,8 @@ def render_consulta_destboad_oracle() -> None:
 def montar_servicos_executados_dashboard(filtros: dict[str, object]):
     try:
         df_servicos = carregar_base_outra_tabela()
-    except Exception as erro:
+    # Mantem o restante do dashboard disponivel se esta fonte falhar.
+    except Exception as erro:  # noqa: BLE001
         st.warning(f"Erro ao carregar servicos_executados: {erro}")
         return None
 
@@ -513,7 +521,8 @@ def main() -> None:
 
     try:
         df_base = carregar_base()
-    except Exception as error:
+    # Fronteira principal da UI: exibe diagnostico em vez de encerrar o app.
+    except Exception as error:  # noqa: BLE001
         st.error(f"Erro ao carregar dados do banco: {error}")
         st.caption(f"Destino de conexao detectado: {get_db_target_label()}")
         st.caption("Diagnostico de secrets/env:")

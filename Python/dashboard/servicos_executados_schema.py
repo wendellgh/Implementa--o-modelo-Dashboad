@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Iterable
 from typing import Any
-import unicodedata
 
 import pandas as pd
 
