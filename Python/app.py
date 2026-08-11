@@ -5,15 +5,9 @@ from datetime import date
 from pathlib import Path
 
 import streamlit as st
-
+from dashboard.analise_falhas import render_analise_falhas
 from dashboard.auth import render_login, usuario_eh_admin
 from dashboard.config import APP_TITLE, PAGE_CONFIG
-from dashboard.utils_otimizacoes import (
-    normalizar_texto_busca,
-    compactar_texto_busca,
-    cachear_normalizacoes,
-)
-from dashboard.analise_falhas import render_analise_falhas
 from dashboard.data import (
     carregar_base,
     carregar_base_outra_tabela,
@@ -27,8 +21,8 @@ from dashboard.data import (
     montar_servicos_executados_por_tipo,
     montar_tabela_evolucao,
 )
-from dashboard.database import get_db_diagnostics, get_db_target_label
 from dashboard.data_entry import render_entrada_dados
+from dashboard.database import get_db_diagnostics, get_db_target_label
 from dashboard.filters import aplicar_filtros, render_filtros, render_sidebar
 from dashboard.manutencao_filial_teste import render_manutencao_filial_teste
 from dashboard.metrics import (
@@ -42,6 +36,11 @@ from dashboard.tables import (
     render_tabela_evolucao,
     render_tabela_resumo,
 )
+from dashboard.utils_otimizacoes import (
+    cachear_normalizacoes,
+    compactar_texto_busca,
+    normalizar_texto_busca,
+)
 from dashboard.visualizations import (
     render_analise_operadora_charts,
     render_dashboard_charts,
@@ -50,9 +49,9 @@ from dashboard.visualizations import (
     render_resumo_chart,
 )
 
-ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
-MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial"
-ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
+ENTRADA_DADOS_MENU_ITEM = "Entrada de equipamentos - Manutenção"
+MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial - Serviços Executados"
+ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção Central CTG - Oracle"
 ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 CSV_SERVICOS_EXTERNO_RELATIVO = Path("Importacoes") / "bsa_serv_exce.csv"
 CSV_BASE_HISTORICA_RELATIVO = Path("Importacoes") / "Basehistorica.csv"
@@ -191,7 +190,7 @@ def render_consulta_destboad_oracle() -> None:
         )
 
         ultima_data_banco = obter_ultima_data_servicos_executados()
-    except Exception as erro:
+    except Exception as erro:  # noqa: BLE001
         st.warning("Nao foi possivel conferir a ultima data do banco.")
         st.caption(str(erro))
 
@@ -210,7 +209,7 @@ def render_consulta_destboad_oracle() -> None:
     )
     data_inicio_oracle = st.date_input(
         "ABERTURA_OS a partir de",
-        value=ultima_data_banco or date.today(),
+        value=ultima_data_banco or date.today(),  # noqa: DTZ011
         format="DD/MM/YYYY",
         disabled=not filtrar_por_abertura,
     )

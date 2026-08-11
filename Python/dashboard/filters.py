@@ -21,7 +21,7 @@ from dashboard.utils_otimizacoes import (
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
-MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial"
+MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial - Serviços Executados"
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 PAGINA_ATUAL_KEY = "pagina_atual"
@@ -62,7 +62,7 @@ NAVIGATION_GROUPS = (
         "Entrada de Dados",
         (
             ("Inserir dados da manutenção", ENTRADA_DADOS_MENU_ITEM),
-            ("Manutenção Filial", MANUTENCAO_FILIAL_MENU_ITEM),
+            ("Manutenção Filial - Serviços Executados", MANUTENCAO_FILIAL_MENU_ITEM),
             ("Dados da Manutenção - Oracle", ORACLE_DESTBOAD_MENU_ITEM),
         ),
     ),
