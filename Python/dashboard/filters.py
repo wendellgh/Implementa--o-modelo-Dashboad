@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from dashboard.auth import encerrar_sessao, obter_usuario_logado, usuario_eh_admin
-from dashboard.config import MENU_ITEMS
+from dashboard.config import MENU_ITEMS, SERVICOS_MANUTENCAO_FILIAL_LABEL
 from dashboard.database import get_db_target_info
 from dashboard.styles import (
     TEMA_CLARO_ATIVO_KEY,
@@ -23,7 +23,7 @@ ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 FUSO_HORARIO_APLICACAO = ZoneInfo("America/Sao_Paulo")
 SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
-MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial"
+MANUTENCAO_FILIAL_MENU_ITEM = SERVICOS_MANUTENCAO_FILIAL_LABEL
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 PAGINA_ATUAL_KEY = "pagina_atual"
@@ -63,8 +63,8 @@ NAVIGATION_GROUPS = (
     (
         "Entrada de Dados",
         (
-            ("Inserir dados da manutenção", ENTRADA_DADOS_MENU_ITEM),
-            ("Manutenção Filial", MANUTENCAO_FILIAL_MENU_ITEM),
+            ("Entrada para Manutenção/Frota", ENTRADA_DADOS_MENU_ITEM),
+            (SERVICOS_MANUTENCAO_FILIAL_LABEL, MANUTENCAO_FILIAL_MENU_ITEM),
             ("Dados da Manutenção - Oracle", ORACLE_DESTBOAD_MENU_ITEM),
         ),
     ),

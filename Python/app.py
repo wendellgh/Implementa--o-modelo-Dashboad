@@ -8,10 +8,16 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 from dashboard.analise_falhas import render_analise_falhas
 from dashboard.auth import render_login, usuario_eh_admin
-from dashboard.config import APP_TITLE, PAGE_CONFIG
+from dashboard.config import (
+    APP_TITLE,
+    PAGE_CONFIG,
+    SERVICOS_MANUTENCAO_FILIAL_LABEL,
+)
 from dashboard.data import (
     carregar_base,
     carregar_base_outra_tabela,
+    carregar_servicos_executados_oracle,
+    limpar_cache_servicos_executados,
     montar_equipamentos_por_contrato,
     montar_equipamentos_por_operadora,
     montar_evolucao_mensal,
@@ -51,7 +57,7 @@ from dashboard.visualizations import (
 )
 
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
-MANUTENCAO_FILIAL_MENU_ITEM = "Manutenção Filial"
+MANUTENCAO_FILIAL_MENU_ITEM = SERVICOS_MANUTENCAO_FILIAL_LABEL
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
 ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 CSV_SERVICOS_EXTERNO_RELATIVO = Path("Importacoes") / "bsa_serv_exce.csv"
@@ -270,7 +276,7 @@ def render_consulta_destboad_oracle() -> None:
                     substituir_tabela=substituir_tabela,
                     substituir_periodos_csv=substituir_periodos_csv,
                 )
-                carregar_base_outra_tabela.clear()
+                limpar_cache_servicos_executados()
                 st.success(f"Banco atualizado. Linhas carregadas: {total_carregado}")
 
             csv_oracle = df_destboad.to_csv(index=False).encode("utf-8-sig")
@@ -306,7 +312,7 @@ def render_consulta_destboad_oracle() -> None:
                 substituir_tabela=substituir_tabela,
                 substituir_periodos_csv=substituir_periodos_csv,
             )
-            carregar_base_outra_tabela.clear()
+            limpar_cache_servicos_executados()
             st.success(f"Carga concluida. Linhas carregadas: {total_carregado}")
         # Fronteira da UI para importacao opcional e carga do CSV.
         except Exception as erro:  # noqa: BLE001
@@ -365,7 +371,7 @@ def render_consulta_destboad_oracle() -> None:
                         substituir_periodos_csv=substituir_periodos_csv,
                     )
 
-            carregar_base_outra_tabela.clear()
+            limpar_cache_servicos_executados()
             st.success(f"CSV externo carregado. Linhas carregadas: {total_carregado}")
         # Fronteira da UI para leitura, validacao e persistencia do CSV.
         except Exception as erro:  # noqa: BLE001
@@ -547,7 +553,13 @@ def main() -> None:
         return
 
     if menu == MANUTENCAO_FILIAL_MENU_ITEM:
-        render_manutencao_filial_teste(df_base)
+        try:
+            df_servicos_oracle = carregar_servicos_executados_oracle()
+        except Exception as error:  # noqa: BLE001
+            st.error(f"Erro ao carregar as referências de serviços do Oracle: {error}")
+            return
+
+        render_manutencao_filial_teste(df_servicos_oracle)
         return
 
     if menu == ORACLE_DESTBOAD_MENU_ITEM:

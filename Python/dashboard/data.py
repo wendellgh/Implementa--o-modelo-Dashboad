@@ -5,6 +5,7 @@ from sqlalchemy import text
 from dashboard.config import BASE_QUERY, BASE_QUERY_2
 from dashboard.database import get_engine
 from dashboard.pracas import enriquecer_dataframe_contratos, enriquecer_dataframe_pracas
+from dashboard.servicos_manutencao_filial import carregar_servicos_manutencao_filial
 from dashboard.utils_otimizacoes import (
     calcular_percentual_seguro,
     normalizar_coluna_texto,
@@ -13,6 +14,34 @@ from dashboard.utils_otimizacoes import (
 )
 
 ANO_MINIMO_COMPETENCIA = 1900
+COLUNAS_DETALHE_SERVICOS = [
+    "id",
+    "numero_serie",
+    "defeito_reclamado",
+    "defeito_encontrado",
+    "solucao",
+    "tecnico_responsavel",
+    "criado_em",
+]
+COLUNAS_TEXTO_SERVICOS = [
+    "id_contrato",
+    "contrato",
+    "id_operadora",
+    "operadora",
+    "id_equipamento",
+    "equipamento",
+    "id_servico_executado",
+    "servico_executado",
+    "praca",
+    "nome_praca",
+    "coordenacao",
+    "numero_serie",
+    "defeito_reclamado",
+    "defeito_encontrado",
+    "solucao",
+    "tecnico_responsavel",
+    "origem",
+]
 GARANTIR_COLUNAS_SERVICOS_EXECUTADOS_SQL = """
 ALTER TABLE public.servicos_executados
     ADD COLUMN IF NOT EXISTS "DATA_COMPETENCIA" date;
@@ -26,17 +55,6 @@ ALTER TABLE public.servicos_executados
 ALTER TABLE public.servicos_executados
     ADD COLUMN IF NOT EXISTS "COORDENACAO" text;
 """
-
-DIMENSAO_PRACAS_SERVICOS_QUERY = """
-select distinct
-    "PRACA" as praca,
-    "NOME_PRACA" as nome_praca,
-    "COORDENACAO" as coordenacao
-from servicos_executados
-where coalesce(trim("PRACA"), '') <> ''
-   or coalesce(trim("COORDENACAO"), '') <> ''
-"""
-
 
 def _converter_data_servicos(valores: pd.Series) -> pd.Series:
     texto = valores.fillna("").astype(str).str.strip()
@@ -192,21 +210,28 @@ def carregar_base() -> pd.DataFrame:
 
     return df
 
-@st.cache_data
-def carregar_base_outra_tabela() -> pd.DataFrame:
-    _garantir_colunas_servicos_executados()
-    dados_servicos = pd.read_sql(BASE_QUERY_2, get_engine())
 
-    if dados_servicos.empty: 
+def _preparar_dados_servicos(
+    dados_servicos: pd.DataFrame,
+    origem: str,
+) -> pd.DataFrame:
+    dados_servicos = dados_servicos.copy()
+    dados_servicos["origem"] = origem
+
+    for coluna in COLUNAS_DETALHE_SERVICOS:
+        if coluna not in dados_servicos.columns:
+            dados_servicos[coluna] = pd.NaT if coluna == "criado_em" else ""
+
+    if dados_servicos.empty:
         return dados_servicos
-    
+
     colunas_obrigatorias = ["data_ref", "servico_executado", "qtd_servico"]
     colunas_ausentes = [
         coluna for coluna in colunas_obrigatorias if coluna not in dados_servicos.columns
     ]
     if colunas_ausentes:
         raise KeyError(
-            "Colunas ausentes na consulta BASE_QUERY_2: "
+            "Colunas ausentes na fonte de servicos executados: "
             f"{', '.join(colunas_ausentes)}. "
             f"Colunas retornadas: {', '.join(dados_servicos.columns)}"
         )
@@ -215,22 +240,10 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
     dados_servicos = _adicionar_colunas_competencia(dados_servicos)
     dados_servicos["qtd_servico"] = pd.to_numeric(
         dados_servicos["qtd_servico"],
-        errors="coerce"
+        errors="coerce",
     ).fillna(0)
 
-    for coluna in [
-        "id_contrato",
-        "contrato",
-        "id_operadora",
-        "operadora",
-        "id_equipamento",
-        "equipamento",
-        "id_servico_executado",
-        "servico_executado",
-        "praca",
-        "nome_praca",
-        "coordenacao",
-    ]:
+    for coluna in COLUNAS_TEXTO_SERVICOS:
         if coluna in dados_servicos.columns:
             dados_servicos[coluna] = (
                 dados_servicos[coluna].fillna("").astype(str).str.strip()
@@ -257,20 +270,60 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
         coluna_nome_praca="nome_praca",
         coluna_coordenacao="coordenacao",
     )
-    dados_servicos = _preencher_pracas_por_contrato(dados_servicos)
+    return _preencher_pracas_por_contrato(dados_servicos)
 
-    return dados_servicos
+
+@st.cache_data
+def carregar_servicos_executados_oracle() -> pd.DataFrame:
+    _garantir_colunas_servicos_executados()
+    dados_servicos = pd.read_sql(BASE_QUERY_2, get_engine())
+    return _preparar_dados_servicos(dados_servicos, origem="Oracle")
+
+
+@st.cache_data
+def carregar_servicos_executados_manutencao_filial() -> pd.DataFrame:
+    dados_servicos = carregar_servicos_manutencao_filial()
+    return _preparar_dados_servicos(
+        dados_servicos,
+        origem="Manutenção Filial",
+    )
+
+
+def _combinar_fontes_servicos(*fontes: pd.DataFrame) -> pd.DataFrame:
+    fontes_preenchidas = [fonte for fonte in fontes if not fonte.empty]
+    if fontes_preenchidas:
+        return pd.concat(fontes_preenchidas, ignore_index=True, sort=False)
+    if fontes:
+        return fontes[0].copy()
+    return pd.DataFrame()
+
+
+@st.cache_data
+def carregar_base_outra_tabela() -> pd.DataFrame:
+    fontes = (
+        carregar_servicos_executados_oracle(),
+        carregar_servicos_executados_manutencao_filial(),
+    )
+    return _combinar_fontes_servicos(*fontes)
+
+
+def limpar_cache_servicos_executados() -> None:
+    carregar_servicos_executados_oracle.clear()
+    carregar_servicos_executados_manutencao_filial.clear()
+    carregar_base_outra_tabela.clear()
+    carregar_dimensao_pracas_servicos.clear()
 
 
 @st.cache_data
 def carregar_dimensao_pracas_servicos() -> pd.DataFrame:
-    _garantir_colunas_servicos_executados()
-    dimensao = pd.read_sql(DIMENSAO_PRACAS_SERVICOS_QUERY, get_engine())
+    dados_servicos = carregar_base_outra_tabela()
+    colunas = ["praca", "nome_praca", "coordenacao"]
+    dimensao = dados_servicos.reindex(columns=colunas).copy()
 
     if dimensao.empty:
         return dimensao
 
-    for coluna in ["praca", "nome_praca", "coordenacao"]:
+    for coluna in colunas:
         dimensao[coluna] = dimensao[coluna].fillna("").astype(str).str.strip()
 
     dimensao = enriquecer_dataframe_pracas(

@@ -6,6 +6,7 @@ PAGE_CONFIG = {
 }
 
 APP_TITLE = "Relatório de Manutenção das Filiais"
+SERVICOS_MANUTENCAO_FILIAL_LABEL = "Serviços Executados – Manutenção Filial"
 
 MENU_ITEMS = [
     "Dashboard",
