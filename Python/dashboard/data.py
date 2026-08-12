@@ -16,6 +16,7 @@ from dashboard.utils_otimizacoes import (
 ANO_MINIMO_COMPETENCIA = 1900
 COLUNAS_DETALHE_SERVICOS = [
     "id",
+    "numero_os",
     "numero_serie",
     "defeito_reclamado",
     "defeito_encontrado",
@@ -35,6 +36,7 @@ COLUNAS_TEXTO_SERVICOS = [
     "praca",
     "nome_praca",
     "coordenacao",
+    "numero_os",
     "numero_serie",
     "defeito_reclamado",
     "defeito_encontrado",

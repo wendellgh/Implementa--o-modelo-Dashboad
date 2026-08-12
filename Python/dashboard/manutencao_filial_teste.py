@@ -11,7 +11,9 @@ from dashboard.data import (
     limpar_cache_servicos_executados,
 )
 from dashboard.servicos_manutencao_filial import (
+    PREFIXO_NUMERO_OS,
     TABELA_SERVICOS_MANUTENCAO_FILIAL,
+    formatar_numero_os,
     salvar_servico_manutencao_filial,
 )
 
@@ -23,7 +25,6 @@ LISTA_DEFEITOS_ENCONTRADOS_PATH = ORACLE_DIR / "LISTA_DEs.csv"
 
 CAMPO_DATA_REF = "manutencao_filial_data_ref"
 CAMPO_NUMERO_SERIE = "manutencao_filial_numero_serie"
-CAMPO_QTD_SERVICO = "manutencao_filial_qtd_servico"
 CAMPO_DEFEITO_ENCONTRADO = "manutencao_filial_defeito_encontrado"
 CAMPO_DEFEITO_RECLAMADO = "manutencao_filial_defeito_reclamado"
 CAMPO_SOLUCAO = "manutencao_filial_solucao"
@@ -42,7 +43,7 @@ CAMPO_NOVO_ID_SERVICO = "manutencao_filial_novo_id_servico"
 CAMPO_NOVO_SERVICO = "manutencao_filial_nome_novo_servico"
 CAMPO_SERVICO_SELECIONADO = "manutencao_filial_servico_selecionado"
 FLAG_RESET_CAMPOS = "manutencao_filial_reset_campos"
-FLAG_SERVICO_SALVO = "manutencao_filial_servico_salvo"
+CAMPO_ULTIMA_OS_SALVA = "manutencao_filial_ultima_os_salva"
 
 TEXT_INPUT_KEYS = (
     CAMPO_NUMERO_SERIE,
@@ -156,7 +157,6 @@ def _preparar_campos() -> None:
     data_atual = datetime.now(FUSO_HORARIO_APLICACAO).date()
     if st.session_state.pop(FLAG_RESET_CAMPOS, False):
         st.session_state[CAMPO_DATA_REF] = data_atual
-        st.session_state[CAMPO_QTD_SERVICO] = 1
         st.session_state[CAMPO_DEFEITO_RECLAMADO] = ""
         st.session_state[CAMPO_DEFEITO_ENCONTRADO] = ""
         for campo in TEXT_INPUT_KEYS:
@@ -165,7 +165,6 @@ def _preparar_campos() -> None:
             st.session_state[campo] = False
 
     st.session_state.setdefault(CAMPO_DATA_REF, data_atual)
-    st.session_state.setdefault(CAMPO_QTD_SERVICO, 1)
     st.session_state.setdefault(CAMPO_DEFEITO_RECLAMADO, "")
     st.session_state.setdefault(CAMPO_DEFEITO_ENCONTRADO, "")
     for campo in TEXT_INPUT_KEYS:
@@ -213,7 +212,6 @@ def _validar_servico(
     operadora: str,
     equipamento: str,
     servico_executado: str,
-    qtd_servico: int,
 ) -> list[str]:
     erros = []
     if not contrato:
@@ -224,8 +222,6 @@ def _validar_servico(
         erros.append("Informe o equipamento.")
     if not servico_executado:
         erros.append("Informe o serviço executado.")
-    if qtd_servico <= 0:
-        erros.append("A quantidade de serviços deve ser maior que zero.")
     return erros
 
 
@@ -238,12 +234,12 @@ def _montar_tabela_ultimos_servicos(
 ) -> pd.DataFrame:
     colunas_saida = [
         "Data",
+        "Número da OS",
         "Contrato/Filial",
         "Operadora",
         "Equipamento",
         "Número de série",
         "Serviço executado",
-        "Qtd",
         "Técnico",
     ]
     if df_servicos.empty:
@@ -262,18 +258,21 @@ def _montar_tabela_ultimos_servicos(
         return pd.DataFrame(columns=colunas_saida)
 
     df_aux["_data_ref"] = pd.to_datetime(df_aux["data_ref"], errors="coerce")
-    df_aux = df_aux.sort_values("_data_ref", ascending=False).head(limite)
+    df_aux["_id"] = pd.to_numeric(_serie_texto(df_aux, "id"), errors="coerce")
+    df_aux = df_aux.sort_values(
+        ["_data_ref", "_id"],
+        ascending=[False, False],
+        na_position="last",
+    ).head(limite)
     tabela = pd.DataFrame(
         {
             "Data": df_aux["_data_ref"].dt.strftime("%d/%m/%Y").fillna(""),
+            "Número da OS": _serie_texto(df_aux, "numero_os"),
             "Contrato/Filial": _serie_texto(df_aux, "contrato"),
             "Operadora": _serie_texto(df_aux, "operadora"),
             "Equipamento": _serie_texto(df_aux, "equipamento"),
             "Número de série": _serie_texto(df_aux, "numero_serie"),
             "Serviço executado": _serie_texto(df_aux, "servico_executado"),
-            "Qtd": pd.to_numeric(df_aux["qtd_servico"], errors="coerce")
-            .fillna(0)
-            .astype(int),
             "Técnico": _serie_texto(df_aux, "tecnico_responsavel"),
         }
     )
@@ -297,9 +296,9 @@ def _render_ultimos_servicos(
         operadora,
         equipamento,
     )
-    with st.expander("Últimos serviços registrados na filial", expanded=True):
+    with st.expander("Últimas OS registradas na filial", expanded=True):
         if tabela.empty:
-            st.info("Nenhum serviço da filial registrado para a seleção atual.")
+            st.info("Nenhuma OS da filial registrada para a seleção atual.")
             return
         st.dataframe(tabela, use_container_width=True, hide_index=True)
 
@@ -308,14 +307,16 @@ def render_manutencao_filial_teste(df_servicos_oracle: pd.DataFrame) -> None:
     st.subheader(TITULO_PAGINA)
     st.caption(
         "Os cadastros exibidos abaixo usam os serviços normalizados do Oracle como "
-        "referência. Cada novo lançamento é salvo separadamente em "
+        f"referência. Cada lançamento representa uma OS identificada por `{PREFIXO_NUMERO_OS}` "
+        "mais sua numeração e é salvo separadamente em "
         f"`{TABELA_SERVICOS_MANUTENCAO_FILIAL}` e aparece junto aos dados Oracle "
         'na consulta "Serviços executados".'
     )
     _preparar_campos()
 
-    if st.session_state.pop(FLAG_SERVICO_SALVO, False):
-        st.success("Serviço executado na filial salvo com sucesso.")
+    numero_os_salva = st.session_state.pop(CAMPO_ULTIMA_OS_SALVA, "")
+    if numero_os_salva:
+        st.success(f"OS {numero_os_salva} salva com sucesso.")
 
     contratos = _opcoes_unicas(df_servicos_oracle, "contrato")
     contrato_selecionado = _render_selectbox_existente(
@@ -452,7 +453,7 @@ def render_manutencao_filial_teste(df_servicos_oracle: pd.DataFrame) -> None:
     _normalizar_selectbox_sessao(CAMPO_DEFEITO_RECLAMADO, opcoes_defeito_reclamado)
     _normalizar_selectbox_sessao(CAMPO_DEFEITO_ENCONTRADO, opcoes_defeito_encontrado)
 
-    col_reclamado, col_encontrado, col_quantidade = st.columns([2, 2, 1])
+    col_reclamado, col_encontrado = st.columns(2)
     with col_reclamado:
         defeito_reclamado = st.selectbox(
             "Defeito reclamado",
@@ -465,14 +466,6 @@ def render_manutencao_filial_teste(df_servicos_oracle: pd.DataFrame) -> None:
             opcoes_defeito_encontrado,
             key=CAMPO_DEFEITO_ENCONTRADO,
         )
-    with col_quantidade:
-        qtd_servico = st.number_input(
-            "Quantidade",
-            min_value=1,
-            step=1,
-            key=CAMPO_QTD_SERVICO,
-        )
-
     col_solucao, col_tecnico = st.columns([2, 1])
     with col_solucao:
         solucao = st.text_input("Solução / observação", key=CAMPO_SOLUCAO)
@@ -489,7 +482,11 @@ def render_manutencao_filial_teste(df_servicos_oracle: pd.DataFrame) -> None:
     if localizacao:
         st.caption(f"Localização herdada do Oracle: {localizacao}")
 
-    salvar = st.button("Salvar serviço executado", type="primary")
+    st.caption(
+        f"O número da OS será gerado automaticamente com o prefixo {PREFIXO_NUMERO_OS}"
+    )
+
+    salvar = st.button("Salvar OS", type="primary")
     _render_ultimos_servicos(contrato, operadora, equipamento)
     if not salvar:
         return
@@ -499,7 +496,6 @@ def render_manutencao_filial_teste(df_servicos_oracle: pd.DataFrame) -> None:
         operadora,
         equipamento,
         servico_executado,
-        int(qtd_servico),
     )
     if erros:
         for erro in erros:
@@ -518,7 +514,6 @@ def render_manutencao_filial_teste(df_servicos_oracle: pd.DataFrame) -> None:
         "numero_serie": _normalizar_texto(numero_serie),
         "id_servico_executado": id_servico_executado,
         "servico_executado": servico_executado,
-        "qtd_servico": int(qtd_servico),
         "defeito_reclamado": _normalizar_texto(defeito_reclamado),
         "defeito_encontrado": _normalizar_texto(defeito_encontrado),
         "solucao": _normalizar_texto(solucao),
@@ -529,12 +524,12 @@ def render_manutencao_filial_teste(df_servicos_oracle: pd.DataFrame) -> None:
     }
 
     try:
-        salvar_servico_manutencao_filial(dados)
+        novo_id = salvar_servico_manutencao_filial(dados)
     except Exception as error:  # noqa: BLE001
-        st.error(f"Erro ao salvar o serviço executado: {error}")
+        st.error(f"Erro ao salvar a OS: {error}")
         return
 
     limpar_cache_servicos_executados()
     st.session_state[FLAG_RESET_CAMPOS] = True
-    st.session_state[FLAG_SERVICO_SALVO] = True
+    st.session_state[CAMPO_ULTIMA_OS_SALVA] = formatar_numero_os(novo_id)
     st.rerun()

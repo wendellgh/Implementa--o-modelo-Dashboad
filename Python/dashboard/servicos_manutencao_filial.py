@@ -9,6 +9,8 @@ from dashboard.database import get_engine
 
 TABELA_SERVICOS_MANUTENCAO_FILIAL = "servicos_executados_manutencao_filial"
 TABELA_LEGADA_MANUTENCAO_FILIAL = "base_historica_manutencao_filial_teste"
+PREFIXO_NUMERO_OS = "MF-"
+LARGURA_NUMERO_OS = 8
 
 CRIAR_TABELA_SQL = f"""
 CREATE TABLE IF NOT EXISTS public.{TABELA_SERVICOS_MANUTENCAO_FILIAL} (
@@ -133,6 +135,11 @@ $$
 CONSULTAR_SERVICOS_SQL = f"""
 SELECT
     id,
+    '{PREFIXO_NUMERO_OS}' || lpad(
+        id::text,
+        greatest({LARGURA_NUMERO_OS}, length(id::text)),
+        '0'
+    ) AS numero_os,
     data_ref,
     data_competencia,
     id_contrato,
@@ -170,7 +177,6 @@ INSERT INTO public.{TABELA_SERVICOS_MANUTENCAO_FILIAL} (
     numero_serie,
     id_servico_executado,
     servico_executado,
-    qtd_servico,
     defeito_reclamado,
     defeito_encontrado,
     solucao,
@@ -191,7 +197,6 @@ VALUES (
     :numero_serie,
     :id_servico_executado,
     :servico_executado,
-    :qtd_servico,
     :defeito_reclamado,
     :defeito_encontrado,
     :solucao,
@@ -202,6 +207,10 @@ VALUES (
 )
 RETURNING id
 """
+
+
+def formatar_numero_os(id_registro: int) -> str:
+    return f"{PREFIXO_NUMERO_OS}{id_registro:0{LARGURA_NUMERO_OS}d}"
 
 
 def _garantir_schema_na_conexao(conn: Connection) -> None:
