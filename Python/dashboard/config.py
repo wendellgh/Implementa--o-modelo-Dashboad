@@ -17,6 +17,7 @@ MENU_ITEMS = [
     "Serviços Executados - Teste",
     "Análise de Falhas",
     "Dados da Manutenção - Oracle",
+    "Consulta Filial MG",
 ]
 
 PERFIL_ADMIN = "admin"

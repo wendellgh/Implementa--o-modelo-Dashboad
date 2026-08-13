@@ -1,4 +1,5 @@
 import os
+
 import oracledb
 from dotenv import load_dotenv
 
@@ -12,6 +13,7 @@ except ImportError:
 load_dotenv()
 
 _ORACLE_CLIENT_INICIADO = False
+WINDOWS_ORACLE_CLIENT_LIB_DIR = r"C:\oracle\instantclient_19_30"
 
 
 def _get_secret_value(path: str) -> str | None:
@@ -40,6 +42,23 @@ def _first_non_empty(*values: str | None) -> str | None:
     return None
 
 
+def _get_oracle_client_lib_dir() -> str | None:
+    client_lib_dir = _first_non_empty(
+        _get_secret_value("oracle.client_lib_dir")
+        or _get_secret_value("ORACLE_CLIENT_LIB_DIR"),
+        os.getenv("ORACLE_CLIENT_LIB_DIR"),
+    )
+
+    if (
+        os.name == "nt"
+        and (not client_lib_dir or not os.path.exists(client_lib_dir))
+        and os.path.exists(WINDOWS_ORACLE_CLIENT_LIB_DIR)
+    ):
+        return WINDOWS_ORACLE_CLIENT_LIB_DIR
+
+    return client_lib_dir
+
+
 def _get_oracle_config() -> dict[str, str | None]:
     return {
         "user": _first_non_empty(
@@ -64,11 +83,7 @@ def _get_oracle_config() -> dict[str, str | None]:
             or _get_secret_value("ORACLE_SERVICE_NAME"),
             os.getenv("ORACLE_SERVICE_NAME"),
         ),
-        "client_lib_dir": _first_non_empty(
-            _get_secret_value("oracle.client_lib_dir")
-            or _get_secret_value("ORACLE_CLIENT_LIB_DIR"),
-            os.getenv("ORACLE_CLIENT_LIB_DIR"),
-        ),
+        "client_lib_dir": _get_oracle_client_lib_dir(),
     }
 
 

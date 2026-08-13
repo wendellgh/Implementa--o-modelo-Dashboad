@@ -8,10 +8,12 @@ from Oracle.conexao_oracle import get_oracle_connection
 from Oracle.consultas_oracle import (
     QUERY_DESTBOAD,
     QUERY_DESTBOAD_COM_FILTRO_ABERTURA_OS,
+    QUERY_OS_BHZ,
 )
 
 ORACLE_DIR = Path(__file__).resolve().parent
 DEFAULT_DESTBOAD_CSV = ORACLE_DIR / "saida_oracle_destboad.csv"
+DEFAULT_OS_BHZ_CSV = ORACLE_DIR / "saida_oracle_os_bhz.csv"
 
 
 def validar_select(sql: str) -> None:
@@ -130,6 +132,10 @@ def consultar_destboad_dataframe(
 ) -> pd.DataFrame:
     sql, params = _montar_consulta_destboad(data_inicio)
     return consultar_oracle_dataframe(sql, params=params)
+
+
+def consultar_os_bhz_dataframe() -> pd.DataFrame:
+    return consultar_oracle_dataframe(QUERY_OS_BHZ)
 
 
 def gerar_destboad_csv(

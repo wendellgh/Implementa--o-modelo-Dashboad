@@ -17,3 +17,9 @@ WHERE CASE
             || SUBSTR(TRIM("ABERTURA_OS"), 9, 2)
 END >= :data_inicio
 """
+
+
+QUERY_OS_BHZ = """
+SELECT *
+FROM "SIGA"."OS_STATUS_FILIAL"
+"""

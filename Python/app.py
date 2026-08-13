@@ -59,6 +59,7 @@ from dashboard.visualizations import (
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
 MANUTENCAO_FILIAL_MENU_ITEM = SERVICOS_MANUTENCAO_FILIAL_LABEL
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
+CONSULTA_FILIAL_MG_MENU_ITEM = "Consulta Filial MG"
 ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 CSV_SERVICOS_EXTERNO_RELATIVO = Path("Importacoes") / "bsa_serv_exce.csv"
 CSV_BASE_HISTORICA_RELATIVO = Path("Importacoes") / "Basehistorica.csv"
@@ -460,6 +461,58 @@ def render_consulta_destboad_oracle() -> None:
             st.exception(erro)
 
 
+def render_consulta_filial_mg() -> None:
+    st.subheader(CONSULTA_FILIAL_MG_MENU_ITEM)
+
+    if not usuario_eh_admin():
+        st.warning(
+            "A consulta Oracle esta disponivel apenas para usuarios administradores."
+        )
+        return
+
+    st.info(
+        "O botão consulta a tabela OS_STATUS_FILIAL no Oracle e salva o resultado "
+        "como CSV na pasta Python/Oracle."
+    )
+
+    if st.button("Consultar Filial MG e salvar CSV", type="primary"):
+        try:
+            from Oracle.repositorio_oracle import (
+                DEFAULT_OS_BHZ_CSV,
+                consultar_os_bhz_dataframe,
+            )
+
+            with st.spinner("Consultando Filial MG no Oracle..."):
+                df_os_bhz = consultar_os_bhz_dataframe()
+                DEFAULT_OS_BHZ_CSV.parent.mkdir(parents=True, exist_ok=True)
+                df_os_bhz.to_csv(
+                    DEFAULT_OS_BHZ_CSV,
+                    index=False,
+                    encoding="utf-8-sig",
+                )
+
+            st.success(
+                "Consulta realizada e CSV salvo com sucesso. "
+                f"Registros Oracle: {len(df_os_bhz)}"
+            )
+            st.caption(f"CSV salvo em: {DEFAULT_OS_BHZ_CSV}")
+            st.dataframe(
+                df_os_bhz.head(100),
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.download_button(
+                "Baixar CSV da Filial MG",
+                data=DEFAULT_OS_BHZ_CSV.read_bytes(),
+                file_name=DEFAULT_OS_BHZ_CSV.name,
+                mime="text/csv",
+            )
+        # Fronteira da UI para falhas de conexao, consulta e gravacao do CSV.
+        except Exception as erro:  # noqa: BLE001
+            st.error("Erro ao consultar a Filial MG no Oracle.")
+            st.exception(erro)
+
+
 def montar_servicos_executados_dashboard(filtros: dict[str, object]):
     try:
         df_servicos = carregar_base_outra_tabela()
@@ -564,6 +617,10 @@ def main() -> None:
 
     if menu == ORACLE_DESTBOAD_MENU_ITEM:
         render_consulta_destboad_oracle()
+        return
+
+    if menu == CONSULTA_FILIAL_MG_MENU_ITEM:
+        render_consulta_filial_mg()
         return
 
     if menu == ANALISE_FALHAS_MENU_ITEM:

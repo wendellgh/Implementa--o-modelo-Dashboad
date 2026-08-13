@@ -25,6 +25,7 @@ SIDEBAR_LOGO_PATH = ASSETS_DIR / "tacom.svg"
 ENTRADA_DADOS_MENU_ITEM = "Entrada de Dados"
 MANUTENCAO_FILIAL_MENU_ITEM = SERVICOS_MANUTENCAO_FILIAL_LABEL
 ORACLE_DESTBOAD_MENU_ITEM = "Dados da Manutenção - Oracle"
+CONSULTA_FILIAL_MG_MENU_ITEM = "Consulta Filial MG"
 ANALISE_FALHAS_MENU_ITEM = "Análise de Falhas"
 PAGINA_ATUAL_KEY = "pagina_atual"
 FILTRO_MES_INICIO_KEY = "filtro_mes_inicio"
@@ -55,6 +56,7 @@ MENU_ICONS = {
     "ServiÃ§os Executados - Teste": ":material/build:",
     ANALISE_FALHAS_MENU_ITEM: ":material/rule:",
     ORACLE_DESTBOAD_MENU_ITEM: ":material/database:",
+    CONSULTA_FILIAL_MG_MENU_ITEM: ":material/table_view:",
     ENTRADA_DADOS_MENU_ITEM: ":material/edit_note:",
     MANUTENCAO_FILIAL_MENU_ITEM: ":material/edit_note:",
 }
@@ -66,6 +68,7 @@ NAVIGATION_GROUPS = (
             ("Entrada para Manutenção/Frota", ENTRADA_DADOS_MENU_ITEM),
             (SERVICOS_MANUTENCAO_FILIAL_LABEL, MANUTENCAO_FILIAL_MENU_ITEM),
             ("Dados da Manutenção - Oracle", ORACLE_DESTBOAD_MENU_ITEM),
+            ("Consulta Filial MG", CONSULTA_FILIAL_MG_MENU_ITEM),
         ),
     ),
     (
@@ -104,7 +107,8 @@ def _render_navegacao() -> str:
     pagina_atual = str(st.session_state[PAGINA_ATUAL_KEY])
     if pagina_atual not in paginas:
         pagina_atual = pagina_padrao
-    if pagina_atual == ORACLE_DESTBOAD_MENU_ITEM and not usuario_eh_admin():
+    paginas_oracle = {ORACLE_DESTBOAD_MENU_ITEM, CONSULTA_FILIAL_MG_MENU_ITEM}
+    if pagina_atual in paginas_oracle and not usuario_eh_admin():
         pagina_atual = "Dashboard" if "Dashboard" in paginas else paginas[0]
 
     st.session_state[PAGINA_ATUAL_KEY] = pagina_atual
@@ -113,9 +117,7 @@ def _render_navegacao() -> str:
         paginas_grupo = [pagina for _, pagina in itens]
         with st.expander(grupo, expanded=pagina_atual in paginas_grupo):
             for indice_item, (rotulo, pagina) in enumerate(itens):
-                oracle_bloqueado = (
-                    pagina == ORACLE_DESTBOAD_MENU_ITEM and not usuario_eh_admin()
-                )
+                oracle_bloqueado = pagina in paginas_oracle and not usuario_eh_admin()
                 st.button(
                     rotulo,
                     key=f"botao_pagina_{indice_grupo}_{indice_item}",
