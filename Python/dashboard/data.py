@@ -309,10 +309,105 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
     return _combinar_fontes_servicos(*fontes)
 
 
+@st.cache_data(ttl=300, show_spinner="Consultando OS do período no Oracle...")
+def carregar_os_no_periodo(
+    data_inicio: object,
+    data_fim: object,
+) -> pd.DataFrame:
+    from Oracle.repositorio_oracle import (
+        consultar_os_no_periodo_dataframe,
+    )
+
+    colunas_oracle = [
+        "codigo_cliente",
+        "cliente",
+        "numero_os",
+        "id_equipamento",
+        "equipamento",
+        "praca",
+        "data_ref",
+    ]
+    dados = consultar_os_no_periodo_dataframe(data_inicio, data_fim)
+    if dados.empty:
+        return pd.DataFrame(
+            columns=[
+                *colunas_oracle,
+                "data_competencia",
+                "id_contrato",
+                "contrato",
+                "id_operadora",
+                "operadora",
+                "nome_praca",
+                "coordenacao",
+            ]
+        )
+
+    resultado = dados.copy()
+    resultado.columns = [str(coluna).strip().lower() for coluna in resultado.columns]
+    colunas_ausentes = [
+        coluna for coluna in colunas_oracle if coluna not in resultado.columns
+    ]
+    if colunas_ausentes:
+        raise KeyError(
+            "Colunas ausentes na consulta de OS do período: "
+            f"{', '.join(colunas_ausentes)}"
+        )
+
+    for coluna in [
+        "codigo_cliente",
+        "cliente",
+        "numero_os",
+        "id_equipamento",
+        "equipamento",
+        "praca",
+    ]:
+        resultado[coluna] = resultado[coluna].fillna("").astype(str).str.strip()
+
+    resultado["data_ref"] = _converter_data_servicos(resultado["data_ref"])
+    resultado = _adicionar_colunas_competencia(resultado)
+    resultado["id_contrato"] = resultado["codigo_cliente"]
+    resultado["contrato"] = resultado["cliente"]
+    resultado["id_operadora"] = resultado["codigo_cliente"]
+    resultado["operadora"] = resultado["cliente"]
+    resultado = resultado[
+        resultado["cliente"].ne("") & resultado["numero_os"].ne("")
+    ].copy()
+
+    resultado = enriquecer_dataframe_pracas(
+        resultado,
+        coluna_praca="praca",
+        coluna_nome_praca="nome_praca",
+        coluna_coordenacao="coordenacao",
+    )
+    return _preencher_pracas_por_contrato(resultado).reset_index(drop=True)
+
+
+def montar_os_por_cliente(df_filtrado: pd.DataFrame) -> pd.DataFrame:
+    colunas = ["codigo_cliente", "cliente", "quantidade_os"]
+    if df_filtrado.empty:
+        return pd.DataFrame(columns=colunas)
+
+    os_unicas = df_filtrado.drop_duplicates(
+        subset=["codigo_cliente", "numero_os"]
+    )
+    resultado = (
+        os_unicas.groupby(["codigo_cliente", "cliente"], as_index=False)
+        .agg(quantidade_os=("numero_os", "size"))
+        .sort_values(
+            ["quantidade_os", "cliente"],
+            ascending=[False, True],
+        )
+    )
+
+    resultado["quantidade_os"] = resultado["quantidade_os"].astype(int)
+    return resultado[colunas].reset_index(drop=True)
+
+
 def limpar_cache_servicos_executados() -> None:
     carregar_servicos_executados_oracle.clear()
     carregar_servicos_executados_manutencao_filial.clear()
     carregar_base_outra_tabela.clear()
+    carregar_os_no_periodo.clear()
     carregar_dimensao_pracas_servicos.clear()
 
 

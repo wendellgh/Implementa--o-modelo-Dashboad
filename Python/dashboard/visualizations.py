@@ -54,6 +54,10 @@ DRILL_EQUIPAMENTO_KEY = "drill_down_equipamento"
 DRILL_NIVEL_CONTRATOS = 1
 DRILL_NIVEL_EQUIPAMENTOS = 2
 DRILL_NIVEL_SERVICOS = 3
+OS_DRILL_NIVEL_KEY = "os_drill_down_nivel"
+OS_DRILL_OPERADORA_KEY = "os_drill_down_operadora"
+OS_DRILL_NIVEL_OPERADORAS = 1
+OS_DRILL_NIVEL_EQUIPAMENTOS = 2
 
 
 def _tema_claro() -> bool:
@@ -324,6 +328,36 @@ def _render_grafico_drill_down(
         st.info("Sem dados para os filtros selecionados neste nível.")
         return None
 
+    total_categorias = len(resumo)
+    opcoes_quantidade = list(range(10, total_categorias + 1, 10))
+    if not opcoes_quantidade or opcoes_quantidade[-1] != total_categorias:
+        opcoes_quantidade.append(total_categorias)
+
+    chave_quantidade = f"{chave}_quantidade"
+    quantidade_padrao = min(10, total_categorias)
+    if st.session_state.get(chave_quantidade) not in opcoes_quantidade:
+        st.session_state[chave_quantidade] = quantidade_padrao
+
+    rotulos_seletor = {
+        DRILL_COL_CONTRATO: "Contratos exibidos",
+        DRILL_COL_EQUIPAMENTO: "Equipamentos exibidos",
+        DRILL_COL_SERVICO_EXECUTADO: "Serviços executados exibidos",
+    }
+    coluna_seletor, _ = st.columns([1.2, 3.8])
+    with coluna_seletor:
+        quantidade_exibida = st.selectbox(
+            rotulos_seletor.get(coluna_categoria, "Itens exibidos"),
+            options=opcoes_quantidade,
+            key=chave_quantidade,
+            format_func=lambda quantidade: (
+                f"Todos ({total_categorias})"
+                if quantidade == total_categorias
+                else f"Top {quantidade}"
+            ),
+        )
+
+    resumo = resumo.head(quantidade_exibida).copy()
+    titulo = f"{titulo} — Top {quantidade_exibida}"
     categorias = resumo[coluna_categoria].fillna("").astype(str)
     if orientacao == "v" and (
         len(resumo) > 18 or categorias.map(len).max() > 22
@@ -524,6 +558,237 @@ def render_drill_down(df: pd.DataFrame) -> None:
             orientacao="h",
         )
         _render_tabela_drill_down(df_servicos)
+
+
+def _reiniciar_drill_down_os() -> None:
+    st.session_state[OS_DRILL_NIVEL_KEY] = OS_DRILL_NIVEL_OPERADORAS
+    st.session_state[OS_DRILL_OPERADORA_KEY] = None
+
+
+def _sincronizar_drill_down_os(df_os: pd.DataFrame) -> None:
+    st.session_state.setdefault(OS_DRILL_NIVEL_KEY, OS_DRILL_NIVEL_OPERADORAS)
+    st.session_state.setdefault(OS_DRILL_OPERADORA_KEY, None)
+
+    operadora = st.session_state.get(OS_DRILL_OPERADORA_KEY)
+    operadoras_disponiveis = set(
+        df_os["operadora"].fillna("").astype(str).str.strip()
+    )
+    if operadora and operadora not in operadoras_disponiveis:
+        _reiniciar_drill_down_os()
+    elif not operadora:
+        st.session_state[OS_DRILL_NIVEL_KEY] = OS_DRILL_NIVEL_OPERADORAS
+
+
+def _agrupar_os_unicas(df_os: pd.DataFrame, coluna_grupo: str) -> pd.DataFrame:
+    colunas = [coluna_grupo, "quantidade_os"]
+    if df_os.empty:
+        return pd.DataFrame(columns=colunas)
+
+    dados = df_os.copy()
+    dados[coluna_grupo] = dados[coluna_grupo].fillna("").astype(str).str.strip()
+    dados["numero_os"] = dados["numero_os"].fillna("").astype(str).str.strip()
+    dados = dados[dados[coluna_grupo].ne("") & dados["numero_os"].ne("")]
+    dados = dados.drop_duplicates(subset=[coluna_grupo, "numero_os"])
+
+    resumo = (
+        dados.groupby(coluna_grupo, as_index=False)
+        .agg(quantidade_os=("numero_os", "size"))
+        .sort_values(["quantidade_os", coluna_grupo], ascending=[False, True])
+    )
+    resumo["quantidade_os"] = resumo["quantidade_os"].astype(int)
+    return resumo[colunas].reset_index(drop=True)
+
+
+def _render_ranking_drill_down_os(
+    resumo: pd.DataFrame,
+    coluna_categoria: str,
+    rotulo_categoria: str,
+    titulo: str,
+    chave: str,
+    permitir_selecao: bool,
+) -> object:
+    if resumo.empty:
+        st.info("Sem OS para os filtros selecionados neste nível.")
+        return None
+
+    total_categorias = len(resumo)
+    opcoes_quantidade = list(range(10, total_categorias + 1, 10))
+    if not opcoes_quantidade or opcoes_quantidade[-1] != total_categorias:
+        opcoes_quantidade.append(total_categorias)
+
+    chave_quantidade = f"{chave}_quantidade"
+    quantidade_padrao = min(10, total_categorias)
+    if st.session_state.get(chave_quantidade) not in opcoes_quantidade:
+        st.session_state[chave_quantidade] = quantidade_padrao
+
+    coluna_seletor, _ = st.columns([1.2, 3.8])
+    with coluna_seletor:
+        rotulo_seletor = (
+            "Operadoras exibidas"
+            if coluna_categoria == "operadora"
+            else "Equipamentos exibidos"
+        )
+        quantidade_exibida = st.selectbox(
+            rotulo_seletor,
+            options=opcoes_quantidade,
+            key=chave_quantidade,
+            format_func=lambda quantidade: (
+                f"Todos ({total_categorias})"
+                if quantidade == total_categorias
+                else f"Top {quantidade}"
+            ),
+        )
+
+    dados = resumo.head(quantidade_exibida).sort_values(
+        ["quantidade_os", coluna_categoria],
+        ascending=[True, False],
+    )
+    altura = max(430, min(1000, len(dados) * 34 + 150))
+    fig = px.bar(
+        dados,
+        x="quantidade_os",
+        y=coluna_categoria,
+        orientation="h",
+        color="quantidade_os",
+        color_continuous_scale=[PALETA["secundaria"], PALETA["primaria"]],
+        text="quantidade_os",
+        custom_data=[coluna_categoria],
+        labels={
+            coluna_categoria: rotulo_categoria,
+            "quantidade_os": "Quantidade de OS",
+        },
+        title=f"{titulo} — Top {quantidade_exibida}",
+    )
+    fig.update_layout(height=altura, coloraxis_showscale=False)
+    fig.update_xaxes(rangemode="tozero", dtick=10)
+    fig.update_yaxes(
+        categoryorder="array",
+        categoryarray=dados[coluna_categoria].tolist(),
+        tickmode="array",
+        tickvals=dados[coluna_categoria].tolist(),
+        ticktext=[
+            _quebrar_rotulo_eixo(categoria, largura=38, max_linhas=2)
+            for categoria in dados[coluna_categoria].tolist()
+        ],
+        automargin=True,
+    )
+    _mostrar_rotulos_barras(fig, "%{text:.0f}", font_size=14, uniform_min_size=11)
+    fig.update_traces(
+        hovertemplate=(
+            f"{rotulo_categoria}=%{{customdata[0]}}<br>"
+            "Quantidade de OS=%{x:.0f}<extra></extra>"
+        )
+    )
+    fig = _estilizar_figura(fig)
+
+    parametros = {"use_container_width": True, "key": chave}
+    if permitir_selecao:
+        parametros.update(on_select="rerun", selection_mode="points")
+    return st.plotly_chart(fig, **parametros)
+
+
+def render_drill_down_os(
+    df_os: pd.DataFrame | None,
+    data_inicio: object,
+    data_fim: object,
+) -> None:
+    periodo = (
+        f"{pd.Timestamp(data_inicio).strftime('%d/%m/%Y')} a "
+        f"{pd.Timestamp(data_fim).strftime('%d/%m/%Y')}"
+    )
+
+    if df_os is None:
+        st.warning("Não foi possível consultar as OS do período no Oracle.")
+        return
+    if df_os.empty:
+        st.info("Nenhuma OS encontrada no período selecionado.")
+        return
+
+    colunas_obrigatorias = ["operadora", "equipamento", "numero_os"]
+    colunas_ausentes = [
+        coluna for coluna in colunas_obrigatorias if coluna not in df_os.columns
+    ]
+    if colunas_ausentes:
+        st.warning(
+            "Não foi possível renderizar o drill down de OS. "
+            f"Colunas ausentes: {', '.join(colunas_ausentes)}."
+        )
+        return
+
+    dados_os = df_os.copy()
+    for coluna in colunas_obrigatorias:
+        dados_os[coluna] = dados_os[coluna].fillna("").astype(str).str.strip()
+
+    _sincronizar_drill_down_os(dados_os)
+    nivel = st.session_state.get(OS_DRILL_NIVEL_KEY, OS_DRILL_NIVEL_OPERADORAS)
+    operadora = st.session_state.get(OS_DRILL_OPERADORA_KEY)
+
+    with st.container(border=True):
+        coluna_titulo, coluna_voltar, coluna_reiniciar = st.columns([5, 1, 1.4])
+        with coluna_titulo:
+            st.subheader("Drill Down de OS")
+            caminho = ["Operadoras"]
+            if operadora:
+                caminho.append(str(operadora))
+            st.caption(" > ".join(caminho))
+        with coluna_voltar:
+            st.button(
+                "⬅ Voltar",
+                key="os_drill_down_voltar",
+                disabled=nivel == OS_DRILL_NIVEL_OPERADORAS,
+                on_click=_reiniciar_drill_down_os,
+                use_container_width=True,
+            )
+        with coluna_reiniciar:
+            st.button(
+                "🔄 Reiniciar",
+                key="os_drill_down_reiniciar",
+                on_click=_reiniciar_drill_down_os,
+                use_container_width=True,
+            )
+
+        st.caption(
+            f"Período selecionado: {periodo}. Somente ABA_ITEM = 1; "
+            "todos os status e filtros da tela são considerados."
+        )
+
+        if nivel == OS_DRILL_NIVEL_OPERADORAS:
+            st.caption(
+                "Clique na barra de uma operadora para visualizar seus equipamentos."
+            )
+            resumo_operadoras = _agrupar_os_unicas(dados_os, "operadora")
+            evento = _render_ranking_drill_down_os(
+                resumo_operadoras,
+                "operadora",
+                "Operadora",
+                "Nível 1: OS por operadora",
+                "os_drill_down_operadoras_chart",
+                permitir_selecao=True,
+            )
+            operadora_selecionada = _obter_valor_selecionado(evento)
+            if operadora_selecionada:
+                st.session_state[OS_DRILL_OPERADORA_KEY] = operadora_selecionada
+                st.session_state[OS_DRILL_NIVEL_KEY] = OS_DRILL_NIVEL_EQUIPAMENTOS
+                st.rerun()
+            return
+
+        if not operadora:
+            _reiniciar_drill_down_os()
+            st.rerun()
+
+        dados_operadora = dados_os[dados_os["operadora"].eq(operadora)]
+        resumo_equipamentos = _agrupar_os_unicas(
+            dados_operadora,
+            "equipamento",
+        )
+        _render_ranking_drill_down_os(
+            resumo_equipamentos,
+            "equipamento",
+            "Equipamento",
+            f"Nível 2: OS por equipamento — {operadora}",
+            "os_drill_down_equipamentos_chart",
+            permitir_selecao=False,
+        )
 
 
 def _render_manutencao_por_categoria_chart(

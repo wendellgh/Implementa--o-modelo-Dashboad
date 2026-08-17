@@ -16,6 +16,7 @@ from dashboard.config import (
 from dashboard.data import (
     carregar_base,
     carregar_base_outra_tabela,
+    carregar_os_no_periodo,
     carregar_servicos_executados_oracle,
     limpar_cache_servicos_executados,
     montar_equipamentos_por_contrato,
@@ -24,6 +25,7 @@ from dashboard.data import (
     montar_frota_contrato_por_mes,
     montar_manutencao_por_contrato,
     montar_manutencao_por_operadora,
+    montar_os_por_cliente,
     montar_resumo_equipamento,
     montar_servicos_executados_por_tipo,
     montar_tabela_evolucao,
@@ -34,8 +36,8 @@ from dashboard.filters import aplicar_filtros, render_filtros, render_sidebar
 from dashboard.manutencao_filial_teste import render_manutencao_filial_teste
 from dashboard.metrics import (
     calcular_kpis,
+    render_indicadores_servicos_executados,
     render_kpis,
-    render_total_servicos_executados,
 )
 from dashboard.styles import aplicar_estilos_globais, render_titulo_principal
 from dashboard.tables import (
@@ -53,6 +55,7 @@ from dashboard.visualizations import (
     render_dashboard_charts,
     render_drill_down,
     render_frota_contrato_chart,
+    render_drill_down_os,
     render_resumo_chart,
 )
 
@@ -707,8 +710,32 @@ def main() -> None:
 
         servicos_filtrados = aplicar_filtros(df_servicos, filtros)
         total_servicos = int(servicos_filtrados["qtd_servico"].sum())
+        data_inicio_os, data_fim_os = filtros["periodo"]
+        try:
+            os_periodo = carregar_os_no_periodo(
+                data_inicio_os,
+                data_fim_os,
+            )
+            os_filtradas = aplicar_filtros(os_periodo, filtros)
+            os_por_cliente = montar_os_por_cliente(os_filtradas)
+            total_os_periodo = int(os_por_cliente["quantidade_os"].sum())
+        except Exception as erro:  # noqa: BLE001
+            os_filtradas = None
+            os_por_cliente = None
+            total_os_periodo = None
+            st.warning(f"Erro ao consultar OS do período no Oracle: {erro}")
+
         with total_servicos_area:
-            render_total_servicos_executados(total_servicos)
+            render_indicadores_servicos_executados(
+                total_servicos,
+                total_os_periodo,
+            )
+        st.write("")
+        render_drill_down_os(
+            os_filtradas,
+            data_inicio_os,
+            data_fim_os,
+        )
         st.write("")
         render_drill_down(servicos_filtrados)
     else:

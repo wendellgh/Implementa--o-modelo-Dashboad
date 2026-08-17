@@ -110,3 +110,17 @@ def render_total_servicos_executados(total_servicos: int) -> None:
 
     with coluna_total:
         _render_card("Total de Serviços Executados", _format_int(total_servicos))
+
+
+def render_indicadores_servicos_executados(
+    total_servicos: int,
+    total_os_periodo: int | None,
+) -> None:
+    coluna_servicos, coluna_os_periodo, _, _ = st.columns([1.3, 1.3, 1, 1])
+
+    with coluna_servicos:
+        _render_card("Total de Serviços Executados", _format_int(total_servicos))
+
+    with coluna_os_periodo:
+        valor = "N/D" if total_os_periodo is None else _format_int(total_os_periodo)
+        _render_card("Total de OS no período", valor, "📋")

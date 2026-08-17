@@ -9,6 +9,7 @@ from Oracle.consultas_oracle import (
     QUERY_DESTBOAD,
     QUERY_DESTBOAD_COM_FILTRO_ABERTURA_OS,
     QUERY_OS_BHZ,
+    QUERY_OS_NO_PERIODO,
 )
 
 ORACLE_DIR = Path(__file__).resolve().parent
@@ -132,6 +133,20 @@ def consultar_destboad_dataframe(
 ) -> pd.DataFrame:
     sql, params = _montar_consulta_destboad(data_inicio)
     return consultar_oracle_dataframe(sql, params=params)
+
+
+def consultar_os_no_periodo_dataframe(
+    data_inicio: date | datetime,
+    data_fim: date | datetime,
+) -> pd.DataFrame:
+    params = {
+        "data_inicio": _normalizar_data_oracle(data_inicio),
+        "data_fim": _normalizar_data_oracle(data_fim),
+    }
+    return consultar_oracle_dataframe(
+        QUERY_OS_NO_PERIODO,
+        params=params,
+    )
 
 
 def consultar_os_bhz_dataframe() -> pd.DataFrame:
