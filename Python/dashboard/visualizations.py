@@ -698,7 +698,7 @@ def render_drill_down_os(
     )
 
     if df_os is None:
-        st.warning("Não foi possível consultar as OS do período no Oracle.")
+        st.warning("Não foi possível carregar as OS do arquivo Oracle.")
         return
     if df_os.empty:
         st.info("Nenhuma OS encontrada no período selecionado.")
@@ -749,7 +749,8 @@ def render_drill_down_os(
 
         st.caption(
             f"Período selecionado: {periodo}. Somente ABA_ITEM = 1; "
-            "todos os status e filtros da tela são considerados."
+            "todos os status e filtros da tela são considerados. "
+            "Fonte: Python/Oracle/saida_oracle_destboad.csv."
         )
 
         if nivel == OS_DRILL_NIVEL_OPERADORAS:

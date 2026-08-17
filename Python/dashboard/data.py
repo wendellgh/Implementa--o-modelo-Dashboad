@@ -309,16 +309,47 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
     return _combinar_fontes_servicos(*fontes)
 
 
-@st.cache_data(ttl=300, show_spinner="Consultando OS do período no Oracle...")
-def carregar_os_no_periodo(
+@st.cache_data(show_spinner="Carregando OS do arquivo local...")
+def _carregar_os_no_periodo_csv(
+    caminho_csv: str,
+    versao_arquivo: int,
     data_inicio: object,
     data_fim: object,
 ) -> pd.DataFrame:
     from Oracle.repositorio_oracle import (
-        consultar_os_no_periodo_dataframe,
+        carregar_destboad_csv_dataframe,
     )
 
-    colunas_oracle = [
+    # Faz parte da chave do cache e muda quando o arquivo é substituído.
+    _ = versao_arquivo
+    dados = carregar_destboad_csv_dataframe(caminho_csv)
+    dados.columns = [str(coluna).strip().upper() for coluna in dados.columns]
+
+    colunas_obrigatorias = [
+        "COD_CLIETE",
+        "NOME",
+        "OS",
+        "PRODUTO",
+        "ABERTURA_OS",
+        "ABA_ITEM",
+    ]
+    colunas_ausentes = [
+        coluna for coluna in colunas_obrigatorias if coluna not in dados.columns
+    ]
+    if colunas_ausentes:
+        raise KeyError(
+            "Colunas ausentes no arquivo saida_oracle_destboad.csv: "
+            f"{', '.join(colunas_ausentes)}"
+        )
+
+    datas_abertura = _converter_data_servicos(dados["ABERTURA_OS"])
+    itens = pd.to_numeric(dados["ABA_ITEM"], errors="coerce")
+    inicio = pd.Timestamp(data_inicio)
+    fim = pd.Timestamp(data_fim)
+    dados = dados.loc[itens.eq(1) & datas_abertura.between(inicio, fim)].copy()
+    datas_abertura = datas_abertura.loc[dados.index]
+
+    colunas_resultado = [
         "codigo_cliente",
         "cliente",
         "numero_os",
@@ -327,11 +358,10 @@ def carregar_os_no_periodo(
         "praca",
         "data_ref",
     ]
-    dados = consultar_os_no_periodo_dataframe(data_inicio, data_fim)
     if dados.empty:
         return pd.DataFrame(
             columns=[
-                *colunas_oracle,
+                *colunas_resultado,
                 "data_competencia",
                 "id_contrato",
                 "contrato",
@@ -342,16 +372,26 @@ def carregar_os_no_periodo(
             ]
         )
 
-    resultado = dados.copy()
-    resultado.columns = [str(coluna).strip().lower() for coluna in resultado.columns]
-    colunas_ausentes = [
-        coluna for coluna in colunas_oracle if coluna not in resultado.columns
-    ]
-    if colunas_ausentes:
-        raise KeyError(
-            "Colunas ausentes na consulta de OS do período: "
-            f"{', '.join(colunas_ausentes)}"
-        )
+    def texto_coluna(coluna: str) -> pd.Series:
+        if coluna not in dados.columns:
+            return pd.Series("", index=dados.index, dtype="object")
+        return dados[coluna].fillna("").astype(str).str.strip()
+
+    descricao = texto_coluna("DESCRICAO")
+    serie_produto = texto_coluna("SERIE_PRODUTO")
+    equipamento = descricao.where(descricao.ne(""), serie_produto)
+
+    resultado = pd.DataFrame(
+        {
+            "codigo_cliente": texto_coluna("COD_CLIETE"),
+            "cliente": texto_coluna("NOME"),
+            "numero_os": texto_coluna("OS"),
+            "id_equipamento": texto_coluna("PRODUTO"),
+            "equipamento": equipamento,
+            "praca": texto_coluna("A1_PRACA"),
+            "data_ref": datas_abertura,
+        }
+    )
 
     for coluna in [
         "codigo_cliente",
@@ -363,7 +403,6 @@ def carregar_os_no_periodo(
     ]:
         resultado[coluna] = resultado[coluna].fillna("").astype(str).str.strip()
 
-    resultado["data_ref"] = _converter_data_servicos(resultado["data_ref"])
     resultado = _adicionar_colunas_competencia(resultado)
     resultado["id_contrato"] = resultado["codigo_cliente"]
     resultado["contrato"] = resultado["cliente"]
@@ -380,6 +419,27 @@ def carregar_os_no_periodo(
         coluna_coordenacao="coordenacao",
     )
     return _preencher_pracas_por_contrato(resultado).reset_index(drop=True)
+
+
+def carregar_os_no_periodo(
+    data_inicio: object,
+    data_fim: object,
+) -> pd.DataFrame:
+    from Oracle.repositorio_oracle import DEFAULT_DESTBOAD_CSV
+
+    caminho = DEFAULT_DESTBOAD_CSV.resolve()
+    if not caminho.is_file():
+        raise FileNotFoundError(f"Arquivo Oracle não encontrado: {caminho}")
+
+    return _carregar_os_no_periodo_csv(
+        str(caminho),
+        caminho.stat().st_mtime_ns,
+        data_inicio,
+        data_fim,
+    )
+
+
+carregar_os_no_periodo.clear = _carregar_os_no_periodo_csv.clear  # type: ignore[attr-defined]
 
 
 def montar_os_por_cliente(df_filtrado: pd.DataFrame) -> pd.DataFrame:

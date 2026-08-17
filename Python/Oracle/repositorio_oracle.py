@@ -135,6 +135,21 @@ def consultar_destboad_dataframe(
     return consultar_oracle_dataframe(sql, params=params)
 
 
+def carregar_destboad_csv_dataframe(
+    caminho_csv: str | Path | None = None,
+) -> pd.DataFrame:
+    caminho = Path(caminho_csv) if caminho_csv else DEFAULT_DESTBOAD_CSV
+    if not caminho.is_file():
+        raise FileNotFoundError(f"Arquivo Oracle não encontrado: {caminho}")
+
+    return pd.read_csv(
+        caminho,
+        encoding="utf-8-sig",
+        dtype=str,
+        low_memory=False,
+    )
+
+
 def consultar_os_no_periodo_dataframe(
     data_inicio: date | datetime,
     data_fim: date | datetime,

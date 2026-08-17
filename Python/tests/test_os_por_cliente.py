@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from Oracle.consultas_oracle import QUERY_OS_NO_PERIODO
 from dashboard.data import carregar_os_no_periodo, montar_os_por_cliente
 from dashboard.filters import aplicar_filtros
 from dashboard.visualizations import _agrupar_os_unicas
@@ -14,30 +13,77 @@ class OsPorClienteTest(unittest.TestCase):
     def tearDown(self) -> None:
         carregar_os_no_periodo.clear()
 
-    def test_consulta_filtra_item_um_sem_restringir_status(self) -> None:
-        consulta = " ".join(QUERY_OS_NO_PERIODO.split())
-
-        self.assertIn('TRIM("ABA_ITEM") IN (\'1\', \'01\')', consulta)
-        self.assertNotIn('"STATUS"', consulta)
-        self.assertIn('TRIM("OS") AS "numero_os"', consulta)
-        self.assertIn('TRIM("PRODUTO") AS "id_equipamento"', consulta)
-        self.assertIn('TRIM("A1_PRACA") AS "praca"', consulta)
-        self.assertIn("BETWEEN :data_inicio AND :data_fim", consulta)
-
-    @patch(
-        "Oracle.repositorio_oracle.consultar_os_no_periodo_dataframe"
-    )
-    def test_carregamento_preserva_dimensoes_dos_filtros(self, consultar) -> None:
-        consultar.return_value = pd.DataFrame(
+    @patch("Oracle.repositorio_oracle.carregar_destboad_csv_dataframe")
+    def test_csv_filtra_item_um_e_periodo_sem_restringir_status(
+        self,
+        carregar_csv,
+    ) -> None:
+        carregar_csv.return_value = pd.DataFrame(
             [
                 {
-                    "CODIGO_CLIENTE": " 002 ",
-                    "CLIENTE": " Cliente B ",
-                    "NUMERO_OS": " OS-2 ",
-                    "ID_EQUIPAMENTO": " EQ-1 ",
-                    "EQUIPAMENTO": " Validador ",
-                    "PRACA": " BHZ ",
-                    "DATA_REF": "15/08/2026",
+                    "COD_CLIETE": "001",
+                    "NOME": "Cliente A",
+                    "OS": "OS-1",
+                    "PRODUTO": "EQ-1",
+                    "DESCRICAO": "Validador",
+                    "A1_PRACA": "BHZ",
+                    "ABERTURA_OS": "10/08/2026",
+                    "ABA_ITEM": "01",
+                    "STATUS": "ENCERRADO",
+                },
+                {
+                    "COD_CLIETE": "001",
+                    "NOME": "Cliente A",
+                    "OS": "OS-2",
+                    "PRODUTO": "EQ-1",
+                    "DESCRICAO": "Validador",
+                    "A1_PRACA": "BHZ",
+                    "ABERTURA_OS": "11/08/2026",
+                    "ABA_ITEM": "01",
+                    "STATUS": "EM ABERTO",
+                },
+                {
+                    "COD_CLIETE": "001",
+                    "NOME": "Cliente A",
+                    "OS": "OS-3",
+                    "PRODUTO": "EQ-1",
+                    "DESCRICAO": "Validador",
+                    "A1_PRACA": "BHZ",
+                    "ABERTURA_OS": "12/08/2026",
+                    "ABA_ITEM": "02",
+                    "STATUS": "ENCERRADO",
+                },
+                {
+                    "COD_CLIETE": "001",
+                    "NOME": "Cliente A",
+                    "OS": "OS-4",
+                    "PRODUTO": "EQ-1",
+                    "DESCRICAO": "Validador",
+                    "A1_PRACA": "BHZ",
+                    "ABERTURA_OS": "31/07/2026",
+                    "ABA_ITEM": "01",
+                    "STATUS": "ENCERRADO",
+                },
+            ]
+        )
+
+        resultado = carregar_os_no_periodo(date(2026, 8, 1), date(2026, 8, 31))
+
+        self.assertEqual(resultado["numero_os"].tolist(), ["OS-1", "OS-2"])
+
+    @patch("Oracle.repositorio_oracle.carregar_destboad_csv_dataframe")
+    def test_carregamento_preserva_dimensoes_dos_filtros(self, carregar_csv) -> None:
+        carregar_csv.return_value = pd.DataFrame(
+            [
+                {
+                    "COD_CLIETE": " 002 ",
+                    "NOME": " Cliente B ",
+                    "OS": " OS-2 ",
+                    "PRODUTO": " EQ-1 ",
+                    "DESCRICAO": " Validador ",
+                    "A1_PRACA": " BHZ ",
+                    "ABERTURA_OS": "15/08/2026",
+                    "ABA_ITEM": "01",
                 },
             ]
         )
@@ -46,7 +92,7 @@ class OsPorClienteTest(unittest.TestCase):
 
         resultado = carregar_os_no_periodo(data_inicio, data_fim)
 
-        consultar.assert_called_once_with(data_inicio, data_fim)
+        carregar_csv.assert_called_once()
         self.assertEqual(resultado.loc[0, "contrato"], "Cliente B")
         self.assertEqual(resultado.loc[0, "operadora"], "Cliente B")
         self.assertEqual(resultado.loc[0, "equipamento"], "Validador")

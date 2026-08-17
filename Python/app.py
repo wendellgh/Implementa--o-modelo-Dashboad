@@ -723,7 +723,7 @@ def main() -> None:
             os_filtradas = None
             os_por_cliente = None
             total_os_periodo = None
-            st.warning(f"Erro ao consultar OS do período no Oracle: {erro}")
+            st.warning(f"Erro ao carregar OS do arquivo Oracle: {erro}")
 
         with total_servicos_area:
             render_indicadores_servicos_executados(
