@@ -5,26 +5,34 @@ import os
 import sys
 from collections import Counter
 from collections.abc import Hashable
-from pathlib import Path
 
 import pandas as pd
+
+if __package__:
+    from .migrate_local_to_neon import (
+        DEFAULT_LOCAL_DATABASE_URL,
+        TABLES,
+        ensure_schema,
+        label_database_url,
+        load_project_dotenv,
+        make_engine,
+        normalize_database_url,
+        prepare_neon_migration_url,
+        sync_sequence,
+    )
+else:
+    from migrate_local_to_neon import (
+        DEFAULT_LOCAL_DATABASE_URL,
+        TABLES,
+        ensure_schema,
+        label_database_url,
+        load_project_dotenv,
+        make_engine,
+        normalize_database_url,
+        prepare_neon_migration_url,
+        sync_sequence,
+    )
 from sqlalchemy.engine import Engine
-
-sys.path.append(str(Path(__file__).resolve().parent))
-
-NEON_DATABASE_URL = "postgresql://neondb_owner:npg_GfTjZ3CpS0Hy@ep-lively-water-acsdt1ns.sa-east-1.aws.neon.tech/neondb?sslmode=require"
-
-from migrate_local_to_neon import (  # noqa: E402
-    DEFAULT_LOCAL_DATABASE_URL,
-    TABLES,
-    ensure_schema,
-    label_database_url,
-    make_engine,
-    normalize_database_url,
-    prepare_neon_migration_url,
-    sync_sequence,
-)
-
 
 COMPARE_COLUMNS = {
     "base_historica_manutencao": [
@@ -136,7 +144,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--local-url",
-        default=os.getenv("LOCAL_DATABASE_URL", DEFAULT_LOCAL_DATABASE_URL),
+        default=os.getenv("LOCAL_DATABASE_URL") or DEFAULT_LOCAL_DATABASE_URL,
         help="Connection string do Postgres local. Padrao: localhost app_db.",
     )
     parser.add_argument(
@@ -161,6 +169,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    load_project_dotenv()
     args = parse_args()
     if not args.neon_url:
         print("Erro: informe --neon-url ou defina NEON_DATABASE_URL.", file=sys.stderr)
@@ -174,11 +183,12 @@ def main() -> int:
 
     print(f"Origem local: {label_database_url(local_url)}")
     print(f"Destino Neon: {label_database_url(neon_url)}")
-    print("")
+    print()
 
-    ensure_schema(local_engine)
-    ensure_schema(neon_engine)
-    sync_sequence(neon_engine)
+    if args.yes:
+        ensure_schema(local_engine)
+        ensure_schema(neon_engine)
+        sync_sequence(neon_engine)
 
     planned: list[tuple[str, pd.DataFrame]] = []
 
@@ -199,14 +209,14 @@ def main() -> int:
         )
 
     if not args.yes:
-        print("")
+        print()
         print(
             "Dry run: nada foi alterado. Para inserir somente ausentes sem "
             "apagar dados, use --adicionar-dados."
         )
         return 0
 
-    print("")
+    print()
     print("Inserindo apenas as linhas ausentes no Neon...")
     for table, missing_df in planned:
         append_rows(neon_engine, table, missing_df, args.chunksize)
@@ -214,7 +224,7 @@ def main() -> int:
 
     sync_sequence(neon_engine)
 
-    print("")
+    print()
     print("Concluido. Os dados que ja estavam no Neon foram preservados.")
     return 0
 

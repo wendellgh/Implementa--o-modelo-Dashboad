@@ -1,105 +1,153 @@
-# Migracao para Neon como banco principal
+# Migração entre PostgreSQL local e Neon
 
-Este projeto deve usar o Neon como banco oficial de producao. O Postgres local
-fica apenas para desenvolvimento ou testes descartaveis.
+## Segurança primeiro
 
-## 1. Configurar a URL do Neon
+Nunca grave connection strings, senhas ou tokens neste repositório. Use o
+Neon Console e o secret store da hospedagem em produção; para desenvolvimento
+local, use um arquivo `.env`, que é ignorado pelo Git.
 
-Use a connection string direta do Neon para migracao. Evite a URL com
-`-pooler` em comandos de migracao.
+A credencial que já apareceu no histórico deve ser considerada comprometida.
+Removê-la dos arquivos atuais não revoga o acesso e não a remove dos commits
+antigos.
 
-```powershell
-$env:NEON_DATABASE_URL="postgresql://neondb_owner:npg_GfTjZ3CpS0Hy@ep-lively-water-acsdt1ns.sa-east-1.aws.neon.tech/neondb?sslmode=require"
-```
+## Rotação da credencial exposta
 
-No Streamlit Cloud, configure o mesmo valor em Secrets como:
+Faça a rotação de forma coordenada para não interromper o dashboard:
 
-```toml
-NEON_DATABASE_URL="postgresql://usuario:senha@ep-....neon.tech/dbname?sslmode=require"
-```
+1. No Neon Console, crie uma nova role com os privilégios mínimos necessários.
+   Se isso não for possível, redefina a senha da role atual e atualize os
+   consumidores imediatamente.
+2. Obtenha duas connection strings para a nova role:
+   - pooled, para o dashboard/Streamlit (`DATABASE_URL`);
+   - direta, para os scripts de migração (`NEON_DATABASE_URL`).
+3. No painel de Secrets do Streamlit Cloud ou da hospedagem, atualize
+   `DATABASE_URL` e gere também um novo `DASHBOARD_AUTH_SECRET` aleatório e
+   forte.
+4. Reinicie/republique a aplicação e valide a conexão usando o indicador de
+   banco exibido no dashboard.
+5. Atualize o `.env` apenas nas máquinas autorizadas e valide os scripts em
+   modo de prévia.
+6. Revogue a role/senha antiga depois que todos os consumidores estiverem
+   usando a nova credencial.
 
-## 2. Conferir contagens sem alterar o Neon
+O secret store do Streamlit tem precedência sobre as variáveis de ambiente no
+dashboard. Atualize ou remova também qualquer valor antigo existente nele.
 
-```powershell
-$env:NEON_DATABASE_URL="postgresql://neondb_owner:npg_GfTjZ3CpS0Hy@ep-lively-water-acsdt1ns.sa-east-1.aws.neon.tech/neondb?sslmode=require"
-.\.venv\Scripts\python.exe scripts\migrate_local_to_neon.py
-```
+## Configuração local
 
-O script mostra quantas linhas existem no Postgres local e no Neon.
-
-## 3. Migrar os dados locais para o Neon
-
-Este comando substitui os dados das tabelas do dashboard no Neon pelos dados do
-Postgres local:
-
-```powershell
-.\.venv\Scripts\python.exe scripts\migrate_local_to_neon.py --yes --replace-neon-tables
-```
-
-Tabelas migradas:
-
-- `public.base_historica_manutencao`
-- `public.servicos_executados`
-
-O script tambem ajusta a sequence `base_historica_manutencao_id_seq` depois da
-copia.
-
-## 3.1 Migrar os dados do Neon para o banco local
-
-Use este script quando quiser restaurar no Postgres local os dados que estão no
-Neon:
+Crie o arquivo local a partir do modelo:
 
 ```powershell
-$env:NEON_DATABASE_URL="postgresql://usuario:senha@host.neon.tech/dbname?sslmode=require"
-.\.venv\Scripts\python.exe scripts\neon_to_local.py --yes --replace-local-tables
+Copy-Item .env.example .env
 ```
 
-O comando faz o seguinte:
+Preencha no `.env`, sem versioná-lo:
 
-- garante o schema das tabelas locais e no Neon
-- trunca as tabelas locais antes da carga
-- copia `public.base_historica_manutencao` e `public.servicos_executados`
-- ajusta a sequence `base_historica_manutencao_id_seq` no banco local
-
-Se você quiser usar outro banco local, informe `--local-url`:
-
-```powershell
-.\.venv\Scripts\python.exe scripts\neon_to_local.py \
-  --local-url "postgresql+psycopg2://app_user:app123@localhost:5432/app_db" \
-  --yes --replace-local-tables
+```dotenv
+DATABASE_URL=<connection-string-pooled-do-Neon>
+NEON_DATABASE_URL=<connection-string-direta-do-Neon>
+LOCAL_DATABASE_URL=<connection-string-do-PostgreSQL-local>
+DASHBOARD_AUTH_SECRET=<segredo-aleatorio-forte>
 ```
 
-> O script requer `--yes --replace-local-tables` para executar a migração real.
+Os scripts carregam o `.env` automaticamente sem substituir variáveis já
+definidas no processo. A precedência é:
 
-## 4. Rodar o app apontando para o Neon
+1. argumento `--neon-url`;
+2. `NEON_DATABASE_URL`;
+3. `DATABASE_URL`.
 
-Local:
+## Acrescentar somente linhas ausentes
+
+Prévia, sem inserir dados nem alterar schema/sequências:
 
 ```powershell
-$env:NEON_DATABASE_URL="postgresql://neondb_owner:npg_GfTjZ3CpS0Hy@ep-lively-water-acsdt1ns.sa-east-1.aws.neon.tech/neondb?sslmode=require"
+python scripts\append_missing_local_to_neon.py
+```
+
+Depois de conferir as contagens, execute explicitamente:
+
+```powershell
+python scripts\append_missing_local_to_neon.py --adicionar-dados
+```
+
+Esse fluxo preserva as linhas existentes no Neon e acrescenta apenas as linhas
+que faltam segundo as colunas de comparação do script.
+
+Tabelas processadas:
+
+- `public.base_historica_manutencao`;
+- `public.servicos_executados`.
+
+Ao final de uma execução real, a sequência
+`base_historica_manutencao_id_seq` é sincronizada.
+
+## Substituir as tabelas do Neon
+
+Prévia das contagens:
+
+```powershell
+python scripts\migrate_local_to_neon.py
+```
+
+A execução abaixo trunca as tabelas de destino antes da cópia. Use somente
+quando a substituição integral for realmente desejada:
+
+```powershell
+python scripts\migrate_local_to_neon.py --executar --substituir-tabelas-neon
+```
+
+## Espelhar o Neon no PostgreSQL local
+
+Prévia das contagens:
+
+```powershell
+python scripts\neon_to_local.py
+```
+
+A execução abaixo trunca as tabelas locais antes da cópia:
+
+```powershell
+python scripts\neon_to_local.py --executar --substituir-tabelas-local
+```
+
+Para escolher outro banco local, informe uma URL sem gravá-la no repositório:
+
+```powershell
+python scripts\neon_to_local.py --local-url $env:LOCAL_DATABASE_URL
+```
+
+## Executar o dashboard
+
+Com `DATABASE_URL` configurada no ambiente ou no secret store:
+
+```powershell
 streamlit run Python/app.py
 ```
 
-Docker Compose:
+Com Docker Compose:
 
 ```powershell
-$env:NEON_DATABASE_URL="postgresql://neondb_owner:npg_GfTjZ3CpS0Hy@ep-lively-water-acsdt1ns.sa-east-1.aws.neon.tech/neondb?sslmode=require"
 docker compose -f Docker/docker-compose.yml up -d --build app
 ```
 
-## 5. Indicador visual no app
+O menu lateral identifica o destino ativo:
 
-O menu lateral mostra um badge logo abaixo do logo:
+- `Neon ativo`: host do Neon;
+- `Banco local`: PostgreSQL local ou container local;
+- `Banco remoto`: outro host PostgreSQL.
 
-- `Neon ativo`: host contem `neon.tech`
-- `Banco local`: `localhost`, `127.0.0.1`, `postgres` ou `host.docker.internal`
-- `Banco remoto`: outro host PostgreSQL
+## Limpeza do histórico Git
 
-Assim fica claro onde os dados serao lidos e gravados antes de usar a tela de
-entrada de dados.
+Depois da rotação, planeje a remoção do segredo do histórico com
+`git filter-repo` em um clone dedicado. Essa operação altera os hashes dos
+commits e exige force-push coordenado, atualização de PRs e reclone dos
+checkouts. Não execute a reescrita no checkout de trabalho com arquivos locais
+modificados. Cópias, forks e caches antigos devem continuar sendo tratados como
+potencialmente comprometidos mesmo após a reescrita.
 
-## Referencias Neon
+## Referências oficiais
 
-- https://neon.com/docs/get-started-with-neon/connect-neon
-- https://neon.com/docs/import/migrate-intro
-- https://neon.com/docs/connect/connection-pooling
+- <https://neon.com/docs/get-started-with-neon/connect-neon>
+- <https://neon.com/docs/import/migrate-intro>
+- <https://neon.com/docs/connect/connection-pooling>

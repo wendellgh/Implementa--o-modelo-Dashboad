@@ -3,32 +3,38 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from pathlib import Path
 
 import pandas as pd
-from dotenv import load_dotenv
-from sqlalchemy.engine import URL
-from sqlalchemy.engine import Engine
 
-
-from migrate_local_to_neon import (
-    DEFAULT_LOCAL_DATABASE_URL,
-    TABLES,
-    ensure_schema,
-    label_database_url,
-    make_engine,
-    normalize_database_url,
-    prepare_neon_migration_url,
-    sync_sequence,
-    truncate_target_tables,
-    count_rows_if_exists,
-)
-
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
-
-sys.path.append(str(Path(__file__).resolve().parent))
-
-
+if __package__:
+    from .migrate_local_to_neon import (
+        DEFAULT_LOCAL_DATABASE_URL,
+        TABLES,
+        count_rows_if_exists,
+        ensure_schema,
+        label_database_url,
+        load_project_dotenv,
+        make_engine,
+        normalize_database_url,
+        prepare_neon_migration_url,
+        sync_sequence,
+        truncate_target_tables,
+    )
+else:
+    from migrate_local_to_neon import (
+        DEFAULT_LOCAL_DATABASE_URL,
+        TABLES,
+        count_rows_if_exists,
+        ensure_schema,
+        label_database_url,
+        load_project_dotenv,
+        make_engine,
+        normalize_database_url,
+        prepare_neon_migration_url,
+        sync_sequence,
+        truncate_target_tables,
+    )
+from sqlalchemy.engine import URL, Engine
 
 
 def _first_non_empty(*values: str | None) -> str | None:
@@ -116,7 +122,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--local-url",
-        default=os.getenv("LOCAL_DATABASE_URL", DEFAULT_LOCAL_DATABASE_URL),
+        default=os.getenv("LOCAL_DATABASE_URL") or DEFAULT_LOCAL_DATABASE_URL,
         help="Connection string do Postgres local. Padrao: localhost app_db.",
     )
     parser.add_argument(
@@ -125,11 +131,11 @@ def parse_args() -> argparse.Namespace:
         help="Connection string direta do Neon. Tambem aceita NEON_DATABASE_URL.",
     )
     parser.add_argument("--db-host", default=os.getenv("DB_HOST"))
-    parser.add_argument("--db-port", default=os.getenv("DB_PORT", "5432"))
+    parser.add_argument("--db-port", default=os.getenv("DB_PORT") or "5432")
     parser.add_argument("--db-name", default=os.getenv("DB_NAME"))
     parser.add_argument("--db-user", default=os.getenv("DB_USER"))
     parser.add_argument("--db-password", default=os.getenv("DB_PASSWORD"))
-    parser.add_argument("--db-sslmode", default=os.getenv("DB_SSLMODE", "require"))
+    parser.add_argument("--db-sslmode", default=os.getenv("DB_SSLMODE") or "require")
     parser.add_argument(
         "--substituir-tabelas-local",
         "--substituir_tabelas_local",
@@ -153,6 +159,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    load_project_dotenv()
     args = parse_args()
     neon_url_arg = _first_non_empty(args.neon_url)
     if not neon_url_arg:
@@ -178,7 +185,7 @@ def main() -> int:
 
     print(f"Origem Neon: {label_database_url(neon_url)}")
     print(f"Destino local: {label_database_url(local_url)}")
-    print("")
+    print()
     print("Contagens antes da migracao:")
     for table in TABLES:
         local_count = count_rows_if_exists(local_engine, table) or 0
@@ -186,7 +193,7 @@ def main() -> int:
         print(f"- {table}: neon={neon_count} local={local_count}")
 
     if not args.yes:
-        print("")
+        print()
         print(
             "Dry run: nada foi alterado. Para substituir tudo no local, use "
             "--executar --substituir-tabelas-local."
@@ -201,7 +208,7 @@ def main() -> int:
         )
         return 2
 
-    print("")
+    print()
     print("Garantindo schema local...")
     ensure_schema(local_engine)
 
@@ -218,14 +225,14 @@ def main() -> int:
 
     sync_sequence(local_engine)
 
-    print("")
+    print()
     print("Contagens depois da migracao:")
     for table in TABLES:
         local_count = count_rows_if_exists(local_engine, table) or 0
         neon_count = count_rows_if_exists(neon_engine, table) or 0
         print(f"- {table}: neon={neon_count} local={local_count}")
 
-    print("")
+    print()
     print("Migracao completa. O banco local agora reflete os dados do Neon.")
     return 0
 

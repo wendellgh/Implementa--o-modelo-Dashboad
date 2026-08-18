@@ -1,15 +1,22 @@
 from __future__ import annotations
+
 import argparse
 import os
 import sys
 from collections.abc import Iterable
+from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import inspect
-from sqlalchemy import create_engine, text
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine, make_url
 
 DEFAULT_LOCAL_DATABASE_URL = "postgresql+psycopg2://app_user:app123@localhost:5432/app_db"
+
+
+def load_project_dotenv() -> None:
+    """Carrega o .env local sem sobrescrever variaveis do processo."""
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 
 
 
@@ -228,7 +235,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--local-url",
-        default=os.getenv("LOCAL_DATABASE_URL", DEFAULT_LOCAL_DATABASE_URL),
+        default=os.getenv("LOCAL_DATABASE_URL") or DEFAULT_LOCAL_DATABASE_URL,
         help="Connection string do Postgres local. Padrao: localhost app_db.",
     )
     parser.add_argument(
@@ -259,6 +266,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    load_project_dotenv()
     args = parse_args()
     if not args.neon_url:
         print("Erro: informe --neon-url ou defina NEON_DATABASE_URL.", file=sys.stderr)
@@ -272,7 +280,7 @@ def main() -> int:
 
     print(f"Origem local: {label_database_url(local_url)}")
     print(f"Destino Neon: {label_database_url(neon_url)}")
-    print("")
+    print()
     print("Contagens antes da migracao:")
     for table in TABLES:
         local_count = count_rows(local_engine, table)
@@ -281,7 +289,7 @@ def main() -> int:
         print(f"- {table}: local={local_count} neon={neon_label}")
 
     if not args.yes:
-        print("")
+        print()
         print(
             "Dry run: nada foi alterado. Para substituir tudo no Neon, use "
             "--executar --substituir-tabelas-neon."
@@ -298,7 +306,7 @@ def main() -> int:
         )
         return 2
 
-    print("")
+    print()
     print("Garantindo schema local...")
     ensure_schema(local_engine)
 
@@ -315,7 +323,7 @@ def main() -> int:
 
     sync_sequence(neon_engine)
 
-    print("")
+    print()
     print("Contagens depois da migracao:")
     for table in TABLES:
         local_count = count_rows(local_engine, table)
