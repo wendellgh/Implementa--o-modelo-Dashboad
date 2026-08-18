@@ -447,11 +447,8 @@ def montar_os_por_cliente(df_filtrado: pd.DataFrame) -> pd.DataFrame:
     if df_filtrado.empty:
         return pd.DataFrame(columns=colunas)
 
-    os_unicas = df_filtrado.drop_duplicates(
-        subset=["codigo_cliente", "numero_os"]
-    )
     resultado = (
-        os_unicas.groupby(["codigo_cliente", "cliente"], as_index=False)
+        df_filtrado.groupby(["codigo_cliente", "cliente"], as_index=False)
         .agg(quantidade_os=("numero_os", "size"))
         .sort_values(
             ["quantidade_os", "cliente"],

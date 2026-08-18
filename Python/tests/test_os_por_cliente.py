@@ -6,7 +6,7 @@ import pandas as pd
 
 from dashboard.data import carregar_os_no_periodo, montar_os_por_cliente
 from dashboard.filters import aplicar_filtros
-from dashboard.visualizations import _agrupar_os_unicas
+from dashboard.visualizations import _agrupar_ocorrencias_os
 
 
 class OsPorClienteTest(unittest.TestCase):
@@ -99,7 +99,7 @@ class OsPorClienteTest(unittest.TestCase):
         self.assertEqual(resultado.loc[0, "numero_os"], "OS-2")
         self.assertIn("coordenacao", resultado.columns)
 
-    def test_resumo_conta_os_unicas_depois_dos_filtros(self) -> None:
+    def test_resumo_conta_cada_ocorrencia_com_aba_item_um(self) -> None:
         filtrado = pd.DataFrame(
             [
                 {"codigo_cliente": "001", "cliente": "Cliente A", "numero_os": "1"},
@@ -112,7 +112,7 @@ class OsPorClienteTest(unittest.TestCase):
         resultado = montar_os_por_cliente(filtrado)
 
         self.assertEqual(resultado["cliente"].tolist(), ["Cliente A", "Cliente B"])
-        self.assertEqual(resultado["quantidade_os"].tolist(), [2, 1])
+        self.assertEqual(resultado["quantidade_os"].tolist(), [3, 1])
 
     def test_os_do_grafico_aceitam_todos_os_filtros_da_tela(self) -> None:
         dados = pd.DataFrame(
@@ -157,7 +157,7 @@ class OsPorClienteTest(unittest.TestCase):
                 self.assertEqual(len(resultado), 1)
                 self.assertEqual(resultado.iloc[0]["contrato"], "Cliente A")
 
-    def test_drill_down_agrupa_os_unicas_por_operadora_e_equipamento(self) -> None:
+    def test_drill_down_agrupa_ocorrencias_por_operadora_e_equipamento(self) -> None:
         dados = pd.DataFrame(
             [
                 {"operadora": "A", "equipamento": "Validador", "numero_os": "1"},
@@ -167,15 +167,15 @@ class OsPorClienteTest(unittest.TestCase):
             ]
         )
 
-        operadoras = _agrupar_os_unicas(dados, "operadora")
-        equipamentos = _agrupar_os_unicas(
+        operadoras = _agrupar_ocorrencias_os(dados, "operadora")
+        equipamentos = _agrupar_ocorrencias_os(
             dados[dados["operadora"].eq("A")],
             "equipamento",
         )
 
         self.assertEqual(operadoras["operadora"].tolist(), ["A", "B"])
-        self.assertEqual(operadoras["quantidade_os"].tolist(), [2, 1])
-        self.assertEqual(equipamentos["quantidade_os"].sum(), 2)
+        self.assertEqual(operadoras["quantidade_os"].tolist(), [3, 1])
+        self.assertEqual(equipamentos["quantidade_os"].sum(), 3)
 
 
 if __name__ == "__main__":

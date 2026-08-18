@@ -579,7 +579,10 @@ def _sincronizar_drill_down_os(df_os: pd.DataFrame) -> None:
         st.session_state[OS_DRILL_NIVEL_KEY] = OS_DRILL_NIVEL_OPERADORAS
 
 
-def _agrupar_os_unicas(df_os: pd.DataFrame, coluna_grupo: str) -> pd.DataFrame:
+def _agrupar_ocorrencias_os(
+    df_os: pd.DataFrame,
+    coluna_grupo: str,
+) -> pd.DataFrame:
     colunas = [coluna_grupo, "quantidade_os"]
     if df_os.empty:
         return pd.DataFrame(columns=colunas)
@@ -588,7 +591,6 @@ def _agrupar_os_unicas(df_os: pd.DataFrame, coluna_grupo: str) -> pd.DataFrame:
     dados[coluna_grupo] = dados[coluna_grupo].fillna("").astype(str).str.strip()
     dados["numero_os"] = dados["numero_os"].fillna("").astype(str).str.strip()
     dados = dados[dados[coluna_grupo].ne("") & dados["numero_os"].ne("")]
-    dados = dados.drop_duplicates(subset=[coluna_grupo, "numero_os"])
 
     resumo = (
         dados.groupby(coluna_grupo, as_index=False)
@@ -655,7 +657,7 @@ def _render_ranking_drill_down_os(
         custom_data=[coluna_categoria],
         labels={
             coluna_categoria: rotulo_categoria,
-            "quantidade_os": "Quantidade de OS",
+            "quantidade_os": "Ocorrências de OS",
         },
         title=f"{titulo} — Top {quantidade_exibida}",
     )
@@ -676,7 +678,7 @@ def _render_ranking_drill_down_os(
     fig.update_traces(
         hovertemplate=(
             f"{rotulo_categoria}=%{{customdata[0]}}<br>"
-            "Quantidade de OS=%{x:.0f}<extra></extra>"
+            "Ocorrências de OS=%{x:.0f}<extra></extra>"
         )
     )
     fig = _estilizar_figura(fig)
@@ -750,6 +752,7 @@ def render_drill_down_os(
         st.caption(
             f"Período selecionado: {periodo}. Somente ABA_ITEM = 1; "
             "todos os status e filtros da tela são considerados. "
+            "Cada registro representa uma ocorrência, mesmo quando a OS se repete. "
             "Fonte: Python/Oracle/saida_oracle_destboad.csv."
         )
 
@@ -757,7 +760,7 @@ def render_drill_down_os(
             st.caption(
                 "Clique na barra de uma operadora para visualizar seus equipamentos."
             )
-            resumo_operadoras = _agrupar_os_unicas(dados_os, "operadora")
+            resumo_operadoras = _agrupar_ocorrencias_os(dados_os, "operadora")
             evento = _render_ranking_drill_down_os(
                 resumo_operadoras,
                 "operadora",
@@ -778,7 +781,7 @@ def render_drill_down_os(
             st.rerun()
 
         dados_operadora = dados_os[dados_os["operadora"].eq(operadora)]
-        resumo_equipamentos = _agrupar_os_unicas(
+        resumo_equipamentos = _agrupar_ocorrencias_os(
             dados_operadora,
             "equipamento",
         )

@@ -123,4 +123,4 @@ def render_indicadores_servicos_executados(
 
     with coluna_os_periodo:
         valor = "N/D" if total_os_periodo is None else _format_int(total_os_periodo)
-        _render_card("Total de OS no período", valor, "📋")
+        _render_card("Ocorrências de OS no período", valor, "📋")
