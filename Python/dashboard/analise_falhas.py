@@ -355,31 +355,7 @@ def _converter_texto_para_data(valores: pd.Series) -> pd.Series:
 
 
 def _converter_datas_destboad(df: pd.DataFrame) -> pd.Series:
-    datas = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
-
-    for coluna in ["FECHAMENTO_OS", "ABERTURA_OS"]:
-        if coluna not in df.columns:
-            continue
-
-        valores = _converter_texto_para_data(_serie_texto(df, coluna))
-        datas = datas.fillna(valores)
-
-    if "MES" in df.columns and "ANO" in df.columns:
-        mes = pd.to_numeric(_serie_texto(df, "MES"), errors="coerce")
-        ano = pd.to_numeric(_serie_texto(df, "ANO"), errors="coerce")
-        validos = mes.between(1, 12) & ano.between(ANO_DATA_MINIMO, ANO_DATA_MAXIMO)
-        datas_mes = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
-        datas_mes.loc[validos] = pd.to_datetime(
-            {
-                "year": ano.loc[validos].astype(int),
-                "month": mes.loc[validos].astype(int),
-                "day": 1,
-            },
-            errors="coerce",
-        )
-        datas = datas.fillna(datas_mes)
-
-    return datas
+    return _converter_texto_para_data(_serie_texto(df, "ABERTURA_OS"))
 
 
 def _normalizar_os(valor: object) -> str:
