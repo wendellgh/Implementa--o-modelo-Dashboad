@@ -11,5 +11,6 @@
             "database": "app_db",
             "username": "app_user"
         }
-    ]
+    ],
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }
