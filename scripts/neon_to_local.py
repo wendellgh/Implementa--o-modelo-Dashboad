@@ -34,6 +34,7 @@ else:
         sync_sequence,
         truncate_target_tables,
     )
+
 from sqlalchemy.engine import URL, Engine
 
 

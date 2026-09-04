@@ -8,11 +8,7 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 from dashboard.analise_falhas import render_analise_falhas
 from dashboard.auth import render_login, usuario_eh_admin
-from dashboard.config import (
-    APP_TITLE,
-    PAGE_CONFIG,
-    SERVICOS_MANUTENCAO_FILIAL_LABEL,
-)
+from dashboard.config import APP_TITLE, PAGE_CONFIG, SERVICOS_MANUTENCAO_FILIAL_LABEL
 from dashboard.data import (
     carregar_base,
     carregar_base_outra_tabela,
@@ -54,8 +50,8 @@ from dashboard.visualizations import (
     render_analise_operadora_charts,
     render_dashboard_charts,
     render_drill_down,
-    render_frota_contrato_chart,
     render_drill_down_os,
+    render_frota_contrato_chart,
     render_resumo_chart,
 )
 

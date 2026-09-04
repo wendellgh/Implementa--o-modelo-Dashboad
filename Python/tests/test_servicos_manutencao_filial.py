@@ -1,7 +1,6 @@
 import unittest
 
 import pandas as pd
-
 from dashboard.data import _combinar_fontes_servicos, _preparar_dados_servicos
 from dashboard.manutencao_filial_teste import (
     TITULO_PAGINA,

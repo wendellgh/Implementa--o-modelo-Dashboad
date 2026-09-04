@@ -1,11 +1,10 @@
-import os
 import json
+import os
 from datetime import date, datetime
 from decimal import Decimal
 
 import oracledb
 from dotenv import load_dotenv
-
 
 # ============================================================
 # CARREGAR VARIÁVEIS DO .ENV

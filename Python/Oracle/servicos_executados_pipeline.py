@@ -15,13 +15,12 @@ PYTHON_DIR = Path(__file__).resolve().parents[1]
 if str(PYTHON_DIR) not in sys.path:
     sys.path.insert(0, str(PYTHON_DIR))
 
+from dashboard.pracas import enriquecer_dataframe_pracas
 from dashboard.servicos_executados_schema import (
     COLUNAS_SERVICOS_EXECUTADOS,
     competencia_mensal_date,
     normalizar_servicos_executados,
 )
-from dashboard.pracas import enriquecer_dataframe_pracas
-
 
 ORACLE_DIR = Path(__file__).resolve().parent
 CSV_DESTBOAD_BRUTO = ORACLE_DIR / "saida_oracle_destboad.csv"

@@ -6,7 +6,6 @@ from sqlalchemy.engine import Connection
 
 from dashboard.database import get_engine
 
-
 TABELA_SERVICOS_MANUTENCAO_FILIAL = "servicos_executados_manutencao_filial"
 TABELA_LEGADA_MANUTENCAO_FILIAL = "base_historica_manutencao_filial_teste"
 PREFIXO_NUMERO_OS = "MF-"

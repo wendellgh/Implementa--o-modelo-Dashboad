@@ -3,9 +3,9 @@ import importlib
 import sys
 from collections import Counter
 from collections.abc import Hashable
-import pandas as pd
 from pathlib import Path
 
+import pandas as pd
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Engine
 

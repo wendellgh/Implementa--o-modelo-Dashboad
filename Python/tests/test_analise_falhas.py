@@ -1,7 +1,6 @@
 import unittest
 
 import pandas as pd
-
 from dashboard.analise_falhas import _converter_datas_destboad
 
 
