@@ -3,7 +3,6 @@ from datetime import date
 from unittest.mock import patch
 
 import pandas as pd
-
 from dashboard.data import carregar_os_no_periodo, montar_os_por_cliente
 from dashboard.filters import aplicar_filtros
 from dashboard.visualizations import _agrupar_ocorrencias_os

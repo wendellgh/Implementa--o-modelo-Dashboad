@@ -32,6 +32,7 @@ else:
         prepare_neon_migration_url,
         sync_sequence,
     )
+
 from sqlalchemy.engine import Engine
 
 COMPARE_COLUMNS = {

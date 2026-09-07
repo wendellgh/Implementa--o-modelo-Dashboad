@@ -10,14 +10,8 @@ import streamlit as st
 from dashboard.auth import encerrar_sessao, obter_usuario_logado, usuario_eh_admin
 from dashboard.config import MENU_ITEMS, SERVICOS_MANUTENCAO_FILIAL_LABEL
 from dashboard.database import get_db_target_info
-from dashboard.styles import (
-    TEMA_CLARO_ATIVO_KEY,
-    tema_claro_ativo,
-)
-from dashboard.utils_otimizacoes import (
-    formatar_mes,
-    normalizar_coluna_texto,
-)
+from dashboard.styles import TEMA_CLARO_ATIVO_KEY, tema_claro_ativo
+from dashboard.utils_otimizacoes import formatar_mes, normalizar_coluna_texto
 
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 FUSO_HORARIO_APLICACAO = ZoneInfo("America/Sao_Paulo")

@@ -316,9 +316,7 @@ def _carregar_os_no_periodo_csv(
     data_inicio: object,
     data_fim: object,
 ) -> pd.DataFrame:
-    from Oracle.repositorio_oracle import (
-        carregar_destboad_csv_dataframe,
-    )
+    from Oracle.repositorio_oracle import carregar_destboad_csv_dataframe
 
     # Faz parte da chave do cache e muda quando o arquivo é substituído.
     _ = versao_arquivo

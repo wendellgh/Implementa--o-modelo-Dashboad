@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date
-from difflib import SequenceMatcher
 import html
-from pathlib import Path
 import re
 import unicodedata
+from dataclasses import dataclass
+from datetime import datetime
+from difflib import SequenceMatcher
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import plotly.express as px
@@ -57,6 +58,7 @@ COLUNAS_ORACLE_MINIMAS = [
 
 ANO_DATA_MINIMO = 1900
 ANO_DATA_MAXIMO = 2100
+FUSO_HORARIO_APLICACAO = ZoneInfo("America/Sao_Paulo")
 
 FALHAS_MES_INICIO_KEY = "falhas_mes_inicio"
 FALHAS_MES_FIM_KEY = "falhas_mes_fim"
@@ -355,31 +357,7 @@ def _converter_texto_para_data(valores: pd.Series) -> pd.Series:
 
 
 def _converter_datas_destboad(df: pd.DataFrame) -> pd.Series:
-    datas = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
-
-    for coluna in ["FECHAMENTO_OS", "ABERTURA_OS"]:
-        if coluna not in df.columns:
-            continue
-
-        valores = _converter_texto_para_data(_serie_texto(df, coluna))
-        datas = datas.fillna(valores)
-
-    if "MES" in df.columns and "ANO" in df.columns:
-        mes = pd.to_numeric(_serie_texto(df, "MES"), errors="coerce")
-        ano = pd.to_numeric(_serie_texto(df, "ANO"), errors="coerce")
-        validos = mes.between(1, 12) & ano.between(ANO_DATA_MINIMO, ANO_DATA_MAXIMO)
-        datas_mes = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
-        datas_mes.loc[validos] = pd.to_datetime(
-            {
-                "year": ano.loc[validos].astype(int),
-                "month": mes.loc[validos].astype(int),
-                "day": 1,
-            },
-            errors="coerce",
-        )
-        datas = datas.fillna(datas_mes)
-
-    return datas
+    return _converter_texto_para_data(_serie_texto(df, "ABERTURA_OS"))
 
 
 def _normalizar_os(valor: object) -> str:
@@ -713,12 +691,14 @@ def _criar_opcoes_mensais_com_dados(datas: pd.Series) -> list[pd.Timestamp]:
     if meses:
         return meses
 
-    return [pd.Timestamp(date.today()).to_period("M").to_timestamp()]
+    hoje = datetime.now(FUSO_HORARIO_APLICACAO).date()
+    return [pd.Timestamp(hoje).to_period("M").to_timestamp()]
 
 
 def _obter_periodo_padrao(meses: list[pd.Timestamp]) -> tuple[pd.Timestamp, pd.Timestamp]:
+    hoje = datetime.now(FUSO_HORARIO_APLICACAO).date()
     mes_anterior = (
-        pd.Timestamp(date.today()).to_period("M").to_timestamp()
+        pd.Timestamp(hoje).to_period("M").to_timestamp()
         - pd.DateOffset(months=1)
     )
     mes_padrao = next((mes for mes in reversed(meses) if mes <= mes_anterior), None)
@@ -1601,11 +1581,7 @@ def render_filtros_analise_falhas(df_os: pd.DataFrame) -> dict[str, object]:
             )
         with col_fim:
             meses_finais = [mes for mes in meses_disponiveis if mes >= mes_inicio]
-            fim_padrao = (
-                periodo_padrao[1]
-                if periodo_padrao[1] >= mes_inicio
-                else mes_inicio
-            )
+            fim_padrao = max(periodo_padrao[1], mes_inicio)
             fim_sessao = _normalizar_mes_sessao(
                 FALHAS_MES_FIM_KEY,
                 meses_finais,
@@ -1959,66 +1935,64 @@ def render_graficos_analise_falhas(df_os: pd.DataFrame) -> None:
 
     col_status, col_top = st.columns([1, 1.45])
 
-    with col_status:
-        with st.container(border=True):
-            st.markdown(
-                '<div class="falhas-section-title">Status da Comparação</div>',
-                unsafe_allow_html=True,
-            )
-            status_df = (
-                df_os["status_comparacao"]
-                .value_counts()
-                .reindex(STATUS_ORDEM, fill_value=0)
-                .rename_axis("status_comparacao")
-                .reset_index(name="quantidade_os")
-            )
-            status_df = status_df[status_df["quantidade_os"].gt(0)]
-            fig_status = px.pie(
-                status_df,
-                title = " ",
-                names="status_comparacao",
-                values="quantidade_os",
-                hole=0.58,
-                color_discrete_map=STATUS_CORES,
-                color="status_comparacao",
-                labels={
-                    "status_comparacao": "Status",
-                    "quantidade_os": "Quantidade de OS",
-                },
-            )
-            fig_status.update_traces(
-                textinfo="percent+label",
-                hovertemplate="%{label}<br>OS=%{value}<extra></extra>",
-            )
-            fig_status.update_layout(
-                showlegend=False,
-                margin={"l": 8, "r": 8, "t": 8, "b": 8},
-            )
-            st.plotly_chart(_estilizar_figura(fig_status), use_container_width=True)
+    with col_status, st.container(border=True):
+        st.markdown(
+            '<div class="falhas-section-title">Status da Comparação</div>',
+            unsafe_allow_html=True,
+        )
+        status_df = (
+            df_os["status_comparacao"]
+            .value_counts()
+            .reindex(STATUS_ORDEM, fill_value=0)
+            .rename_axis("status_comparacao")
+            .reset_index(name="quantidade_os")
+        )
+        status_df = status_df[status_df["quantidade_os"].gt(0)]
+        fig_status = px.pie(
+            status_df,
+            title = " ",
+            names="status_comparacao",
+            values="quantidade_os",
+            hole=0.58,
+            color_discrete_map=STATUS_CORES,
+            color="status_comparacao",
+            labels={
+                "status_comparacao": "Status",
+                "quantidade_os": "Quantidade de OS",
+            },
+        )
+        fig_status.update_traces(
+            textinfo="percent+label",
+            hovertemplate="%{label}<br>OS=%{value}<extra></extra>",
+        )
+        fig_status.update_layout(
+            showlegend=False,
+            margin={"l": 8, "r": 8, "t": 8, "b": 8},
+        )
+        st.plotly_chart(_estilizar_figura(fig_status), use_container_width=True)
 
-    with col_top:
-        with st.container(border=True):
+    with col_top, st.container(border=True):
+        st.markdown(
+            '<div class="falhas-section-title">Top Defeitos</div>',
+            unsafe_allow_html=True,
+        )
+        col_rec, col_enc = st.columns(2)
+        with col_rec:
             st.markdown(
-                '<div class="falhas-section-title">Top Defeitos</div>',
+                '<div class="falhas-top-subtitle">Mais frequentes reclamados</div>',
                 unsafe_allow_html=True,
             )
-            col_rec, col_enc = st.columns(2)
-            with col_rec:
-                st.markdown(
-                    '<div class="falhas-top-subtitle">Mais frequentes reclamados</div>',
-                    unsafe_allow_html=True,
-                )
-                _render_lista_top_defeitos(
-                    _contar_defeitos(df_os, "defeitos_reclamados_lista")
-                )
-            with col_enc:
-                st.markdown(
-                    '<div class="falhas-top-subtitle">Mais frequentes encontrados</div>',
-                    unsafe_allow_html=True,
-                )
-                _render_lista_top_defeitos(
-                    _contar_defeitos(df_os, "defeitos_encontrados_lista")
-                )
+            _render_lista_top_defeitos(
+                _contar_defeitos(df_os, "defeitos_reclamados_lista")
+            )
+        with col_enc:
+            st.markdown(
+                '<div class="falhas-top-subtitle">Mais frequentes encontrados</div>',
+                unsafe_allow_html=True,
+            )
+            _render_lista_top_defeitos(
+                _contar_defeitos(df_os, "defeitos_encontrados_lista")
+            )
 
 
 def render_tabela_analise_falhas(df_os: pd.DataFrame) -> None:
