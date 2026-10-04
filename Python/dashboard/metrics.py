@@ -1,3 +1,5 @@
+import html
+
 import pandas as pd
 import streamlit as st
 
@@ -55,12 +57,20 @@ def _format_int(value: int) -> str:
     return f"{value:,}".replace(",", ".")
 
 
-def _render_card(titulo: str, valor: str, icone: str = "⚙️") -> None:
+def _render_card(
+    titulo: str,
+    valor: str,
+    icone: str = "⚙️",
+    tooltip: str | None = None,
+) -> None:
+    atributo_tooltip = (
+        f' title="{html.escape(tooltip, quote=True)}"' if tooltip else ""
+    )
     st.markdown(
         f"""
-        <div class="kpi-card" data-icon="{icone}">
-            <div class="kpi-title">{titulo}</div>
-            <div class="kpi-value">{valor}</div>
+        <div class="kpi-card" data-icon="{html.escape(icone, quote=True)}"{atributo_tooltip}>
+            <div class="kpi-title">{html.escape(titulo)}</div>
+            <div class="kpi-value">{html.escape(valor)}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -115,12 +125,64 @@ def render_total_servicos_executados(total_servicos: int) -> None:
 def render_indicadores_servicos_executados(
     total_servicos: int,
     total_os_periodo: int | None,
+    total_orcamentos_sem_item_base: int | None = None,
+    total_pendencias_itemizacao: int | None = None,
 ) -> None:
-    coluna_servicos, coluna_os_periodo, _, _ = st.columns([1.3, 1.3, 1, 1])
+    (
+        coluna_servicos,
+        coluna_os_periodo,
+        coluna_orcamentos,
+        coluna_pendencias,
+    ) = st.columns([1.3, 1.3, 1.15, 1.15])
 
     with coluna_servicos:
         _render_card("Total de Serviços Executados", _format_int(total_servicos))
 
     with coluna_os_periodo:
         valor = "N/D" if total_os_periodo is None else _format_int(total_os_periodo)
-        _render_card("Ocorrências de OS no período", valor, "📋")
+        _render_card(
+            "Ocorrências de OS no período",
+            valor,
+            "📋",
+            (
+                "Cada ocorrência corresponde a uma linha com ABA_ITEM = 1, "
+                "usada para representar a OS uma única vez."
+            ),
+        )
+
+    with coluna_orcamentos:
+        valor = (
+            "N/D"
+            if total_orcamentos_sem_item_base is None
+            else _format_int(total_orcamentos_sem_item_base)
+        )
+        _render_card(
+            "Orçamentos sem item-base",
+            valor,
+            "📝",
+            (
+                "OS em orçamento sem ABA_ITEM preenchido; não entram na "
+                "contagem de ocorrências."
+            ),
+        )
+
+    with coluna_pendencias:
+        valor = (
+            "N/D"
+            if total_pendencias_itemizacao is None
+            else _format_int(total_pendencias_itemizacao)
+        )
+        _render_card(
+            "Pendências de itemização",
+            valor,
+            "⚠️",
+            (
+                "OS sem ABA_ITEM = 1 que possuem outros itens ou exigem "
+                "conferência cadastral."
+            ),
+        )
+
+    st.caption(
+        "Ocorrências de OS: uma linha por OS com ABA_ITEM = 1. "
+        "Os demais itens permanecem destinados à contagem dos serviços executados."
+    )

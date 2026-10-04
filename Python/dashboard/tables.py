@@ -95,3 +95,80 @@ def render_servicos_executados(filtrados: pd.DataFrame) -> None:
             hide_index=True,
         )
 
+
+def render_os_fora_criterio(df_os: pd.DataFrame | None) -> None:
+    total = 0 if df_os is None else len(df_os)
+    with st.expander(
+        f"Detalhamento das OS sem item-base ({total})",
+        expanded=False,
+    ):
+        st.caption(
+            "Uma linha por OS sem ABA_ITEM = 1. Os valores respeitam o período "
+            "de abertura e os demais filtros selecionados na tela."
+        )
+
+        if df_os is None:
+            st.warning("Não foi possível carregar o diagnóstico de itemização.")
+            return
+        if df_os.empty:
+            st.info("Nenhuma OS fora do critério para os filtros selecionados.")
+            return
+
+        colunas = {
+            "motivo_exclusao": "Situação",
+            "numero_os": "OS",
+            "status": "Status",
+            "data_ref": "Abertura",
+            "data_fechamento": "Fechamento",
+            "cliente": "Cliente/Contrato",
+            "praca": "Praça",
+            "coordenacao": "Coordenação",
+            "equipamento": "Equipamento",
+            "itens_encontrados": "Itens encontrados",
+            "servicos_executados": "Códigos de serviço",
+            "descricoes_servicos": "Serviços executados",
+        }
+        df_view = df_os.reindex(columns=colunas).rename(columns=colunas)
+        df_view["_abertura_ordem"] = pd.to_datetime(
+            df_view["Abertura"],
+            errors="coerce",
+        )
+        df_view["Abertura"] = df_view["_abertura_ordem"].dt.strftime("%d/%m/%Y")
+        df_view["Fechamento"] = pd.to_datetime(
+            df_view["Fechamento"],
+            errors="coerce",
+        ).dt.strftime("%d/%m/%Y")
+
+        for coluna in [
+            "Status",
+            "Abertura",
+            "Fechamento",
+            "Cliente/Contrato",
+            "Praça",
+            "Coordenação",
+            "Equipamento",
+            "Itens encontrados",
+            "Códigos de serviço",
+            "Serviços executados",
+        ]:
+            df_view[coluna] = df_view[coluna].fillna("").replace("", "—")
+
+        prioridade = {
+            "Pendência de itemização": 0,
+            "Orçamento sem item-base": 1,
+        }
+        df_view["_prioridade"] = df_view["Situação"].map(prioridade).fillna(2)
+        df_view = (
+            df_view.sort_values(
+                ["_prioridade", "_abertura_ordem", "OS"],
+                ascending=[True, False, True],
+            )
+            .drop(columns=["_prioridade", "_abertura_ordem"])
+            .reset_index(drop=True)
+        )
+        st.dataframe(
+            _estilizar_dataframe(df_view),
+            use_container_width=True,
+            hide_index=True,
+        )
+

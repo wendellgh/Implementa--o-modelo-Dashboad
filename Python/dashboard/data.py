@@ -1,3 +1,6 @@
+import unicodedata
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
 from sqlalchemy import text
@@ -14,6 +17,58 @@ from dashboard.utils_otimizacoes import (
 )
 
 ANO_MINIMO_COMPETENCIA = 1900
+DEFAULT_DESTBOAD_CSV = (
+    Path(__file__).resolve().parents[1] / "Oracle" / "saida_oracle_destboad.csv"
+)
+MOTIVO_ORCAMENTO_SEM_ITEM_BASE = "Orçamento sem item-base"
+MOTIVO_PENDENCIA_ITEMIZACAO = "Pendência de itemização"
+
+COLUNAS_LINHAS_OS_PERIODO = [
+    "codigo_cliente",
+    "cliente",
+    "numero_os",
+    "id_equipamento",
+    "equipamento",
+    "praca",
+    "data_ref",
+    "data_fechamento",
+    "status",
+    "aba_item",
+    "aba_item_numero",
+    "servico_executado",
+    "descricao_servico",
+    "data_competencia",
+    "id_contrato",
+    "contrato",
+    "id_operadora",
+    "operadora",
+    "nome_praca",
+    "coordenacao",
+]
+
+COLUNAS_OS_FORA_CRITERIO = [
+    "codigo_cliente",
+    "cliente",
+    "numero_os",
+    "id_equipamento",
+    "equipamento",
+    "praca",
+    "data_ref",
+    "data_fechamento",
+    "status",
+    "itens_encontrados",
+    "servicos_executados",
+    "descricoes_servicos",
+    "quantidade_linhas",
+    "motivo_exclusao",
+    "data_competencia",
+    "id_contrato",
+    "contrato",
+    "id_operadora",
+    "operadora",
+    "nome_praca",
+    "coordenacao",
+]
 COLUNAS_DETALHE_SERVICOS = [
     "id",
     "numero_os",
@@ -309,18 +364,147 @@ def carregar_base_outra_tabela() -> pd.DataFrame:
     return _combinar_fontes_servicos(*fontes)
 
 
+def _normalizar_texto_comparacao(valor: object) -> str:
+    texto = str(valor or "").strip().upper()
+    return "".join(
+        caractere
+        for caractere in unicodedata.normalize("NFKD", texto)
+        if not unicodedata.combining(caractere)
+    )
+
+
+def _primeiro_texto_preenchido(valores: pd.Series) -> str:
+    for valor in valores.fillna("").astype(str).str.strip():
+        if valor:
+            return valor
+    return ""
+
+
+def _juntar_textos_unicos(valores: pd.Series) -> str:
+    unicos: list[str] = []
+    vistos: set[str] = set()
+    for valor in valores.fillna("").astype(str).str.strip():
+        if valor and valor not in vistos:
+            vistos.add(valor)
+            unicos.append(valor)
+    return " | ".join(unicos)
+
+
+def _juntar_itens_ordenados(valores: pd.Series) -> str:
+    unicos = {
+        valor
+        for valor in valores.fillna("").astype(str).str.strip()
+        if valor
+    }
+
+    def chave_ordenacao(valor: str) -> tuple[int, float | str]:
+        numero = pd.to_numeric(pd.Series([valor]), errors="coerce").iloc[0]
+        if pd.notna(numero):
+            return (0, float(numero))
+        return (1, valor)
+
+    return ", ".join(sorted(unicos, key=chave_ordenacao))
+
+
+def _carregar_destboad_csv_dataframe(caminho_csv: str) -> pd.DataFrame:
+    from Oracle.repositorio_oracle import carregar_destboad_csv_dataframe
+
+    return carregar_destboad_csv_dataframe(caminho_csv)
+
+
+def montar_os_fora_criterio(df_linhas_periodo: pd.DataFrame) -> pd.DataFrame:
+    """Retorna uma linha por OS que não possui nenhum ABA_ITEM igual a 1."""
+    if df_linhas_periodo.empty:
+        return pd.DataFrame(columns=COLUNAS_OS_FORA_CRITERIO)
+
+    chaves = ["codigo_cliente", "numero_os"]
+    dados = df_linhas_periodo.copy()
+    dados["aba_item_numero"] = pd.to_numeric(
+        dados["aba_item_numero"],
+        errors="coerce",
+    )
+    tem_item_base = dados.groupby(chaves, dropna=False)["aba_item_numero"].transform(
+        lambda valores: valores.eq(1).any()
+    )
+    dados = dados.loc[~tem_item_base].copy()
+    if dados.empty:
+        return pd.DataFrame(columns=COLUNAS_OS_FORA_CRITERIO)
+
+    linhas: list[dict[str, object]] = []
+    for _, grupo in dados.groupby(chaves, dropna=False, sort=False):
+        status_unicos = [
+            status
+            for status in grupo["status"].fillna("").astype(str).str.strip().unique()
+            if status
+        ]
+        itens_preenchidos = grupo["aba_item"].fillna("").astype(str).str.strip().ne("")
+        somente_orcamento = bool(status_unicos) and all(
+            _normalizar_texto_comparacao(status) == "ORCAMENTO"
+            for status in status_unicos
+        )
+        motivo = (
+            MOTIVO_ORCAMENTO_SEM_ITEM_BASE
+            if somente_orcamento and not itens_preenchidos.any()
+            else MOTIVO_PENDENCIA_ITEMIZACAO
+        )
+
+        datas_abertura = pd.to_datetime(grupo["data_ref"], errors="coerce")
+        datas_fechamento = pd.to_datetime(
+            grupo["data_fechamento"],
+            errors="coerce",
+        )
+        linhas.append(
+            {
+                "codigo_cliente": _primeiro_texto_preenchido(
+                    grupo["codigo_cliente"]
+                ),
+                "cliente": _primeiro_texto_preenchido(grupo["cliente"]),
+                "numero_os": _primeiro_texto_preenchido(grupo["numero_os"]),
+                "id_equipamento": _primeiro_texto_preenchido(
+                    grupo["id_equipamento"]
+                ),
+                "equipamento": _primeiro_texto_preenchido(grupo["equipamento"]),
+                "praca": _primeiro_texto_preenchido(grupo["praca"]),
+                "data_ref": datas_abertura.max(),
+                "data_fechamento": datas_fechamento.max(),
+                "status": " | ".join(status_unicos),
+                "itens_encontrados": _juntar_itens_ordenados(grupo["aba_item"]),
+                "servicos_executados": _juntar_textos_unicos(
+                    grupo["servico_executado"]
+                ),
+                "descricoes_servicos": _juntar_textos_unicos(
+                    grupo["descricao_servico"]
+                ),
+                "quantidade_linhas": len(grupo),
+                "motivo_exclusao": motivo,
+                "id_contrato": _primeiro_texto_preenchido(grupo["id_contrato"]),
+                "contrato": _primeiro_texto_preenchido(grupo["contrato"]),
+                "id_operadora": _primeiro_texto_preenchido(grupo["id_operadora"]),
+                "operadora": _primeiro_texto_preenchido(grupo["operadora"]),
+                "nome_praca": _primeiro_texto_preenchido(grupo["nome_praca"]),
+                "coordenacao": _primeiro_texto_preenchido(grupo["coordenacao"]),
+            }
+        )
+
+    resultado = pd.DataFrame(linhas)
+    resultado = _adicionar_colunas_competencia(resultado)
+    return resultado.reindex(columns=COLUNAS_OS_FORA_CRITERIO).sort_values(
+        ["motivo_exclusao", "data_ref", "numero_os"],
+        ascending=[False, False, True],
+        na_position="last",
+    ).reset_index(drop=True)
+
+
 @st.cache_data(show_spinner="Carregando OS do arquivo local...")
-def _carregar_os_no_periodo_csv(
+def _carregar_linhas_os_no_periodo_csv(
     caminho_csv: str,
     versao_arquivo: int,
     data_inicio: object,
     data_fim: object,
 ) -> pd.DataFrame:
-    from Oracle.repositorio_oracle import carregar_destboad_csv_dataframe
-
     # Faz parte da chave do cache e muda quando o arquivo é substituído.
     _ = versao_arquivo
-    dados = carregar_destboad_csv_dataframe(caminho_csv)
+    dados = _carregar_destboad_csv_dataframe(caminho_csv)
     dados.columns = [str(coluna).strip().upper() for coluna in dados.columns]
 
     colunas_obrigatorias = [
@@ -341,34 +525,12 @@ def _carregar_os_no_periodo_csv(
         )
 
     datas_abertura = _converter_data_servicos(dados["ABERTURA_OS"])
-    itens = pd.to_numeric(dados["ABA_ITEM"], errors="coerce")
     inicio = pd.Timestamp(data_inicio)
     fim = pd.Timestamp(data_fim)
-    dados = dados.loc[itens.eq(1) & datas_abertura.between(inicio, fim)].copy()
+    dados = dados.loc[datas_abertura.between(inicio, fim)].copy()
     datas_abertura = datas_abertura.loc[dados.index]
-
-    colunas_resultado = [
-        "codigo_cliente",
-        "cliente",
-        "numero_os",
-        "id_equipamento",
-        "equipamento",
-        "praca",
-        "data_ref",
-    ]
     if dados.empty:
-        return pd.DataFrame(
-            columns=[
-                *colunas_resultado,
-                "data_competencia",
-                "id_contrato",
-                "contrato",
-                "id_operadora",
-                "operadora",
-                "nome_praca",
-                "coordenacao",
-            ]
-        )
+        return pd.DataFrame(columns=COLUNAS_LINHAS_OS_PERIODO)
 
     def texto_coluna(coluna: str) -> pd.Series:
         if coluna not in dados.columns:
@@ -378,6 +540,8 @@ def _carregar_os_no_periodo_csv(
     descricao = texto_coluna("DESCRICAO")
     serie_produto = texto_coluna("SERIE_PRODUTO")
     equipamento = descricao.where(descricao.ne(""), serie_produto)
+    datas_fechamento = _converter_data_servicos(texto_coluna("FECHAMENTO_OS"))
+    aba_item = texto_coluna("ABA_ITEM")
 
     resultado = pd.DataFrame(
         {
@@ -388,18 +552,14 @@ def _carregar_os_no_periodo_csv(
             "equipamento": equipamento,
             "praca": texto_coluna("A1_PRACA"),
             "data_ref": datas_abertura,
+            "data_fechamento": datas_fechamento,
+            "status": texto_coluna("STATUS"),
+            "aba_item": aba_item,
+            "aba_item_numero": pd.to_numeric(aba_item, errors="coerce"),
+            "servico_executado": texto_coluna("SERVICO_EXEC"),
+            "descricao_servico": texto_coluna("ABA_DESCSE"),
         }
     )
-
-    for coluna in [
-        "codigo_cliente",
-        "cliente",
-        "numero_os",
-        "id_equipamento",
-        "equipamento",
-        "praca",
-    ]:
-        resultado[coluna] = resultado[coluna].fillna("").astype(str).str.strip()
 
     resultado = _adicionar_colunas_competencia(resultado)
     resultado["id_contrato"] = resultado["codigo_cliente"]
@@ -416,20 +576,19 @@ def _carregar_os_no_periodo_csv(
         coluna_nome_praca="nome_praca",
         coluna_coordenacao="coordenacao",
     )
-    return _preencher_pracas_por_contrato(resultado).reset_index(drop=True)
+    resultado = _preencher_pracas_por_contrato(resultado).reset_index(drop=True)
+    return resultado.reindex(columns=COLUNAS_LINHAS_OS_PERIODO)
 
 
-def carregar_os_no_periodo(
+def _carregar_linhas_os_no_periodo(
     data_inicio: object,
     data_fim: object,
 ) -> pd.DataFrame:
-    from Oracle.repositorio_oracle import DEFAULT_DESTBOAD_CSV
-
     caminho = DEFAULT_DESTBOAD_CSV.resolve()
     if not caminho.is_file():
         raise FileNotFoundError(f"Arquivo Oracle não encontrado: {caminho}")
 
-    return _carregar_os_no_periodo_csv(
+    return _carregar_linhas_os_no_periodo_csv(
         str(caminho),
         caminho.stat().st_mtime_ns,
         data_inicio,
@@ -437,7 +596,24 @@ def carregar_os_no_periodo(
     )
 
 
-carregar_os_no_periodo.clear = _carregar_os_no_periodo_csv.clear  # type: ignore[attr-defined]
+def carregar_os_no_periodo(
+    data_inicio: object,
+    data_fim: object,
+) -> pd.DataFrame:
+    linhas = _carregar_linhas_os_no_periodo(data_inicio, data_fim)
+    return linhas.loc[linhas["aba_item_numero"].eq(1)].reset_index(drop=True)
+
+
+def carregar_os_fora_criterio_no_periodo(
+    data_inicio: object,
+    data_fim: object,
+) -> pd.DataFrame:
+    linhas = _carregar_linhas_os_no_periodo(data_inicio, data_fim)
+    return montar_os_fora_criterio(linhas)
+
+
+carregar_os_no_periodo.clear = _carregar_linhas_os_no_periodo_csv.clear  # type: ignore[attr-defined]
+carregar_os_fora_criterio_no_periodo.clear = _carregar_linhas_os_no_periodo_csv.clear  # type: ignore[attr-defined]
 
 
 def montar_os_por_cliente(df_filtrado: pd.DataFrame) -> pd.DataFrame:

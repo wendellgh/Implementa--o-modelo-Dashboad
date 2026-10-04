@@ -10,8 +10,11 @@ from dashboard.analise_falhas import render_analise_falhas
 from dashboard.auth import render_login, usuario_eh_admin
 from dashboard.config import APP_TITLE, PAGE_CONFIG, SERVICOS_MANUTENCAO_FILIAL_LABEL
 from dashboard.data import (
+    MOTIVO_ORCAMENTO_SEM_ITEM_BASE,
+    MOTIVO_PENDENCIA_ITEMIZACAO,
     carregar_base,
     carregar_base_outra_tabela,
+    carregar_os_fora_criterio_no_periodo,
     carregar_os_no_periodo,
     carregar_servicos_executados_oracle,
     limpar_cache_servicos_executados,
@@ -37,6 +40,7 @@ from dashboard.metrics import (
 )
 from dashboard.styles import aplicar_estilos_globais, render_titulo_principal
 from dashboard.tables import (
+    render_os_fora_criterio,
     render_tabela_detalhe,
     render_tabela_evolucao,
     render_tabela_resumo,
@@ -707,6 +711,9 @@ def main() -> None:
         servicos_filtrados = aplicar_filtros(df_servicos, filtros)
         total_servicos = int(servicos_filtrados["qtd_servico"].sum())
         data_inicio_os, data_fim_os = filtros["periodo"]
+        os_fora_criterio_filtradas = None
+        total_orcamentos_sem_item_base = None
+        total_pendencias_itemizacao = None
         try:
             os_periodo = carregar_os_no_periodo(
                 data_inicio_os,
@@ -721,11 +728,34 @@ def main() -> None:
             total_os_periodo = None
             st.warning(f"Erro ao carregar OS do arquivo Oracle: {erro}")
 
+        try:
+            os_fora_criterio = carregar_os_fora_criterio_no_periodo(
+                data_inicio_os,
+                data_fim_os,
+            )
+            os_fora_criterio_filtradas = aplicar_filtros(
+                os_fora_criterio,
+                filtros,
+            )
+            motivos = os_fora_criterio_filtradas["motivo_exclusao"]
+            total_orcamentos_sem_item_base = int(
+                motivos.eq(MOTIVO_ORCAMENTO_SEM_ITEM_BASE).sum()
+            )
+            total_pendencias_itemizacao = int(
+                motivos.eq(MOTIVO_PENDENCIA_ITEMIZACAO).sum()
+            )
+        except Exception as erro:  # noqa: BLE001
+            st.warning(f"Erro ao classificar OS sem item-base: {erro}")
+
         with total_servicos_area:
             render_indicadores_servicos_executados(
                 total_servicos,
                 total_os_periodo,
+                total_orcamentos_sem_item_base,
+                total_pendencias_itemizacao,
             )
+        st.write("")
+        render_os_fora_criterio(os_fora_criterio_filtradas)
         st.write("")
         render_drill_down_os(
             os_filtradas,

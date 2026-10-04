@@ -3,7 +3,13 @@ from datetime import date
 from unittest.mock import patch
 
 import pandas as pd
-from dashboard.data import carregar_os_no_periodo, montar_os_por_cliente
+from dashboard.data import (
+    MOTIVO_ORCAMENTO_SEM_ITEM_BASE,
+    MOTIVO_PENDENCIA_ITEMIZACAO,
+    carregar_os_fora_criterio_no_periodo,
+    carregar_os_no_periodo,
+    montar_os_por_cliente,
+)
 from dashboard.filters import aplicar_filtros
 from dashboard.visualizations import _agrupar_ocorrencias_os
 
@@ -12,7 +18,7 @@ class OsPorClienteTest(unittest.TestCase):
     def tearDown(self) -> None:
         carregar_os_no_periodo.clear()
 
-    @patch("Oracle.repositorio_oracle.carregar_destboad_csv_dataframe")
+    @patch("dashboard.data._carregar_destboad_csv_dataframe")
     def test_csv_filtra_item_um_e_periodo_sem_restringir_status(
         self,
         carregar_csv,
@@ -70,7 +76,7 @@ class OsPorClienteTest(unittest.TestCase):
 
         self.assertEqual(resultado["numero_os"].tolist(), ["OS-1", "OS-2"])
 
-    @patch("Oracle.repositorio_oracle.carregar_destboad_csv_dataframe")
+    @patch("dashboard.data._carregar_destboad_csv_dataframe")
     def test_carregamento_preserva_dimensoes_dos_filtros(self, carregar_csv) -> None:
         carregar_csv.return_value = pd.DataFrame(
             [
@@ -97,6 +103,102 @@ class OsPorClienteTest(unittest.TestCase):
         self.assertEqual(resultado.loc[0, "equipamento"], "Validador")
         self.assertEqual(resultado.loc[0, "numero_os"], "OS-2")
         self.assertIn("coordenacao", resultado.columns)
+
+    @patch("dashboard.data._carregar_destboad_csv_dataframe")
+    def test_diagnostico_classifica_os_sem_item_base_uma_unica_vez(
+        self,
+        carregar_csv,
+    ) -> None:
+        carregar_csv.return_value = pd.DataFrame(
+            [
+                {
+                    "COD_CLIETE": "001",
+                    "NOME": "Cliente A",
+                    "OS": "OS-ORC",
+                    "PRODUTO": "EQ-1",
+                    "DESCRICAO": "Validador",
+                    "ABERTURA_OS": "10/08/2026",
+                    "FECHAMENTO_OS": "",
+                    "ABA_ITEM": "",
+                    "STATUS": "ORCAMENTO",
+                },
+                {
+                    "COD_CLIETE": "002",
+                    "NOME": "Cliente B",
+                    "OS": "OS-PEND",
+                    "PRODUTO": "EQ-2",
+                    "DESCRICAO": "Câmera",
+                    "ABERTURA_OS": "11/08/2026",
+                    "FECHAMENTO_OS": "12/08/2026",
+                    "ABA_ITEM": "02",
+                    "STATUS": "ENCERRADO",
+                    "SERVICO_EXEC": "SE-04",
+                    "ABA_DESCSE": "Troca de componente",
+                },
+                {
+                    "COD_CLIETE": "002",
+                    "NOME": "Cliente B",
+                    "OS": "OS-PEND",
+                    "PRODUTO": "EQ-2",
+                    "DESCRICAO": "Câmera",
+                    "ABERTURA_OS": "11/08/2026",
+                    "FECHAMENTO_OS": "12/08/2026",
+                    "ABA_ITEM": "03",
+                    "STATUS": "ENCERRADO",
+                    "SERVICO_EXEC": "SE-98",
+                    "ABA_DESCSE": "Teste funcional",
+                },
+                {
+                    "COD_CLIETE": "003",
+                    "NOME": "Cliente C",
+                    "OS": "OS-OK",
+                    "PRODUTO": "EQ-3",
+                    "DESCRICAO": "Validador",
+                    "ABERTURA_OS": "13/08/2026",
+                    "FECHAMENTO_OS": "13/08/2026",
+                    "ABA_ITEM": "01",
+                    "STATUS": "ENCERRADO",
+                },
+                {
+                    "COD_CLIETE": "003",
+                    "NOME": "Cliente C",
+                    "OS": "OS-OK",
+                    "PRODUTO": "EQ-3",
+                    "DESCRICAO": "Validador",
+                    "ABERTURA_OS": "13/08/2026",
+                    "FECHAMENTO_OS": "13/08/2026",
+                    "ABA_ITEM": "02",
+                    "STATUS": "ENCERRADO",
+                },
+            ]
+        )
+
+        ocorrencias = carregar_os_no_periodo(
+            date(2026, 8, 1),
+            date(2026, 8, 31),
+        )
+        resultado = carregar_os_fora_criterio_no_periodo(
+            date(2026, 8, 1),
+            date(2026, 8, 31),
+        )
+
+        self.assertEqual(ocorrencias["numero_os"].tolist(), ["OS-OK"])
+        self.assertEqual(set(resultado["numero_os"]), {"OS-ORC", "OS-PEND"})
+        self.assertEqual(len(resultado), 2)
+        motivos = resultado.set_index("numero_os")["motivo_exclusao"]
+        self.assertEqual(
+            motivos["OS-ORC"],
+            MOTIVO_ORCAMENTO_SEM_ITEM_BASE,
+        )
+        self.assertEqual(
+            motivos["OS-PEND"],
+            MOTIVO_PENDENCIA_ITEMIZACAO,
+        )
+        pendencia = resultado.set_index("numero_os").loc["OS-PEND"]
+        self.assertEqual(pendencia["itens_encontrados"], "02, 03")
+        self.assertEqual(pendencia["quantidade_linhas"], 2)
+        self.assertEqual(pendencia["servicos_executados"], "SE-04 | SE-98")
+        carregar_csv.assert_called_once()
 
     def test_resumo_conta_cada_ocorrencia_com_aba_item_um(self) -> None:
         filtrado = pd.DataFrame(
