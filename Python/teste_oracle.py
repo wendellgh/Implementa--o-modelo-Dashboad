@@ -28,7 +28,7 @@ ORACLE_SERVICE_NAME = os.getenv(
 )
 
 # Caminho correto do Oracle Instant Client
-ORACLE_CLIENT_LIB_DIR = r"C:\oracle\instantclient_19_30"
+ORACLE_CLIENT_LIB_DIR = r"C:\oracle\instantclient_19_32"
 
 
 # ============================================================

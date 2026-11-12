@@ -14,7 +14,7 @@ if str(PYTHON_DIR) not in sys.path:
 # O .env do projeto usa o caminho do container Linux. Ao executar no Windows,
 # aproveita o Instant Client local ja utilizado pelos outros testes do projeto.
 load_dotenv()
-WINDOWS_ORACLE_CLIENT = Path(r"C:\oracle\instantclient_19_30")
+WINDOWS_ORACLE_CLIENT = Path(r"C:\oracle\instantclient_19_32")
 client_configurado = os.getenv("ORACLE_CLIENT_LIB_DIR")
 if (
     os.name == "nt"

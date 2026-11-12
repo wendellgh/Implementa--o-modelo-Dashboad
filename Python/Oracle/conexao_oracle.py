@@ -13,7 +13,7 @@ except ImportError:
 load_dotenv()
 
 _ORACLE_CLIENT_INICIADO = False
-WINDOWS_ORACLE_CLIENT_LIB_DIR = r"C:\oracle\instantclient_19_30"
+WINDOWS_ORACLE_CLIENT_LIB_DIR = r"C:\oracle\instantclient_19_32"
 
 
 def _get_secret_value(path: str) -> str | None:
