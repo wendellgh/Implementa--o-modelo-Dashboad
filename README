@@ -319,3 +319,35 @@ usuario / usuario123: perfil comum
 tasklist /FI "PID eq 9684"
 taskkill /PID 9684 /F
 netstat -ano | findstr :8501
+
+
+
+### Na raiz do projeto, rode no PowerShell:
+docker compose -f Docker/docker-compose.yml up -d --build
+
+### Isso reconstrói a imagem da aplicação e inicia os serviços. Para conferir:
+docker compose -f Docker/docker-compose.yml ps
+
+### Se quiser reconstruir a imagem sem usar o cache:
+docker compose -f Docker/docker-compose.yml build --no-cache app
+docker compose -f Docker/docker-compose.yml up -d app
+
+O banco mantém os dados no volume postgres_data. Evite down -v se não quiser apagá-los.
+
+Claro! O erro aconteceu porque a conexão estava tentando usar o driver psycopg, mas o projeto declara psycopg2-binary.
+
+O que fiz
+Ajustei database.py para indicar explicitamente o uso do driver psycopg2.
+Configurei esse módulo para carregar as variáveis do .env.
+Confirmei que o ambiente virtual tem psycopg2 instalado e reiniciei o Streamlit.
+Para prevenir se acontecer de novo
+1. Use sempre o Python do ambiente virtual do projeto — não o python ou pip genérico.
+2. Para instalar as dependências declaradas em requirements.txt, execute na pasta raiz do projeto:
+  & ".virtual_315\Scripts\python.exe" -m pip install -r "Python\requirements.txt"
+
+3. Para confirmar que o driver está disponível:
+  & ".virtual_315\Scripts\python.exe" -c "import psycopg2; print('psycopg2 OK')"
+Se mudar o ambiente Python ou recriar o ambiente virtual, repita a instalação das dependências.
+Observação: a verificação confirmou que a aplicação escolhe o driver correto; não confirmei uma consulta real ao banco. Como o .env contém credenciais, não o compartilhe nem o publique. Se as credenciais forem reais e foram expostas, troque-as.
+
+9

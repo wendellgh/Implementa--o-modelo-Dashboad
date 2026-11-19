@@ -428,7 +428,7 @@ def render_consulta_destboad_oracle() -> None:
                         for caminho in _candidatos_csv_base_historica_padrao()
                     )
                     st.warning(
-                        "Basehistorica.csv padrão não encontrada. Caminhos verificados:"
+                        "Basehistorica.csv padrão não encontrada. Caminhos verificados:" 
                     )
                     st.code(caminhos_tentados)
                     return

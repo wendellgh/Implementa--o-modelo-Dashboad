@@ -1,12 +1,16 @@
 import os
+from pathlib import Path
 
 import streamlit as st
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.exc import ArgumentError
 from streamlit.errors import StreamlitSecretNotFoundError
+from dotenv import load_dotenv
 
 from dashboard.config import DB_SETTINGS
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
 
 
 def _get_secret_value(path: str) -> str | None:
@@ -34,6 +38,10 @@ def _normalize_database_url(url: str) -> str:
     trimmed = url.strip()
     if trimmed.startswith("postgres://"):
         return "postgresql://" + trimmed[len("postgres://") :]
+    if trimmed.startswith("postgresql+psycopg://"):
+        return "postgresql+psycopg2://" + trimmed[len("postgresql+psycopg://") :]
+    if trimmed.startswith("postgresql://"):
+        return "postgresql+psycopg2://" + trimmed[len("postgresql://") :]
     return trimmed
 
 
