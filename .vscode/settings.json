@@ -12,5 +12,8 @@
             "username": "app_user"
         }
     ],
-    "python-envs.defaultEnvManager": "ms-python.python:system"
+    "python-envs.defaultEnvManager": "ms-python.python:venv",
+    "python.analysis.extraPaths": [
+        "./virtual_315/Lib/site-packages/sqlalchemy/dialects/postgresql"
+    ]
 }
