@@ -46,17 +46,32 @@ def _normalize_database_url(url: str) -> str:
 
 
 def _get_db_config() -> dict[str, str | None]:
-    database_url = _first_non_empty(
-        _get_secret_value("database.url")
-        or _get_secret_value("DATABASE_URL"),
-        _get_secret_value("database.neon_url"),
-        _get_secret_value("database.neon_database_url"),
-        _get_secret_value("NEON_DATABASE_URL"),
-        _get_secret_value("connections.postgresql.url"),
-        _get_secret_value("connections.db.url"),
-        os.getenv("DATABASE_URL"),
-        os.getenv("NEON_DATABASE_URL"),
-    )
+    target = _first_non_empty(
+        os.getenv("DB_TARGET"),
+        _get_secret_value("DB_TARGET"),
+        "auto",
+    ).lower()
+    if target not in {"auto", "local", "neon"}:
+        raise ValueError("DB_TARGET deve ser 'auto', 'local' ou 'neon'.")
+
+    if target == "local":
+        database_url = _first_non_empty(
+            os.getenv("LOCAL_DATABASE_URL"),
+            _get_secret_value("database.local_url"),
+            _get_secret_value("LOCAL_DATABASE_URL"),
+        )
+    else:
+        database_url = _first_non_empty(
+            _get_secret_value("database.url")
+            or _get_secret_value("DATABASE_URL"),
+            _get_secret_value("database.neon_url"),
+            _get_secret_value("database.neon_database_url"),
+            _get_secret_value("NEON_DATABASE_URL"),
+            _get_secret_value("connections.postgresql.url"),
+            _get_secret_value("connections.db.url"),
+            os.getenv("DATABASE_URL"),
+            os.getenv("NEON_DATABASE_URL"),
+        )
 
     if database_url:
         return {"database_url": _normalize_database_url(database_url)}

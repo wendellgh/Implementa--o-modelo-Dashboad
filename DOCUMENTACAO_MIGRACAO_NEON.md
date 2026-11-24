@@ -47,8 +47,21 @@ Preencha no `.env`, sem versioná-lo:
 DATABASE_URL=<connection-string-pooled-do-Neon>
 NEON_DATABASE_URL=<connection-string-direta-do-Neon>
 LOCAL_DATABASE_URL=<connection-string-do-PostgreSQL-local>
+DB_TARGET=local
 DASHBOARD_AUTH_SECRET=<segredo-aleatorio-forte>
 ```
+
+O dashboard lê `DB_TARGET` para escolher o destino:
+
+- `local`: usa `LOCAL_DATABASE_URL`; se estiver executando no Docker Compose,
+  o host dentro da URL deve ser `postgres`. Executando Python diretamente no
+  Windows, use `localhost` (ou `127.0.0.1`).
+- `neon`: usa `DATABASE_URL` ou `NEON_DATABASE_URL`.
+- `auto` (padrão): mantém a seleção anterior, priorizando a URL Neon disponível.
+
+Para alternar, altere `DB_TARGET` no `.env` e reinicie o Streamlit. Para voltar
+ao Neon, use `DB_TARGET=neon` (ou `auto`). No Streamlit Cloud, configure os
+Secrets correspondentes; URLs nunca devem ser publicadas ou versionadas.
 
 Os scripts carregam o `.env` automaticamente sem substituir variáveis já
 definidas no processo. A precedência é:
