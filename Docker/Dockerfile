@@ -32,6 +32,6 @@ RUN pip install --no-cache-dir -r Python/requirements.txt
 
 COPY Python ./Python
 
-EXPOSE 8501
+EXPOSE 8503
 
 CMD ["streamlit", "run", "Python/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
